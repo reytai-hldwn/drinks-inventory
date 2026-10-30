@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ad895d">
+  <meta name="description" content="公司的小小茶水間：定期盤點、補貨管理與飲料許願清單。">
+  <title>宏穩茶水間 · 飲料庫存</title>
+  <link rel="icon" type="image/png" href="./assets/holdwin-mark.png">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./themes.css">
+  <link rel="stylesheet" href="./fridge.css">
+  <script src="./theme.js"></script>
+  <script src="./config.js"></script>
+  <script type="module" src="./js/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="宏穩茶水間首頁"><img class="brand-mark" src="./assets/holdwin-mark.png" alt="Holdwin Capital H 標誌" width="40" height="40"><span>宏穩茶水間<small>HOLDWIN PANTRY</small></span></a>
+      <div class="workspace-label"><span class="status-dot"></span> HOLDWIN CAPITAL</div>
+      <nav aria-label="主要選單" id="navigation">
+        <a href="#overview" data-view="overview" data-front><span aria-hidden="true">▦</span> 飲料冰箱</a>
+        <a href="#archive" data-view="archive" data-front><span aria-hidden="true">◷</span> 歷史品項</a>
+        <a href="#wishes" data-view="wishes" data-front><span aria-hidden="true">♡</span> 飲料許願池</a>
+        <a href="#admin" data-view="admin" data-editor hidden><span aria-hidden="true">⌂</span> 後台總覽</a>
+        <a href="#products" data-view="products" data-editor hidden><span aria-hidden="true">▦</span> 倉庫庫存</a>
+        <a href="#count" data-view="count" data-editor><span aria-hidden="true">☷</span> 快速盤點</a>
+        <a href="#restock" data-view="restock" data-editor><span aria-hidden="true">↗</span> 到貨入庫</a>
+        <a href="#manage-wishes" data-view="manage-wishes" data-editor hidden><span aria-hidden="true">♡</span> 願望管理</a>
+        <a href="#history" data-view="history" data-editor><span aria-hidden="true">◷</span> 異動紀錄</a>
+      </nav>
+      <div class="sidebar-note"><span class="note-illustration" aria-hidden="true">🥤</span><strong>好好補給，好好工作。</strong><p>喜歡的飲料，留一瓶給<br>下一個需要休息的人。</p></div>
+      <div class="sidebar-bottom">一口飲料，一點小確幸 <span>✳</span></div>
+    </aside>
+    <div class="main-shell">
+      <header class="topbar"><div class="breadcrumb">宏穩茶水間 <span>/</span> <strong id="breadcrumb-current">庫存總覽</strong></div><div class="topbar-actions"><span id="connection-status" class="connection-status">正在開啟茶水間…</span><button class="button button-small button-plain" id="refresh-button" title="重新讀取最新資料">↻ <span>重新整理</span></button><button class="button button-small button-outline" id="auth-button">管理後台</button><button class="button button-small button-plain" id="logout-button" hidden>登出</button></div></header>
+      <div id="mode-banner" class="mode-banner" hidden></div>
+      <main id="main" tabindex="-1"><div class="loading-state"><span class="loader"></span><p>正在整理飲料架…</p></div></main>
+      <footer class="page-footer"><span>宏穩茶水間 · HOLDWIN PANTRY</span><span>庫存以最近一次實際盤點為準</span></footer>
+    </div>
+  </div>
+  <dialog id="modal" aria-labelledby="modal-title"><div id="modal-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <noscript>請啟用 JavaScript 以查看與管理飲料庫存。</noscript>
+</body>
+</html>
