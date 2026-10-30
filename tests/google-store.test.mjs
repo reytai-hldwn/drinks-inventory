@@ -6,6 +6,7 @@ import { GoogleInventoryStore, fetchGooglePublicData, normalizeGooglePublicData,
 const ENDPOINT = 'https://script.google.com/macros/s/COMPANY_SCRIPT_123/exec';
 const WISH_URL = 'https://docs.google.com/forms/d/e/FORM_ID/viewform';
 const ADMIN_URL = 'https://docs.google.com/spreadsheets/d/COMPANY_SHEET/edit#gid=0';
+const VOTE_URL = 'https://docs.google.com/forms/d/e/VOTE_FORM/viewform';
 
 function payload() {
   return {
@@ -17,6 +18,24 @@ function payload() {
     adminUrl: ADMIN_URL,
     updatedAt: '2026-10-30T00:00:00.000Z',
   };
+}
+
+function warehousePayload() {
+  const value = payload();
+  Object.assign(value.drinks[0], { stock: 20, lastCountAt: '2026-10-30T00:00:00.000Z' });
+  value.events = [{ id: 'count-01', drinkId: value.drinks[0].id, type: 'count', quantity: 20,
+    createdAt: '2026-10-30T00:00:00.000Z', recorder: '小王', note: '第一次盤點' }];
+  value.lastInventoryAt = '2026-10-30T00:00:00.000Z';
+  value.formUrls.stocktake = 'https://docs.google.com/forms/d/e/COUNT_FORM/viewform';
+  value.formUrls.arrival = 'https://docs.google.com/forms/d/e/ARRIVAL_FORM/viewform';
+  return value;
+}
+
+function addVoteForm(value = payload()) {
+  value.formUrls.vote = VOTE_URL;
+  value.voteForm = { url: VOTE_URL, wishEntryId: '12345', voterEntryId: '67890' };
+  value.wishes[0].votes = 3;
+  return value;
 }
 
 function browser() {
@@ -67,6 +86,19 @@ test('JSONP sends only a safe callback and public action, then removes all resou
   assert.equal(page.children.length, 0);
   assert.equal(page.timers.size, 0);
   assert.equal(Object.hasOwn(page.window, callback), false);
+});
+
+test('JSONP permits the warehouse read and rejects write or unknown actions before loading scripts', async () => {
+  const page = browser();
+  const pending = fetchGooglePublicData(ENDPOINT, { ...page, action: 'warehouse' });
+  const script = page.children[0];
+  assert.equal(new URL(script.src).searchParams.get('action'), 'warehouse');
+  page.window[page.callback(script)](warehousePayload());
+  assert.equal((await pending).drinks[0].stock, 20);
+  for (const action of ['vote', 'save', 'delete', '', 'public&quantity=12']) {
+    assert.throws(() => fetchGooglePublicData(ENDPOINT, { ...page, action }), /讀取方式/);
+  }
+  assert.equal(page.children.length, 0);
 });
 
 test('concurrent JSONP reads have separate callbacks and clean up independently', async () => {
@@ -176,9 +208,156 @@ test('Google store initializes read-only without local storage, credentials, or 
   assert.equal(store.forms, store.formUrls);
   assert.equal(store.adminUrl, ADMIN_URL);
   assert.equal(store.warehouseUrl, ADMIN_URL);
-  await assert.rejects(store.login(), /Google 帳號/);
-  await assert.rejects(store.save({ drinks: [] }), /獲授權/);
+  assert.equal(store.canManage, true);
+  assert.equal(store.inWarehouse, false);
+  await assert.rejects(store.login(), /不用登入/);
+  await assert.rejects(store.save({ drinks: [] }), /登記人/);
   await assert.rejects(store.submitWish({ name: 'new' }), /Google 表單/);
+});
+
+test('warehouse normalization includes observed stock and accepted history but excludes identity and private fields', () => {
+  const value = warehousePayload();
+  value.drinks.push({ ...value.drinks[0], id: 'unobserved', stock: null, lastCountAt: null });
+  value.events[0].email = 'private@example.com';
+  value.events[0].accepted = true;
+  value.isEditor = true;
+  value.adminEmails = ['private@example.com'];
+  const result = normalizeGooglePublicData(value, { warehouse: true });
+  assert.equal(result.data.drinks[0].stock, 20);
+  assert.equal(result.data.drinks[0].lastCountAt, value.drinks[0].lastCountAt);
+  assert.equal(result.data.drinks[1].stock, null);
+  assert.equal(result.data.lastInventoryAt, value.lastInventoryAt);
+  assert.deepEqual(result.data.events, [{ id: 'count-01', drinkId: 'company-drink-01', type: 'count', quantity: 20,
+    createdAt: '2026-10-30T00:00:00.000Z', recorder: '小王', note: '第一次盤點' }]);
+  assert.doesNotMatch(JSON.stringify(result), /private@example|isEditor|accepted|adminEmails/);
+  assert.equal(normalizeGooglePublicData(value).data.drinks[0].stock, 0);
+  assert.deepEqual(normalizeGooglePublicData(value).data.events, []);
+});
+
+test('warehouse rejects malformed stock, event types, quantities, dates and duplicate event IDs', () => {
+  const mutate = [
+    (value) => { value.drinks[0].stock = '20'; },
+    (value) => { value.drinks[0].stock = -1; },
+    (value) => { delete value.drinks[0].stock; },
+    (value) => { value.drinks[0].lastCountAt = 'invalid'; },
+    (value) => { value.events[0].type = 'order'; },
+    (value) => { value.events[0].quantity = 1.5; },
+    (value) => { value.events[0].accepted = false; },
+    (value) => { value.events[0].createdAt = 'invalid'; },
+    (value) => { value.events[0].recorder = 'x'.repeat(81); },
+    (value) => { value.events.push({ ...value.events[0] }); },
+    (value) => { value.events = {}; },
+    (value) => { value.lastInventoryAt = 'invalid'; },
+  ];
+  for (const change of mutate) {
+    const value = warehousePayload();
+    change(value);
+    assert.throws(() => normalizeGooglePublicData(value, { warehouse: true }));
+  }
+});
+
+test('management reads switch views only after valid responses and never fall back to fictional stock', async () => {
+  const actions = [];
+  let invalid = false;
+  const store = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, {
+    readPublicData: async (url, options) => {
+      actions.push(options.action);
+      return options.action === 'warehouse' ? (invalid ? { ok: false, error: 'unsupported_action' } : warehousePayload()) : payload();
+    },
+  });
+  await store.init();
+  const publicData = store.data;
+  invalid = true;
+  await assert.rejects(store.readWarehouse(), /更新 Code.gs/);
+  assert.equal(store.data, publicData);
+  assert.equal(store.inWarehouse, false);
+  invalid = false;
+  await store.readWarehouse();
+  assert.equal(store.inWarehouse, true);
+  assert.equal(store.data.drinks[0].stock, 20);
+  await store.read();
+  assert.equal(store.data.drinks[0].stock, 20);
+  await store.readPublic();
+  assert.equal(store.inWarehouse, false);
+  assert.equal(store.data.drinks[0].stock, 0);
+  assert.deepEqual(store.data.events, []);
+  assert.deepEqual(actions, ['public', 'warehouse', 'warehouse', 'warehouse', 'public']);
+});
+
+test('an older warehouse response cannot overwrite a newer public view', async () => {
+  let finishWarehouse;
+  const store = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, {
+    readPublicData: async (url, options) => options.action === 'warehouse'
+      ? new Promise(resolve => { finishWarehouse = resolve; }) : payload(),
+  });
+  await store.init();
+  const older = store.readWarehouse();
+  await store.readPublic();
+  const publicData = store.data;
+  finishWarehouse(warehousePayload());
+  await older;
+  assert.equal(store.data, publicData);
+  assert.equal(store.inWarehouse, false);
+  assert.deepEqual(store.data.events, []);
+});
+
+test('vote metadata accepts only valid counts, distinct numeric entry IDs and a published Google form', () => {
+  const value = addVoteForm();
+  const result = normalizeGooglePublicData(value);
+  assert.equal(result.data.wishes[0].votes, 3);
+  assert.deepEqual(result.voteForm, value.voteForm);
+  assert.equal(result.formUrls.vote, VOTE_URL);
+  assert.equal(normalizeGooglePublicData(payload()).data.wishes[0].votes, 0);
+  assert.equal(normalizeGooglePublicData(payload()).voteForm, null);
+  for (const invalid of [-1, 1.1, '3', null, Infinity]) {
+    const wrong = addVoteForm();
+    wrong.wishes[0].votes = invalid;
+    assert.throws(() => normalizeGooglePublicData(wrong), /贊同人數/);
+  }
+  for (const change of [
+    (wrong) => { wrong.voteForm.wishEntryId = 'x&entry.other'; },
+    (wrong) => { wrong.voteForm.voterEntryId = '12345'; },
+    (wrong) => { wrong.voteForm.wishEntryId = 12345; },
+    (wrong) => { wrong.voteForm.url = 'https://evil.example/viewform'; },
+    (wrong) => { wrong.voteForm.url = 'https://forms.gle/SHORT'; },
+    (wrong) => { wrong.voteForm.url = 'https://docs.google.com/forms/d/PRIVATE_FORM/edit'; },
+    (wrong) => { wrong.wishes.push({ ...wrong.wishes[0] }); },
+  ]) {
+    const wrong = addVoteForm();
+    change(wrong);
+    assert.throws(() => normalizeGooglePublicData(wrong));
+  }
+});
+
+test('prefilled vote links reuse a browser token and never optimistically increment shared votes', async () => {
+  const values = new Map();
+  const voteStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  let created = 0;
+  const options = { voteStorage, createVoterId: () => { created += 1; return 'browser-token-123456789'; }, readPublicData: async () => addVoteForm() };
+  const store = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, options);
+  await store.init();
+  assert.equal(values.size, 0, 'plain reads do not access or create a voting identity');
+  const before = structuredClone(store.data);
+  const url = new URL(store.getVoteUrl('wish-01'));
+  assert.equal(url.origin, 'https://docs.google.com');
+  assert.equal(url.searchParams.get('entry.12345'), 'wish-01');
+  assert.equal(url.searchParams.get('entry.67890'), 'browser-token-123456789');
+  assert.equal(url.searchParams.get('usp'), 'pp_url');
+  assert.equal(store.getVoteUrl('wish-01'), url.href);
+  const second = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, options);
+  await second.init();
+  assert.equal(second.getVoteUrl('wish-01'), url.href);
+  assert.equal(created, 1);
+  assert.deepEqual(store.data, before);
+  assert.throws(() => store.getVoteUrl('unknown'), /找不到/);
+  const old = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, { readPublicData: async () => payload() });
+  await old.init();
+  assert.throws(() => old.getVoteUrl('wish-01'), /尚未啟用/);
+  const blocked = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, {
+    readPublicData: async () => addVoteForm(), voteStorage: { getItem() { throw new Error('blocked'); } },
+  });
+  await blocked.init();
+  assert.throws(() => blocked.getVoteUrl('wish-01'), /儲存瀏覽器資料/);
 });
 
 test('failed or malformed reads preserve the previous data and never create samples', async () => {

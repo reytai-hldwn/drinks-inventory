@@ -13,9 +13,11 @@ export function validateGoogleScriptUrl(value) {
   return url.href;
 }
 
-/** Read the owner's public, catalog-only Apps Script endpoint without CORS. */
+/** Read a catalog or warehouse view without CORS. All writes stay in Forms. */
 export function fetchGooglePublicData(endpoint, options = {}) {
   const url = new URL(validateGoogleScriptUrl(endpoint));
+  const action = options.action ?? 'public';
+  if (!['public', 'warehouse'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
   const pageWindow = options.window || globalThis.window;
   const pageDocument = options.document || globalThis.document;
   const schedule = options.setTimeout || globalThis.setTimeout;
@@ -25,7 +27,7 @@ export function fetchGooglePublicData(endpoint, options = {}) {
     return Promise.reject(new Error('目前的瀏覽器無法載入 Google 共用資料。'));
   }
   const callback = `__holdwin_${Date.now().toString(36)}_${(++googleCallbackSequence).toString(36)}_${Math.random().toString(36).slice(2)}`;
-  url.searchParams.set('action', 'public');
+  url.searchParams.set('action', action);
   url.searchParams.set('callback', callback);
   return new Promise((resolve, reject) => {
     const script = pageDocument.createElement('script');
@@ -80,8 +82,36 @@ function googleLink(value, kind, required = true) {
   return url.href;
 }
 
-/** Pick public display fields only. Stock and input access remain in Google. */
-export function normalizeGooglePublicData(payload) {
+function googleDateField(value, label, optional = false) {
+  if (optional && (value === null || value === undefined)) return null;
+  if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) {
+    throw new Error(`Google 共用資料中的${label}格式不正確。`);
+  }
+  return value;
+}
+
+function googleQuantityField(value, label) {
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error(`Google 共用資料中的${label}格式不正確。`);
+  return value;
+}
+
+function googleVoteForm(value) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== 'object') throw new Error('Google 贊同表單設定不正確。');
+  const url = googleLink(value.url, 'form');
+  const parsed = new URL(url);
+  if (parsed.hostname !== 'docs.google.com' ||
+      !/^\/forms\/(?:u\/\d+\/)?d\/(?:e\/)?[A-Za-z0-9_-]+\/viewform\/?$/.test(parsed.pathname) ||
+      typeof value.wishEntryId !== 'string' || !/^\d{1,20}$/.test(value.wishEntryId) ||
+      typeof value.voterEntryId !== 'string' || !/^\d{1,20}$/.test(value.voterEntryId) ||
+      value.wishEntryId === value.voterEntryId) {
+    throw new Error('Google 贊同表單設定不正確。');
+  }
+  return { url, wishEntryId: value.wishEntryId, voterEntryId: value.voterEntryId };
+}
+
+/** Select display fields, including observed stock only for the warehouse view. */
+export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
   if (!payload || payload.error || payload.ok === false ||
       !(payload.provider === 'google' || payload.ok === true) ||
       !Array.isArray(payload.drinks) || !Array.isArray(payload.wishes) ||
@@ -111,38 +141,67 @@ export function normalizeGooglePublicData(payload) {
       perCase,
       threshold,
       active: row.active !== false,
-      // These are not real counts. No stock observation is exposed publicly.
-      stock: 0,
+      // The fridge ignores even accidentally supplied stock observations.
+      stock: warehouse ? (row.stock === null ? null : googleQuantityField(row.stock, '庫存數量')) : 0,
       target: null,
-      lastCountAt: null,
+      lastCountAt: warehouse ? googleDateField(row.lastCountAt, '盤點時間', true) : null,
     };
   });
+  const wishIds = new Set();
   const wishes = payload.wishes.map((row) => {
     if (!row || typeof row !== 'object') throw new Error('Google 許願清單格式不正確。');
     const url = row.url ? safeUrl(row.url) : '';
     if ((row.url && !url) || url.length > 2000) throw new Error('Google 許願連結格式不正確。');
     if (!['pending', 'purchased', 'declined'].includes(row.status)) throw new Error('Google 願望狀態格式不正確。');
     if (typeof row.createdAt !== 'string' || !Number.isFinite(Date.parse(row.createdAt))) throw new Error('Google 願望日期格式不正確。');
+    const id = textField(row.id, '願望代號', 160);
+    if (wishIds.has(id)) throw new Error('Google 許願清單出現重複願望代號。');
+    wishIds.add(id);
     return {
-      id: textField(row.id, '願望代號', 160),
+      id,
       name: textField(row.name, '願望名稱', 80),
       url,
       note: row.note === undefined ? '' : textField(row.note, '願望備註', 500, false),
       status: row.status,
       createdAt: row.createdAt,
+      votes: row.votes === undefined ? 0 : googleQuantityField(row.votes, '贊同人數'),
     };
   });
+  const eventIds = new Set();
+  const events = warehouse ? (() => {
+    if (!Array.isArray(payload.events) || payload.events.length > 100000) throw new Error('Google 異動紀錄格式不正確。');
+    return payload.events.map((row) => {
+      if (!row || typeof row !== 'object' || !['count', 'restock'].includes(row.type) || row.accepted === false) {
+        throw new Error('Google 異動紀錄格式不正確。');
+      }
+      const id = textField(row.id, '異動代號', 240);
+      if (eventIds.has(id)) throw new Error('Google 異動紀錄出現重複代號。');
+      eventIds.add(id);
+      return {
+        id,
+        drinkId: textField(row.drinkId, '異動品項代號', 160),
+        type: row.type,
+        quantity: googleQuantityField(row.quantity, '異動數量'),
+        createdAt: googleDateField(row.createdAt, '異動時間'),
+        note: row.note === undefined ? '' : textField(row.note, '異動備註', 500, false),
+        recorder: row.recorder === undefined ? '' : textField(row.recorder, '登記人', 80, false),
+      };
+    });
+  })() : [];
   const forms = payload.formUrls || payload.forms || {};
   const formUrls = {
     wish: googleLink(forms.wish, 'form'),
     stocktake: googleLink(forms.stocktake, 'form', false),
     arrival: googleLink(forms.arrival, 'form', false),
+    vote: googleLink(forms.vote, 'form', false),
   };
+  const voteForm = googleVoteForm(payload.voteForm);
   const adminUrl = googleLink(payload.adminUrl || payload.warehouseUrl, 'sheet');
   const updatedAt = typeof payload.updatedAt === 'string' && Number.isFinite(Date.parse(payload.updatedAt)) ? payload.updatedAt : null;
   return {
-    data: { drinks, events: [], wishes, lastInventoryAt: null },
+    data: { drinks, events, wishes, lastInventoryAt: warehouse ? googleDateField(payload.lastInventoryAt, '最近完整盤點', true) : null },
     formUrls,
+    voteForm,
     adminUrl,
     updatedAt,
   };
@@ -155,37 +214,85 @@ export class GoogleInventoryStore {
     this.isEditor = false;
     this.user = null;
     this.preview = true;
+    this.inWarehouse = false;
     this.data = blankData();
-    this.formUrls = { wish: '', stocktake: '', arrival: '' };
+    this.formUrls = { wish: '', stocktake: '', arrival: '', vote: '' };
+    this.voteForm = null;
     this.forms = this.formUrls;
     this.adminUrl = '';
     this.warehouseUrl = '';
     this.updatedAt = null;
     this.revision = '';
+    this.googleReadSequence = 0;
     this.readPublicData = options.readPublicData || fetchGooglePublicData;
+    this.voteStorage = options.voteStorage;
+    this.createVoterId = options.createVoterId || (() => globalThis.crypto.randomUUID());
   }
 
   get canEdit() { return false; }
+  get canManage() { return true; }
 
   async init() { await this.read(); }
 
-  async read() {
+  async read() { return this.readGoogleView(this.inWarehouse); }
+
+  async readWarehouse() { return this.readGoogleView(true); }
+
+  async readPublic() { return this.readGoogleView(false); }
+
+  async readGoogleView(warehouse) {
+    const sequence = ++this.googleReadSequence;
     const endpoint = validateGoogleScriptUrl(this.url);
-    const result = normalizeGooglePublicData(await this.readPublicData(endpoint));
+    let payload;
+    try {
+      payload = await this.readPublicData(endpoint, { action: warehouse ? 'warehouse' : 'public' });
+    } catch (error) {
+      if (sequence !== this.googleReadSequence) return this.data;
+      throw error;
+    }
+    if (sequence !== this.googleReadSequence) return this.data;
+    if (warehouse && payload?.error === 'unsupported_action') {
+      throw new Error('目前 Google 程式還不支援免登入倉庫，請更新 Code.gs 並重新部署。');
+    }
+    const result = normalizeGooglePublicData(payload, { warehouse });
     // Assign only after the full response validates; preserve the last valid
     // view on errors and never seed demo data or accept remote role flags.
     this.data = result.data;
     this.formUrls = result.formUrls;
     this.forms = this.formUrls;
+    this.voteForm = result.voteForm;
+    this.inWarehouse = warehouse;
     this.adminUrl = result.adminUrl;
     this.warehouseUrl = this.adminUrl;
     this.updatedAt = result.updatedAt;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, adminUrl: result.adminUrl });
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, adminUrl: result.adminUrl });
     return this.data;
   }
 
-  async login() { throw new Error('請使用 Google 帳號開啟私人倉庫試算表，網站不收取管理者密碼。'); }
+  getVoteUrl(wishId) {
+    if (!this.data.wishes.some((wish) => wish.id === wishId)) throw new Error('找不到這個願望，請重新整理後再試。');
+    if (!this.voteForm) throw new Error('贊同表單尚未啟用，請先更新 Google 設定。');
+    let voterId;
+    try {
+      const storage = this.voteStorage || globalThis.localStorage;
+      voterId = storage.getItem('holdwin-wish-voter-v1');
+      if (!/^[A-Za-z0-9_-]{16,80}$/.test(voterId || '')) {
+        voterId = this.createVoterId();
+        if (!/^[A-Za-z0-9_-]{16,80}$/.test(voterId || '')) throw new Error('Invalid browser identifier');
+        storage.setItem('holdwin-wish-voter-v1', voterId);
+      }
+    } catch {
+      throw new Error('請允許此網站儲存瀏覽器資料，才能避免重複贊同。');
+    }
+    const url = new URL(this.voteForm.url);
+    url.searchParams.set('usp', 'pp_url');
+    url.searchParams.set(`entry.${this.voteForm.wishEntryId}`, wishId);
+    url.searchParams.set(`entry.${this.voteForm.voterEntryId}`, voterId);
+    return url.href;
+  }
+
+  async login() { throw new Error('管理入口不用登入，請直接開啟倉庫或使用盤點、入庫 Google 表單。'); }
   async logout() { /* Google owns the account session; no credentials are stored here. */ }
-  async save() { throw new Error('庫存請由獲授權的管理者使用 Google 表單或私人倉庫試算表更新。'); }
+  async save() { throw new Error('請使用 Google 表單登記庫存，並填寫登記人。'); }
   async submitWish() { throw new Error('請使用飲料許願 Google 表單送出願望。'); }
 }

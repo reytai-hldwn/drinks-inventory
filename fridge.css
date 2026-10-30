@@ -13,8 +13,13 @@
 .fridge-shelf{position:relative;z-index:1;margin:0 0 19px}.fridge-shelf:last-child{margin-bottom:0}.fridge-shelf-heading{display:flex;align-items:center;gap:8px;margin:0 0 9px;padding:0 6px}.shelf-index{font-size:8px;color:#a2ab97;letter-spacing:1.2px}.fridge-shelf-heading h3{font-size:12px;font-weight:500;letter-spacing:2px;color:#7b876d;margin:0}.shelf-count{margin-left:auto;font-size:8px;letter-spacing:.5px;color:#a1ab97}.fridge-products{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));column-gap:15px;row-gap:24px;padding:0 4px 16px;align-items:start}
 .fridge-product{position:relative;min-width:0;background:transparent;border:0;padding:0 0 1px;box-shadow:none}.fridge-product-stage{position:relative;display:flex;align-items:flex-end;justify-content:center;min-width:0;height:151px;padding-bottom:13px}.fridge-product-stage:after{content:"";position:absolute;left:0;right:0;bottom:9px;height:1px;background:linear-gradient(90deg,transparent,#b6c4ad80 23%,#b6c4ad80 77%,transparent);box-shadow:0 3px 7px #80936d0d}.drink-pack-group{position:relative;display:flex;align-items:flex-end;justify-content:center;width:84px;height:135px;padding-bottom:3px;transition:transform .18s ease;filter:drop-shadow(3px 4px 3px #56654112)}.fridge-product:hover .drink-pack-group{transform:translateY(-3px)}.pack-shadow{position:absolute;bottom:0;left:7px;right:4px;height:9px;border-radius:50%;background:#5b695d26;filter:blur(3px);z-index:-1}
 .drink-pack{position:relative;flex-shrink:0;width:61px;color:var(--pack-ink,#4e6544);background:linear-gradient(95deg,#fff5 0,transparent 25%,transparent 69%,#00000014 100%),var(--pack-color,#c3d1aa);border:1px solid #52654527;box-shadow:inset 2px 0 0 #fff3,inset -5px 0 0 #0000000b,inset 0 -2px 0 #0000000b}.pack-label{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;left:6px;right:6px;top:29px;bottom:15px;padding:6px 3px;background:var(--pack-label,#fff8df);border-radius:2px;border:1px solid #ffffff75;box-shadow:0 1px 1px #00000004;overflow:hidden}.pack-label small{font-size:4.5px;letter-spacing:.8px;line-height:1.2;white-space:nowrap;opacity:.6}.pack-label strong{font-size:9px;line-height:1.55;font-weight:650;letter-spacing:.3px;text-align:center;overflow-wrap:anywhere;max-width:100%}.pack-label b{font-size:21px;line-height:1.1;font-weight:400;margin-top:1px}.pack-cap,.pack-fold{position:absolute}
-/* Cartons have a folded pitched roof, a sealed ridge, and an offset side panel. */
-.drink-pack-carton{height:113px;border-radius:1px 1px 4px 4px;clip-path:polygon(14% 0,84% 0,100% 14%,100% 100%,0 100%,0 14%)}.drink-pack-carton:before{content:"";position:absolute;left:0;right:0;top:0;height:18px;background:linear-gradient(135deg,#fff7 0 40%,#00000010 41% 75%,#fff2 76%);border-bottom:1px solid #4c5d421d}.drink-pack-carton:after{content:"";position:absolute;right:7px;top:17px;bottom:0;width:1px;background:#40583f16}.drink-pack-carton .pack-fold{top:0;left:9px;right:9px;height:4px;border-top:2px solid #faf9dcaa;background:#64764820}.drink-pack-carton .pack-cap{display:none}
+/* Equal-height flat-top cartons show a front face, a right side and a small top. */
+.drink-pack-carton{--carton-depth:11px;--carton-rise:7px;height:113px;border:0;border-radius:0;clip-path:none;background:transparent;box-shadow:none}
+.drink-pack-carton:before{content:"";position:absolute;left:0;right:0;top:0;height:var(--carton-rise);clip-path:polygon(0 100%,calc(100% - var(--carton-depth)) 100%,100% 0,var(--carton-depth) 0);background:linear-gradient(105deg,#ffffff85,#ffffff35),var(--pack-color)}
+.drink-pack-carton:after{content:"";position:absolute;right:0;top:0;bottom:0;width:var(--carton-depth);clip-path:polygon(0 var(--carton-rise),100% 0,100% calc(100% - var(--carton-rise)),0 100%);background:linear-gradient(90deg,#00000018,#00000030),var(--pack-color);box-shadow:inset 1px 0 #ffffff30,inset -1px 0 #52654535}
+.drink-pack-carton .pack-fold{top:var(--carton-rise);left:0;right:var(--carton-depth);bottom:0;height:auto;border:1px solid #52654530;border-radius:1px 0 1px 2px;background:linear-gradient(95deg,#ffffff42,transparent 70%),var(--pack-color);box-shadow:inset 1px 0 #ffffff50,inset 0 -2px #0000000b}
+.drink-pack-carton .pack-label{left:3px;right:calc(var(--carton-depth) + 3px);top:24px;bottom:12px;padding:5px 1px;gap:3px}
+.drink-pack-carton .pack-cap{display:none}
 /* Bottles use a raised narrow neck/cap and rounded shoulders above a translucent body. */
 .drink-pack-bottle{height:102px;width:59px;border-radius:23px 23px 12px 12px;margin-bottom:1px;background:linear-gradient(93deg,#ffffffa8,#ffffff16 25%,#ffffff08 65%,#00000012),var(--pack-color,#c9d7ab);box-shadow:inset 3px 0 2px #fff8,inset -4px 0 3px #8b9b6e24,inset 0 -7px 0 #ffffff38}.drink-pack-bottle:before{content:"";position:absolute;top:-15px;left:18px;width:22px;height:20px;background:linear-gradient(90deg,#ffffff75,transparent 65%,#0001),var(--pack-color,#c9d7ab);border:1px solid #5b704328;border-bottom:0;border-radius:4px 4px 0 0}.drink-pack-bottle:after{content:"";position:absolute;inset:13px auto 13px 5px;width:3px;background:#fff7;border-radius:50%;pointer-events:none}.drink-pack-bottle .pack-cap{top:-19px;left:16px;width:26px;height:11px;border:1px solid #627b5930;border-radius:3px 3px 2px 2px;background:repeating-linear-gradient(90deg,#ffffff3a 0 1px,transparent 1px 3px),var(--pack-ink,#77926a);box-shadow:inset 0 2px 0 #ffffff5c}.drink-pack-bottle .pack-fold{display:none}.drink-pack-bottle .pack-label{left:3px;right:3px;top:28px;bottom:19px;border-radius:2px 2px 5px 5px;gap:3px}.drink-pack-bottle .pack-label b{font-size:18px}
 /* Cans have elliptical brushed-metal rims, a ring-pull and cylindrical shading. */
@@ -110,8 +115,8 @@
 .fridge-scroll-cue{font-size:10px;line-height:1.8;text-align:center;margin:13px 0 0;color:#a18a65;letter-spacing:.4px}
 .fridge-caption{font-size:9px;line-height:1.9;text-align:center;margin-top:8px}
 /* Exact packaging groups have visibly different outlines. */
-.drink-pack-carton-narrow{width:47px;height:124px;clip-path:polygon(14% 0,84% 0,100% 12%,100% 100%,0 100%,0 12%)}
-.drink-pack-carton-narrow .pack-label{left:4px;right:4px;top:26px;bottom:14px;padding-left:2px;padding-right:2px;gap:5px}.drink-pack-carton-narrow .pack-label strong{font-size:8px}.drink-pack-carton-narrow .pack-label small{font-size:3.5px;letter-spacing:.5px}.drink-pack-carton-narrow .pack-label b{font-size:19px}
+.drink-pack-carton-narrow{--carton-depth:9px;width:47px}
+.drink-pack-carton-narrow .pack-label{left:3px;right:calc(var(--carton-depth) + 3px);padding:4px 1px;gap:3px}.drink-pack-carton-narrow .pack-label strong{font-size:8px;line-height:1.4}.drink-pack-carton-narrow .pack-label small{font-size:3.5px;letter-spacing:.5px}.drink-pack-carton-narrow .pack-label b{font-size:19px}
 .drink-pack-can:after{left:calc(50% - 8.5px)}
 .drink-pack-can-small{width:52px;height:78px;border-radius:11px}.drink-pack-can-small .pack-label{top:14px;bottom:11px;left:4px;right:4px;gap:2px;padding:3px 2px}.drink-pack-can-small .pack-label strong{font-size:8px;line-height:1.4}.drink-pack-can-small .pack-label small{font-size:3.5px;letter-spacing:.4px}.drink-pack-can-small .pack-label b{font-size:14px}
 .drink-pack-can-tall{width:47px;height:126px;border-radius:10px}.drink-pack-can-tall .pack-label{top:22px;bottom:13px;left:4px;right:4px;gap:5px;padding:6px 2px}.drink-pack-can-tall .pack-label strong{font-size:8px}.drink-pack-can-tall .pack-label small{font-size:3.5px;letter-spacing:.3px}.drink-pack-can-tall .pack-label b{font-size:18px}
@@ -121,3 +126,44 @@
 @container(max-width:380px){.fridge-window>.fridge-interior{padding-left:12px;padding-right:12px}.fridge-window .fridge-product-stage{height:148px}.fridge-window .fridge-product-info h4{font-size:12px;line-height:1.7}.fridge-door{border-width:6px;padding:15px}.fridge-door-invitation{min-width:0;width:calc(100% - 20px);padding:21px 9px;gap:11px}.fridge-door-invitation>strong{font-size:18px;letter-spacing:.6px}.fridge-door-subtitle{font-size:10px}.fridge-door-wordmark{font-size:7px;letter-spacing:1.4px}.fridge-door-handle{right:4px;width:10px}.fridge-close{padding:7px 8px;font-size:9px;gap:5px;min-height:35px}.fridge-close>span{font-size:16px}}
 @media(max-width:640px){.fridge-window{height:clamp(380px,65dvh,560px);border-width:2px}.fridge-window .fridge-product-edit{width:29px;height:29px;line-height:27px}.fridge-window .fridge-product-packaging{font-size:10px}.fridge-window .fridge-products{padding-bottom:15px;row-gap:23px}.fridge-crown{min-height:65px}.fridge-scroll-cue{font-size:10px}.fridge-window>.fridge-interior{padding-top:24px;padding-bottom:14px}}
 @media(prefers-reduced-motion:reduce){.fridge-door{transition:none}.fridge-door:active:not(:disabled){transform:none}.fridge.is-open .fridge-door{transform:none;opacity:0}.drink-pack-group{transition:none}.fridge-product:hover .drink-pack-group{transform:none}}
+
+/* Larger shared bottles have their own section and wider bottle silhouette. */
+.drink-pack-bottle-large{width:76px;height:116px}.drink-pack-bottle-large .pack-cap{left:25px;right:25px}.drink-pack-bottle-large .pack-label{left:9px;right:9px;top:34px;bottom:17px}.drink-pack-bottle-large .pack-label strong{font-size:10px}
+@media(max-width:640px){.drink-pack-bottle-large{width:72px;height:113px}}
+.drink-pack-bottle-large:before{left:calc(50% - 11px)}.drink-pack-bottle-large .pack-cap{left:calc(50% - 13px);right:auto}
+
+/* Keep each requested brand/flavour line together inside its own label. */
+.pack-label{container-type:inline-size}
+.pack-label .pack-name-lines{display:block;width:100%;flex-shrink:0;letter-spacing:0}
+.pack-name-line{display:block;white-space:nowrap;overflow-wrap:normal;letter-spacing:0;line-height:1.4;font-size:min(1em,calc(100cqi / var(--pack-line-units)))}
+.drink-product-photo{display:block;flex-shrink:0;width:64px;height:132px;object-fit:contain;object-position:center bottom}
+.drink-pack-can:not(.drink-pack-can-small):not(.drink-pack-can-tall) .pack-label{padding-top:4px;padding-bottom:4px;gap:3px}
+.drink-pack-bottle-large .pack-label{padding-top:4px;padding-bottom:4px;bottom:13px}
+
+/* A narrow cabinet keeps one door; a wide cabinet opens two glass leaves. */
+.fridge-door-leaf{display:none}
+@container(min-width:680px){
+  .fridge-window:after{content:"";position:absolute;z-index:4;top:0;bottom:0;left:calc(50% - 3px);width:6px;pointer-events:none;background:linear-gradient(90deg,#9f8d6d,#ead9b9 45%,#f9edd5 60%,#a89573);box-shadow:2px 0 5px #6f755121}
+  .fridge-window .fridge-products{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .fridge-door,.fridge-door:hover{border:0;padding:0;background:transparent;box-shadow:none;overflow:visible;perspective:1600px;transform:none;transition:none}
+  .fridge-door:active:not(:disabled){transform:none}
+  .fridge-door>.fridge-door-single-glass,.fridge-door>.fridge-door-single-handle{display:none}
+  .fridge-door-leaf{position:absolute;top:0;bottom:0;width:50%;display:block;overflow:hidden;border:8px solid #d1bb93;border-left-color:#c1a77d;border-bottom-color:#bda078;background:linear-gradient(105deg,#f5f9ec22,#e3e9d630 45%,#eff1df40);box-shadow:inset 0 0 0 2px #fff9,inset 0 0 25px #f6f2da55,0 3px 8px #7962441c;backface-visibility:hidden;transform:rotateY(0);opacity:1;transition:transform 450ms cubic-bezier(.22,.61,.36,1),opacity 350ms ease 80ms;pointer-events:none}
+  .fridge-door-leaf-left{left:0;transform-origin:left center;border-right-width:5px}
+  .fridge-door-leaf-right{right:0;transform-origin:right center;border-left-width:5px}
+  .fridge-door-leaf-left .fridge-door-handle{right:11px}
+  .fridge-door-leaf-right .fridge-door-handle{left:11px;right:auto}
+  .fridge-door>.fridge-door-invitation{position:absolute;left:25%;top:50%;transform:translate(-50%,-50%);min-width:0;width:calc(50% - 72px);max-width:280px;padding:24px 14px;transition:opacity 180ms ease}
+  .fridge-door-invitation>strong{font-size:20px;letter-spacing:1px}
+  .fridge-door-copy{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;color:#8d7048;text-shadow:0 1px #fff8;transition:opacity 180ms ease}
+  .fridge-door-copy>span{font:500 17px/1.8 "Noto Serif TC","Songti TC","PMingLiU",serif;letter-spacing:2px}
+  .fridge-door-copy>small{font-size:8px;letter-spacing:2px;color:#a48d69}
+  .fridge.is-open .fridge-door{transform:none;opacity:1}
+  .fridge.is-open .fridge-door-leaf-left{transform:rotateY(-105deg);opacity:0}
+  .fridge.is-open .fridge-door-leaf-right{transform:rotateY(105deg);opacity:0}
+  .fridge.is-open .fridge-door-invitation,.fridge.is-open .fridge-door-copy{opacity:0}
+}
+@media(prefers-reduced-motion:reduce){
+  .fridge-door-leaf,.fridge-door-invitation,.fridge-door-copy{transition:none}
+  .fridge.is-open .fridge-door-leaf{transform:none;opacity:0}
+}

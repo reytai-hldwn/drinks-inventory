@@ -11,7 +11,7 @@ const modal = $('#modal');
 const categories = CATEGORIES_ORDER;
 const categoryNames = () => [...new Set([...categories, ...store.data.drinks.map((drink) => drink.category)])];
 const activeDrinks = () => store.data.drinks.filter((drink) => drink.active !== false);
-const packagingTypes = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '其他'];
+const packagingTypes = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
 const viewNames = { overview: '飲料冰箱', wishes: '飲料許願池', archive: '歷史品項', admin: '管理後台', products: '倉庫庫存', count: '快速盤點', restock: '到貨入庫', 'manage-wishes': '願望管理', history: '異動紀錄' };
 const adminViews = new Set(['admin', 'products', 'count', 'restock', 'manage-wishes', 'history']);
 let view = 'overview';
@@ -26,6 +26,7 @@ let modalDirty = false;
 let busy = false;
 let ready = false;
 let toastTimer;
+let routeSequence = 0;
 
 const formatDate = (value, time = false) => value ? new Intl.DateTimeFormat('zh-TW', {
   timeZone: 'Asia/Taipei', ...(time ? { year: 'numeric' } : {}), month: '2-digit', day: '2-digit', ...(time ? { hour: '2-digit', minute: '2-digit', hour12: false } : {}),
@@ -40,6 +41,7 @@ const button = (label, action, extra = '', classes = '') => `<button class="butt
 const drinkCell = (drink) => `<div class="drink-cell"><span class="drink-avatar cat-${h(drink.category)}" aria-hidden="true">${h(drink.icon || iconFor(drink.category))}</span><div><strong>${h(drink.name)}</strong><small>${drink.perCase ? `每箱 ${drink.perCase} ${h(drink.unit)}` : '每箱數量待設定'}${drink.lastCountAt ? '' : ' · 尚未盤點'}</small></div></div>`;
 const heading = (eyebrow, title, description, actions = '') => `<div class="page-heading"><div><p class="eyebrow">${eyebrow}</p><h1>${title}</h1><p class="page-description">${description}</p></div><div class="heading-actions">${actions}</div></div>`;
 const empty = (title, description, action = '') => `<div class="empty-state"><span class="empty-icon" aria-hidden="true">🧃</span><h2>${title}</h2><div>${description}</div>${action}</div>`;
+const recorderField = () => '<label class="field recorder-field">登記人<input name="recorder" required maxlength="80" autocomplete="name" placeholder="請填姓名或大家認得的稱呼"></label>';
 
 function toast(message, error = false) {
   const element = $('#toast');
@@ -53,10 +55,10 @@ function toast(message, error = false) {
 function updateChrome() {
   $('#breadcrumb-current').textContent = viewNames[view];
   document.title = `${viewNames[view]} · 宏穩茶水間`;
-  const inAdmin = adminViews.has(view) && (store.canEdit || store.mode === 'google');
+  const inAdmin = adminViews.has(view) && (store.canManage || store.canEdit);
   document.body.dataset.area = inAdmin ? 'admin' : 'front';
-  document.querySelectorAll('[data-editor]').forEach((element) => { element.hidden = !inAdmin || store.mode === 'google'; });
-  document.querySelectorAll('[data-front]').forEach((element) => { element.hidden = inAdmin && store.mode !== 'google'; });
+  document.querySelectorAll('[data-editor]').forEach((element) => { element.hidden = !inAdmin; });
+  document.querySelectorAll('[data-front]').forEach((element) => { element.hidden = inAdmin; });
   document.querySelectorAll('nav [data-view]').forEach((element) => {
     element.classList.toggle('active', element.dataset.view === view);
     if (element.dataset.view === view) element.setAttribute('aria-current', 'page');
@@ -68,7 +70,7 @@ function updateChrome() {
   const banner = $('#mode-banner');
   banner.hidden = store.mode !== 'demo';
   if (store.mode === 'demo') banner.innerHTML = inAdmin
-    ? '<strong>示範後台</strong>　此處不驗證真實身分，資料只存在此瀏覽器。正式上線需設定管理者登入權限。'
+    ? '<strong>本機管理示範</strong>　免登入；盤點及入庫請填登記人。資料只存在此瀏覽器。'
     : '<strong>本機示範</strong>　目前是本機示範；飲料依公司清單建立，實際數量待盤點，不會跨裝置同步。';
 }
 
@@ -100,7 +102,7 @@ function renderOverview() {
 
 function renderWarehouse() {
   const low = activeDrinks().filter((drink) => stockStatus(drink) === 'low').length;
-  main.innerHTML = heading('WAREHOUSE INVENTORY', '倉庫庫存，補貨有依據', '數量來自實際盤點與後續入庫；10 包／瓶／罐以內標紅，未盤點的品項不當作缺貨。', `${button('↓ 匯出庫存', 'export', '', 'button-outline')}${button('＋ 新增品項', 'new-drink')}`) +
+  main.innerHTML = heading('WAREHOUSE INVENTORY', '倉庫庫存，補貨有依據', '數量來自實際盤點與後續入庫；10 包／瓶／罐以內標紅，未盤點的品項不當作缺貨。', `${button('↓ 匯出庫存', 'export', '', 'button-outline')}${store.canEdit ? button('＋ 新增品項', 'new-drink') : ''}`) +
     `<div class="admin-summary"><span>${activeDrinks().length} 種供應中</span><span class="warehouse-alert">${low} 種需要確認補貨</span><span>最近完整盤點 ${formatDate(store.data.lastInventoryAt)}</span></div><div class="inventory-panel">${inventoryToolbar(true)}<div id="inventory-table"></div></div>`;
   renderInventoryTable();
 }
@@ -118,7 +120,7 @@ function renderInventoryTable() {
     return;
   }
   const copyBar = filter === 'low' ? `<div class="refill-copy-bar"><span>把需要補給的品項，整理給老闆娘。</span>${button('⧉ 複製補貨清單', 'copy-low', '', 'button-small button-outline')}</div>` : '';
-  target.innerHTML = copyBar + `<div class="table-scroll"><table><thead><tr><th>飲料品項</th><th>分類／包裝</th><th>庫存餘量</th><th>補貨狀態</th><th>最近盤點</th><th>管理</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="category-label">${h(drink.category)}</span><p class="cell-note">${h(drink.packaging || drink.unit)}</p></td><td><div class="stock-value ${stockStatus(drink) === 'low' && drink.active !== false ? 'low warehouse-low' : ''}">${drink.lastCountAt ? drink.stock : '—'}<small>${h(drink.unit)}</small></div></td><td>${drink.active === false ? '<span class="pill pill-muted">已停買，可重新上架</span>' : stockPill(drink)}</td><td><span class="cell-note">${formatDate(drink.lastCountAt)}</span></td><td><button class="cell-action" data-action="edit-drink" data-id="${h(drink.id)}" aria-label="編輯${h(drink.name)}">編輯 ↗</button></td></tr>`).join('')}</tbody></table></div><div class="table-bottom"><span>顯示 ${drinks.length} 種飲料</span><span>歷史品項保留原本數量與紀錄</span></div>`;
+  target.innerHTML = copyBar + `<div class="table-scroll"><table><thead><tr><th>飲料品項</th><th>分類／包裝</th><th>庫存餘量</th><th>補貨狀態</th><th>最近盤點</th><th>管理</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="category-label">${h(drink.category)}</span><p class="cell-note">${h(drink.packaging || drink.unit)}</p></td><td><div class="stock-value ${stockStatus(drink) === 'low' && drink.active !== false ? 'low warehouse-low' : ''}">${drink.lastCountAt ? drink.stock : '—'}<small>${h(drink.unit)}</small></div></td><td>${drink.active === false ? '<span class="pill pill-muted">已停買，可重新上架</span>' : stockPill(drink)}</td><td><span class="cell-note">${formatDate(drink.lastCountAt)}</span></td><td>${store.canEdit ? `<button class="cell-action" data-action="edit-drink" data-id="${h(drink.id)}" aria-label="編輯${h(drink.name)}">編輯 ↗</button>` : '<a class="text-link" href="#restock">登記入庫 ↗</a>'}</td></tr>`).join('')}</tbody></table></div><div class="table-bottom"><span>顯示 ${drinks.length} 種飲料</span><span>歷史品項保留原本數量與紀錄</span></div>`;
 }
 
 function renderArchive() {
@@ -132,9 +134,10 @@ function renderGoogleLink(url, label) {
   return safe ? `<a class="button" href="${h(safe)}" target="_blank" rel="noopener noreferrer">${label} ↗</a>` : '<p class="subtle">連結尚未設定，請由管理者完成 Google 串接。</p>';
 }
 
-function renderGoogleAdmin() {
-  main.innerHTML = heading('GOOGLE WAREHOUSE', '倉庫管理', '使用指定管理者的 Google 帳號開啟。庫存數量、紅字補貨提醒與歷史品項由私人試算表管理。') +
-    `<section class="panel form-panel"><h2>開啟倉庫清單</h2><p class="page-description">只有獲授權的 Google 帳號可以查看或編輯。試算表內有盤點與入庫表單連結；同事的冰箱頁不會收到庫存餘量。</p><div class="form-actions">${renderGoogleLink(store.adminUrl, '使用 Google 帳號開啟倉庫')}</div></section>`;
+function renderGoogleEntry() {
+  const count = view === 'count';
+  main.innerHTML = heading('KEEP THE PANTRY READY', count ? '幫飲料架點個名' : '到貨了，記一筆就好', '免登入，填寫登記人與實際數量，送出後就會留下時間與紀錄。') +
+    `<section class="panel form-panel"><h2>${count ? '登記實際盤點' : '登記到貨入庫'}</h2><p class="page-description">${count ? '一次確認目前供應品項的實際剩餘數量。' : '只登記這次實際收到的單包／瓶／罐數量。'}Google 表單內的「登記人」為必填。送出後回來重新整理，即可查看更新的庫存。</p><div class="form-actions">${renderGoogleLink(count ? store.formUrls.stocktake : store.formUrls.arrival, count ? '填寫盤點表單' : '填寫入庫表單')}<a href="#products" class="button button-outline">查看倉庫庫存</a></div></section>`;
 }
 
 function openDrinkDetails(id) {
@@ -173,7 +176,7 @@ function renderCount() {
   const drinks = activeDrinks();
   main.innerHTML = heading('A FRESH COUNT', '幫飲料架點個名', '每三天或一週盤點一次，就很夠用了。請填實際剩餘的單瓶／單罐數量。') +
     '<div class="info-box">請實際清點每一項。按下儲存表示已確認全部品項，即使數量沒變，也會留下新的盤點紀錄。只計算現場實際剩餘的飲料。</div>' +
-    (drinks.length ? `<form id="count-form"><div class="panel table-scroll"><table class="count-table"><thead><tr><th>飲料品項</th><th>上次帳面庫存</th><th>這次實際盤點</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="muted">${drink.lastCountAt ? `${drink.stock} ${h(drink.unit)}` : '尚未盤點'}</span></td><td><input class="count-input" type="number" inputmode="numeric" min="0" max="999999" step="1" required name="${h(drink.id)}" value="${drink.lastCountAt ? drink.stock : ''}" aria-label="${h(drink.name)}實際剩餘數量"><span class="count-unit">${h(drink.unit)}</span></td></tr>`).join('')}</tbody></table></div><div class="sticky-actions"><span>本次確認全部 ${drinks.length} 種飲料</span><button type="submit" class="button">✓ 儲存本次盤點</button></div></form>` : `<div class="panel">${empty('還沒有飲料品項', '先新增品項，下一步就可以盤點了。', button('＋ 新增品項', 'new-drink'))}</div>`);
+    (drinks.length ? `<form id="count-form">${recorderField()}<div class="panel table-scroll"><table class="count-table"><thead><tr><th>飲料品項</th><th>上次帳面庫存</th><th>這次實際盤點</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="muted">${drink.lastCountAt ? `${drink.stock} ${h(drink.unit)}` : '尚未盤點'}</span></td><td><input class="count-input" type="number" inputmode="numeric" min="0" max="999999" step="1" required name="${h(drink.id)}" value="${drink.lastCountAt ? drink.stock : ''}" aria-label="${h(drink.name)}實際剩餘數量"><span class="count-unit">${h(drink.unit)}</span></td></tr>`).join('')}</tbody></table></div><div class="sticky-actions"><span>本次確認全部 ${drinks.length} 種飲料</span><button type="submit" class="button">✓ 儲存本次盤點</button></div></form>` : `<div class="panel">${empty('還沒有飲料品項', '先新增品項，下一步就可以盤點了。', button('＋ 新增品項', 'new-drink'))}</div>`);
 }
 
 function renderRestock() {
@@ -183,9 +186,9 @@ function renderRestock() {
   const options = [...drinks].sort((a, b) => (stockStatus(a) === 'low' ? -1 : 1) - (stockStatus(b) === 'low' ? -1 : 1));
   main.innerHTML = heading('A LITTLE REFILL', '到貨了，記一筆就好', '收到多少就記多少，入庫後立即加到帳面庫存，並自動留下時間與數量。') +
     '<div class="info-box">只登記已實際收到的飲料。可輸入整箱或單包／瓶／罐，每個品項依自己的箱裝數量換算；分批到貨就分次登記。</div>' +
-    (drinks.length ? `<div class="restock-layout"><section class="panel form-panel"><h2>登記到貨入庫</h2><form id="restock-form"><label class="field">飲料品項<select name="drinkId" id="restock-drink">${options.map((drink) => `<option value="${h(drink.id)}">${h(drink.name)}${stockStatus(drink) === 'low' ? ' · 需要補貨' : ''}</option>`).join('')}</select></label><div class="form-grid"><label class="field">整箱數量<input name="cases" type="number" inputmode="numeric" min="0" max="9999" step="1" value="0" required></label><label class="field"><span id="loose-label">另外的單包／瓶／罐</span><input name="loose" type="number" inputmode="numeric" min="0" max="999999" step="1" value="0" required><small id="loose-hint">不足整箱也可登記</small></label></div><label class="field">備註（選填）<input name="note" maxlength="200" placeholder="例如：下午到貨、分批入庫"></label><div id="restock-summary" class="order-summary"></div><div class="form-actions"><button type="submit" class="button" id="restock-submit">確認到貨入庫</button></div><p class="subtle">儲存時會自動記錄本次入庫時間。</p></form></section><section><div class="section-heading"><h2>最近入庫紀錄</h2><a href="#history" class="text-link">完整紀錄 ↗</a></div><div class="panel">${arrivals.length ? arrivals.map((event) => {
+    (drinks.length ? `<div class="restock-layout"><section class="panel form-panel"><h2>登記到貨入庫</h2><form id="restock-form">${recorderField()}<label class="field">飲料品項<select name="drinkId" id="restock-drink">${options.map((drink) => `<option value="${h(drink.id)}">${h(drink.name)}${stockStatus(drink) === 'low' ? ' · 需要補貨' : ''}</option>`).join('')}</select></label><div class="form-grid"><label class="field">整箱數量<input name="cases" type="number" inputmode="numeric" min="0" max="9999" step="1" value="0" required></label><label class="field"><span id="loose-label">另外的單包／瓶／罐</span><input name="loose" type="number" inputmode="numeric" min="0" max="999999" step="1" value="0" required><small id="loose-hint">不足整箱也可登記</small></label></div><label class="field">備註（選填）<input name="note" maxlength="200" placeholder="例如：下午到貨、分批入庫"></label><div id="restock-summary" class="order-summary"></div><div class="form-actions"><button type="submit" class="button" id="restock-submit">確認到貨入庫</button></div><p class="subtle">儲存時會自動記錄本次入庫時間。</p></form></section><section><div class="section-heading"><h2>最近入庫紀錄</h2><a href="#history" class="text-link">完整紀錄 ↗</a></div><div class="panel">${arrivals.length ? arrivals.map((event) => {
       const drink = drinkById(event.drinkId);
-      return `<article class="order-card"><div class="order-card-top"><div><h3>${h(drink?.name || '已封存品項')}</h3><span class="cell-note">${formatDate(event.createdAt, true)}</span></div><span class="pill pill-ok">＋${event.quantity} ${h(drink?.unit || '個')}</span></div>${event.note ? `<p>${h(event.note)}</p>` : ''}</article>`;
+      return `<article class="order-card"><div class="order-card-top"><div><h3>${h(drink?.name || '已封存品項')}</h3><span class="cell-note">${formatDate(event.createdAt, true)} · ${h(event.recorder || '未記錄登記人')}</span></div><span class="pill pill-ok">＋${event.quantity} ${h(drink?.unit || '個')}</span></div>${event.note ? `<p>${h(event.note)}</p>` : ''}</article>`;
     }).join('') : empty('還沒有入庫紀錄', '第一次到貨登記後，時間與數量會自動記在這裡。')}</div></section></div>` : `<div class="panel">${empty('先把飲料加入清單', '每個品項設定好每箱數量後，就可以快速登記入庫。', button('＋ 新增品項', 'new-drink'))}</div>`);
   if (drinks.length) updateRestockSummary();
 }
@@ -204,33 +207,36 @@ const wishStatus = (status) => ({ pending: ['待評估', 'pill-low'], purchased:
 function renderWishes() {
   const wishes = [...store.data.wishes].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   main.innerHTML = heading('SOMETHING TO LOOK FORWARD TO', store.canEdit ? '整理大家的小願望' : '下一瓶，許個願', '留下一個新口味，讓下一次採購多一點期待。', button('♡ 新增願望', 'new-wish')) +
-    (!store.canEdit ? '<div class="info-box">不用登入也能許願，可以附上飲料連結；採購狀態由庫存管理者更新。</div>' : '') +
+    '<div class="info-box">看到喜歡的願望，按「我也想喝」一起支持。' + (store.mode === 'google' ? '贊同表單送出後，回來重新整理就能看到人數。' : '同一個瀏覽器對每個願望可贊同一次。') + '</div>' +
     (wishes.length ? `<div class="wish-grid">${wishes.map((wish) => {
       const [label, style] = wishStatus(wish.status);
       const url = safeUrl(wish.url);
-      return `<article class="panel wish-card"><div class="wish-top"><span class="wish-icon" aria-hidden="true">♡</span><span class="pill ${style}">${label}</span></div><h2>${h(wish.name)}</h2><p>${h(wish.note || '一個值得試試的新選擇。')}</p>${url ? `<a href="${h(url)}" target="_blank" rel="noopener noreferrer" class="text-link">看看這款飲料 ↗</a>` : '<span class="subtle">尚未附上購買連結</span>'}<div class="wish-bottom"><span class="wish-date">${formatDate(wish.createdAt)} 加入許願池</span>${store.canEdit ? `<button class="cell-action" data-action="edit-wish" data-id="${h(wish.id)}">管理願望 ↗</button>` : ''}</div></article>`;
+      const voted = store.mode === 'demo' && store.hasVoted(wish.id);
+      const votes = Number.isSafeInteger(wish.votes) && wish.votes >= 0 ? wish.votes : 0;
+      const unavailable = store.mode === 'google' && !store.voteForm?.url;
+      return `<article class="panel wish-card" data-wish-id="${h(wish.id)}"><div class="wish-top"><span class="wish-icon" aria-hidden="true">♡</span><span class="pill ${style}">${label}</span></div><h2>${h(wish.name)}</h2><p>${h(wish.note || '一個值得試試的新選擇。')}</p>${url ? `<a href="${h(url)}" target="_blank" rel="noopener noreferrer" class="text-link">看看這款飲料 ↗</a>` : '<span class="subtle">尚未附上購買連結</span>'}<div class="wish-vote-row"><button class="wish-vote-button${voted ? ' is-voted' : ''}" data-action="vote-wish" data-id="${h(wish.id)}" aria-pressed="${voted}"${voted || unavailable ? ' disabled' : ''}${unavailable ? ' title="Google 贊同表單尚未啟用"' : ''}>${voted ? '♥ 已贊同' : '♡ 我也想喝'}</button><span class="wish-vote-count" aria-live="polite">${votes} 人想喝</span></div><div class="wish-bottom"><span class="wish-date">${formatDate(wish.createdAt)} 加入許願池</span>${store.canEdit ? `<button class="cell-action" data-action="edit-wish" data-id="${h(wish.id)}">管理願望 ↗</button>` : ''}</div></article>`;
     }).join('')}</div>` : `<div class="panel">${empty('第一個願望，會是什麼？', '可附上購買連結和備註，採購時就不用再翻聊天紀錄。', button('♡ 新增願望', 'new-wish'))}</div>`);
 }
 
 function renderHistory() {
   const events = stockEvents().sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   main.innerHTML = heading('EVERY LITTLE CHANGE', '每一次補給，都有跡可循', '保留實際盤點與到貨入庫紀錄，慢慢累積屬於公司的飲料喜好。', button('↓ 匯出紀錄', 'export-history', '', 'button-outline')) +
-    `<div class="panel">${events.length ? `<div class="table-scroll"><table><thead><tr><th>時間</th><th>飲料品項</th><th>異動</th><th>數量</th><th>備註</th></tr></thead><tbody>${events.slice(0, 200).map((event) => {
+    `<div class="panel">${events.length ? `<div class="table-scroll"><table><thead><tr><th>時間</th><th>飲料品項</th><th>異動</th><th>數量</th><th>登記人</th><th>備註</th></tr></thead><tbody>${events.slice(0, 200).map((event) => {
       const drink = drinkById(event.drinkId);
       const type = event.type === 'count' ? '盤點' : '入庫';
-      return `<tr><td class="cell-note">${formatDate(event.createdAt, true)}</td><td>${h(drink?.name || '已封存品項')}</td><td><span class="history-type history-${h(event.type)}">${type}</span></td><td class="history-number">${event.type === 'restock' ? '＋' : ''}${event.quantity} ${h(drink?.unit || '個')}</td><td class="subtle">${h(event.note || '—')}</td></tr>`;
+      return `<tr><td class="cell-note">${formatDate(event.createdAt, true)}</td><td>${h(drink?.name || '已封存品項')}</td><td><span class="history-type history-${h(event.type)}">${type}</span></td><td class="history-number">${event.type === 'restock' ? '＋' : ''}${event.quantity} ${h(drink?.unit || '個')}</td><td class="subtle">${h(event.recorder || '未記錄')}</td><td class="subtle">${h(event.note || '—')}</td></tr>`;
     }).join('')}</tbody></table></div><div class="table-bottom"><span>顯示最近 ${Math.min(events.length, 200)} 筆，共 ${events.length} 筆</span><span>匯出可取得完整紀錄</span></div>` : empty('還沒有異動紀錄', '第一次盤點或補貨之後，紀錄會自動留在這裡。')}</div>`;
 }
 
 function renderAdmin() {
   const low = activeDrinks().filter((drink) => stockStatus(drink) === 'low').length;
   const pending = store.data.wishes.filter((wish) => wish.status === 'pending').length;
-  main.innerHTML = heading('PANTRY MANAGEMENT', '把補給的小事，整理好', '這裡留給庫存管理者。同事在前台查看飲料與許願，你在這裡盤點和登記到貨。') +
+  main.innerHTML = heading('PANTRY MANAGEMENT', '把補給的小事，整理好', '免登入管理。每次盤點或登記到貨，請填寫登記人，方便之後核對。') +
     `<div class="admin-summary"><span>目前 ${store.data.drinks.length} 種飲料</span><span>${low} 種在 10 以內</span><span>${pending} 個願望待評估</span></div><div class="admin-grid">${[
       ['count', '☷', '快速盤點', '每三天或一週，輸入所有品項的實際剩餘數量。', '開始盤點'],
       ['restock', '↗', '到貨入庫', '收到飲料再登記，時間、數量與庫存一併保存。', '登記入庫'],
-      ['products', '▦', '倉庫庫存與歷史品項', '新增飲料，設定每箱數量、包裝單位與補貨門檻。', '管理品項'],
-      ['manage-wishes', '♡', '願望管理', '看看同事想喝什麼，更新評估與採購狀態。', '整理願望'],
+      ['products', '▦', '倉庫庫存與歷史品項', '查看實際庫存，確認哪些品項需要補貨。', '查看庫存'],
+      ['manage-wishes', '♡', '大家的願望', '看看同事想喝什麼，以及每款有多少人贊同。', '查看願望'],
       ['history', '◷', '異動紀錄', '查看實際盤點、入庫時間與數量，並匯出備份。', '查看紀錄'],
     ].map(([href, icon, title, description, cta]) => `<a href="#${href}" class="admin-card"><span class="admin-card-icon" aria-hidden="true">${icon}</span><h2>${title}</h2><p>${description}</p><span class="admin-card-cta">${cta} ↗</span></a>`).join('')}</div>`;
 }
@@ -239,15 +245,15 @@ function render() {
   store.preview = !adminViews.has(view);
   dirty = false;
   updateChrome();
-  if (adminViews.has(view) && store.mode === 'google') { renderGoogleAdmin(); return; }
-  if (adminViews.has(view) && !store.canEdit) {
+  if (adminViews.has(view) && !store.canManage && !store.canEdit) {
     main.innerHTML = heading('EDITOR ACCESS', '這裡留給庫存管理者', '同事可以直接查看庫存與許願清單，修改資料需要登入。') + `<div class="panel">${empty('登入後繼續', '只有獲授權的帳號可以修改庫存。', button('管理員登入', 'login'))}</div>`;
     return;
   }
+  if (store.mode === 'google' && ['count', 'restock'].includes(view)) { renderGoogleEntry(); return; }
   ({ overview: renderOverview, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, restock: renderRestock, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
 }
 
-function route() {
+async function route() {
   if (!ready) return;
   const next = location.hash.slice(1) || 'overview';
   const nextView = Object.hasOwn(viewNames, next) ? next : 'overview';
@@ -256,6 +262,18 @@ function route() {
     return;
   }
   view = nextView;
+  const sequence = ++routeSequence;
+  if (store.mode === 'google') {
+    updateChrome();
+    main.innerHTML = '<div class="loading-state"><span class="loader"></span><p>正在讀取共用資料…</p></div>';
+    try { await (adminViews.has(view) ? store.readWarehouse() : store.readPublic()); }
+    catch (error) {
+      if (sequence !== routeSequence) return;
+      main.innerHTML = `<div class="panel">${empty('暫時無法讀取資料', h(error.message), button('重新讀取', 'retry-route'))}</div>`;
+      return;
+    }
+  }
+  if (sequence !== routeSequence) return;
   render();
 }
 
@@ -291,8 +309,8 @@ async function save(next, message, close = false) {
   toast(message);
 }
 
-function addEvent(next, type, drink, quantity, createdAt, note) {
-  next.events.push({ id: uid(), type, drinkId: drink.id, quantity, previousStock: drink.stock, createdAt, note });
+function addEvent(next, type, drink, quantity, createdAt, note, recorder) {
+  next.events.push({ id: uid(), type, drinkId: drink.id, quantity, previousStock: drink.stock, createdAt, note, recorder });
 }
 
 async function submitForm(form) {
@@ -314,13 +332,15 @@ async function submitForm(form) {
     toast('願望已送出，等管理者下次採購時評估。');
     return;
   }
-  if (!store.canEdit) throw new Error('請先登入編輯。');
+  if (!store.canEdit) throw new Error('請從管理入口使用對應的登記表單。');
   const next = clone();
   const now = new Date().toISOString();
+  const recorder = String(values.get('recorder') || '').trim();
+  if (['count-form', 'restock-form'].includes(form.id) && (!recorder || recorder.length > 80)) throw new Error('請填寫登記人，最多 80 字。');
   if (form.id === 'count-form') {
     for (const drink of next.drinks.filter((item) => item.active !== false)) {
       const quantity = number(values.get(drink.id));
-      addEvent(next, 'count', drink, quantity, now, '定期盤點');
+      addEvent(next, 'count', drink, quantity, now, '定期盤點', recorder);
       drink.stock = quantity;
       drink.lastCountAt = now;
     }
@@ -360,7 +380,7 @@ async function submitForm(form) {
     if (!quantity) throw new Error('請輸入大於 0 的數量。');
     if (quantity > 999999 || drink.stock + quantity > 999999) throw new Error('單次或累計數量不可超過 999,999，請確認輸入。');
     const note = values.get('note').trim();
-    addEvent(next, 'restock', drink, quantity, now, note || '到貨入庫');
+    addEvent(next, 'restock', drink, quantity, now, note || '到貨入庫', recorder);
     drink.stock += quantity;
     await save(next, `已入庫 ${quantity} ${drink.unit}，庫存與入庫時間已記錄。`);
   }
@@ -374,12 +394,27 @@ async function runAction(action, id) {
     return;
   }
   if (action === 'login') { openLogin(); return; }
+  if (action === 'retry-route') { await route(); return; }
+  if (action === 'vote-wish') {
+    if (store.mode === 'google') {
+      const url = store.getVoteUrl(id);
+      showModal('這瓶，我也想喝', '送出預填的 Google 贊同表單後，回來重新整理就會更新人數。相同瀏覽器重複送出不會多加票。', `<div class="form-actions">${renderGoogleLink(url, '開啟贊同表單')}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
+    } else {
+      await store.voteWish(id);
+      renderWishes();
+      toast('已記下你的贊同！');
+    }
+    return;
+  }
   if (action === 'view-drink') { openDrinkDetails(id); return; }
-  if (action === 'copy-low') { if (!store.canEdit) throw new Error('請從倉庫管理產生補貨清單。'); await copyLowStock(); return; }
+  if (action === 'copy-low') { if (!store.canManage && !store.canEdit) throw new Error('請從倉庫管理產生補貨清單。'); await copyLowStock(); return; }
   if (action === 'toggle-door') { fridgeOpen = !fridgeOpen; syncFridgeDoor($('.fridge'), fridgeOpen); return; }
   if (action === 'new-wish') { openWish(); return; }
+  if (action === 'export' || action === 'export-history') {
+    if (!store.canManage && !store.canEdit) throw new Error('請從管理入口匯出紀錄。');
+    exportCSV(action === 'export-history'); return;
+  }
   if (!store.canEdit) throw new Error('這項操作需要編輯權限。');
-  if (action === 'export' || action === 'export-history') { exportCSV(action === 'export-history'); return; }
   if (action === 'new-drink' || action === 'edit-drink') { openDrink(id); return; }
   if (action === 'edit-wish') { openWish(id); return; }
   const next = clone();
@@ -392,10 +427,10 @@ async function runAction(action, id) {
 
 function exportCSV(historyExport = false) {
   const rows = historyExport ? [
-    ['時間（台北）', '飲料品項', '類型', '數量', '原帳面庫存', '單位', '備註'],
+    ['時間（台北）', '飲料品項', '類型', '數量', '原帳面庫存', '單位', '登記人', '備註'],
     ...stockEvents().map((event) => [formatDate(event.createdAt, true), drinkById(event.drinkId)?.name || event.drinkId,
       event.type === 'count' ? '盤點' : '入庫',
-      event.quantity, event.previousStock, drinkById(event.drinkId)?.unit || '', event.note]),
+      event.quantity, event.previousStock, drinkById(event.drinkId)?.unit || '', event.recorder || '未記錄', event.note]),
   ] : [
     ['飲料名稱', '分類', '帳面庫存', '單位', '每箱數量', '提醒門檻', '目標庫存', '最近盤點（台北）'],
     ...store.data.drinks.map((drink) => [drink.name, drink.category, drink.stock, drink.unit, drink.perCase, drink.threshold, drink.target, formatDate(drink.lastCountAt, true)]),
@@ -482,7 +517,7 @@ $('#auth-button').addEventListener('click', () => {
   if (!ready || busy) return;
   if (dirty && !confirm('切換頁面會捨棄未儲存的輸入，確定繼續嗎？')) return;
   dirty = false;
-  if (adminViews.has(view) && store.canEdit) { location.hash = 'overview'; return; }
+  if (adminViews.has(view) && (store.canManage || store.canEdit)) { location.hash = 'overview'; return; }
   if (store.mode === 'demo' || store.mode === 'google' || store.isEditor) { location.hash = 'admin'; return; }
   openLogin();
 });

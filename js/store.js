@@ -3,6 +3,20 @@ import { createCompanyData, prepareCompanyCatalog } from './catalog.js';
 
 const DATA_KEY = 'office-pantry-demo-v1';
 const SESSION_KEY = 'office-pantry-session-v1';
+const INV_LOCAL_WISH_VOTER_KEY = 'holdwin-wish-voter-v1';
+
+function inventoryLocalWishVoterId(create = false) {
+  try {
+    let voterId = localStorage.getItem(INV_LOCAL_WISH_VOTER_KEY);
+    if (voterId && /^[A-Za-z0-9_-]{10,160}$/.test(voterId)) return voterId;
+    if (!create) return null;
+    voterId = uid();
+    localStorage.setItem(INV_LOCAL_WISH_VOTER_KEY, voterId);
+    return voterId;
+  } catch {
+    throw new Error('無法儲存此瀏覽器的贊同紀錄。請允許網站儲存資料後再試。');
+  }
+}
 
 function validData(data) {
   return data && Array.isArray(data.drinks) && Array.isArray(data.events) && Array.isArray(data.wishes);
@@ -23,6 +37,7 @@ export class InventoryStore {
   }
 
   get canEdit() { return this.isEditor && !this.preview; }
+  get canManage() { return this.mode === 'demo' || this.canEdit; }
 
   async init() {
     if (this.mode === 'demo') {
@@ -146,6 +161,13 @@ export class InventoryStore {
   async save(data) {
     if (!this.canEdit) throw new Error('請先以獲授權的編輯者帳號登入。');
     if (!validData(data)) throw new Error('庫存資料格式不正確。');
+    const existingEventIds = new Set(this.data.events.map((event) => event.id));
+    for (const event of data.events) {
+      if (!existingEventIds.has(event.id) && ['count', 'restock'].includes(event.type) &&
+          (typeof event.recorder !== 'string' || !event.recorder.trim() || event.recorder.trim().length > 80)) {
+        throw new Error('盤點與到貨入庫請填寫登記人，最多 80 字。');
+      }
+    }
     let saved;
     if (this.mode === 'demo') {
       saved = this.saveLocal(data);
@@ -188,7 +210,7 @@ export class InventoryStore {
       const next = structuredClone(this.data);
       // Only these fields are accepted. Public callers cannot choose an ID,
       // approval status, timestamp, or replace stock through wish submission.
-      next.wishes.push({ id: uid(), name: wishName, url: wishUrl, note: wishNote, status: 'pending', createdAt: new Date().toISOString() });
+      next.wishes.push({ id: uid(), name: wishName, url: wishUrl, note: wishNote, status: 'pending', createdAt: new Date().toISOString(), votes: 0, voterIds: [] });
       saved = this.saveLocal(next);
     } else {
       const result = await this.request('/rest/v1/rpc/submit_wish', {
@@ -198,6 +220,37 @@ export class InventoryStore {
       saved = result?.[0];
       if (!saved || !validData(saved.payload)) throw new Error('未收到有效的許願結果。請重新讀取資料確認。');
     }
+    this.data = saved.payload;
+    this.revision = saved.revision;
+    this.updatedAt = saved.updated_at;
+    return this.data;
+  }
+
+  hasVoted(wishId) {
+    if (this.mode !== 'demo') return false;
+    let voterId;
+    try { voterId = inventoryLocalWishVoterId(); } catch { return false; }
+    if (!voterId) return false;
+    const wish = this.data.wishes.find((item) => item.id === wishId);
+    return Array.isArray(wish?.voterIds) && wish.voterIds.includes(voterId);
+  }
+
+  async voteWish(wishId) {
+    if (this.mode !== 'demo') throw new Error('目前連線尚未啟用贊同功能。');
+    const wish = this.data.wishes.find((item) => item.id === wishId);
+    if (!wish) throw new Error('找不到這個願望，請重新整理後再試。');
+    const voterId = inventoryLocalWishVoterId(true);
+    if (Array.isArray(wish.voterIds) && wish.voterIds.includes(voterId)) return this.data;
+    const next = structuredClone(this.data);
+    const updatedWish = next.wishes.find((item) => item.id === wishId);
+    const voters = new Set(Array.isArray(updatedWish.voterIds) ? updatedWish.voterIds.filter((value) => typeof value === 'string') : []);
+    const votes = Number.isSafeInteger(updatedWish.votes) && updatedWish.votes >= 0 ? updatedWish.votes : voters.size;
+    const previousVotes = Math.max(votes, voters.size);
+    if (!Number.isSafeInteger(previousVotes + 1)) throw new Error('這個願望的贊同人數格式不正確。');
+    voters.add(voterId);
+    updatedWish.voterIds = [...voters];
+    updatedWish.votes = previousVotes + 1;
+    const saved = this.saveLocal(next);
     this.data = saved.payload;
     this.revision = saved.revision;
     this.updatedAt = saved.updated_at;

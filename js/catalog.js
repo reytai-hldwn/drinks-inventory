@@ -1,5 +1,5 @@
 /** Company-confirmed product names. Counts and box sizes await real input. */
-export const CATEGORIES_ORDER = Object.freeze(['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他']);
+export const CATEGORIES_ORDER = Object.freeze(['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
 
 const COMPANY_CATALOG_ROWS = [
   ['光泉牛乳', '牛奶／豆漿', '窄瓶鋁箔包'],
@@ -10,7 +10,7 @@ const COMPANY_CATALOG_ROWS = [
   ['統一豆漿', '牛奶／豆漿', '鋁箔包'],
   ['波利芭樂汁', '果汁', '鋁箔包'],
   ['立頓原味奶茶', '茶飲', '鋁箔包'],
-  ['立頓巧克力牛奶', '牛奶／豆漿', '鋁箔包'],
+  ['立頓巧克力奶茶', '茶飲', '鋁箔包'],
   ['立頓沁香奶綠', '茶飲', '鋁箔包'],
   ['日月潭紅茶', '茶飲', '鋁箔包'],
   ['十六茶', '茶飲', '鋁箔包'],
@@ -31,6 +31,9 @@ const COMPANY_CATALOG_ROWS = [
   ['麥萃麥茶', '茶飲', '寶特瓶'],
   ['原萃綠茶', '茶飲', '寶特瓶'],
   ['十全果醋', '其他', '其他'],
+  ['冷萃金萱烏龍', '大瓶飲料', '大瓶裝'],
+  ['Moriyama紅茶', '大瓶飲料', '大瓶裝'],
+  ['Moriyama奶茶', '大瓶飲料', '大瓶裝'],
 ];
 
 export const COMPANY_CATALOG = Object.freeze(COMPANY_CATALOG_ROWS.map(([name, category, packaging], index) => Object.freeze({
@@ -38,7 +41,7 @@ export const COMPANY_CATALOG = Object.freeze(COMPANY_CATALOG_ROWS.map(([name, ca
   name,
   category,
   packaging,
-  unit: packaging === '寶特瓶' ? '瓶' : packaging.includes('鐵罐') ? '罐' : '包',
+  unit: ['寶特瓶', '大瓶裝'].includes(packaging) ? '瓶' : packaging.includes('鐵罐') ? '罐' : '包',
   active: true,
   perCase: null,
   stock: 0,
@@ -53,7 +56,7 @@ export function createCompanyData() {
     events: [],
     wishes: [],
     lastInventoryAt: null,
-    catalogVersion: 1,
+    catalogVersion: 2,
   };
 }
 
@@ -121,10 +124,19 @@ function isUnchangedDemoDrink(drink) {
  * Human-entered seed changes remain separate: names do not imply a safe merge.
  */
 export function prepareCompanyCatalog(data) {
-  if (data?.catalogVersion >= 1) return data;
+  if (data?.catalogVersion >= 2) return data;
   if (!data) return createCompanyData();
   if (!Array.isArray(data.drinks) || !Array.isArray(data.events) || !Array.isArray(data.wishes)) {
     throw new Error('庫存資料格式不正確，無法準備公司飲料清單。');
+  }
+
+  if (data.catalogVersion >= 1) {
+    const existing = new Set(data.drinks.map((drink) => drink.id));
+    const additions = COMPANY_CATALOG.slice(29).filter((drink) => !existing.has(drink.id)).map((drink) => ({ ...drink }));
+    const drinks = data.drinks.map((drink) => drink.id === 'company-drink-09' && drink.name === '立頓巧克力牛奶'
+      ? { ...drink, name: '立頓巧克力奶茶', category: drink.category === '牛奶／豆漿' ? '茶飲' : drink.category }
+      : drink);
+    return { ...data, drinks: [...drinks, ...additions], catalogVersion: 2 };
   }
 
   const humanEventDrinkIds = new Set(data.events.filter((event) => !isSyntheticDemoEvent(event)).map((event) => event.drinkId));
@@ -147,6 +159,6 @@ export function prepareCompanyCatalog(data) {
     events: events.map((event) => ({ ...event })),
     wishes: wishes.map((wish) => ({ ...wish })),
     lastInventoryAt: preservedDrinks.length || events.length ? (data.lastInventoryAt ?? null) : null,
-    catalogVersion: 1,
+    catalogVersion: 2,
   };
 }

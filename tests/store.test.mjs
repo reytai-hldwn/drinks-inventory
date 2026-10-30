@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { InventoryStore } from '../js/store.js';
 import { blankData } from '../js/domain.js';
+import { createCompanyData } from '../js/catalog.js';
 
 const CONFIG = { supabaseUrl: 'https://pantry.example.supabase.co', supabaseAnonKey: 'public-anon-key' };
 const DATA_KEY = 'office-pantry-demo-v1';
@@ -230,7 +231,7 @@ test('local demo edits persist across store instances without network calls', as
   const first = new InventoryStore();
   await first.init();
   assert.equal(first.mode, 'demo');
-  assert.equal(first.data.drinks.length, 29);
+  assert.equal(first.data.drinks.length, 32);
   assert.equal(first.canEdit, true);
   const changed = structuredClone(first.data);
   changed.drinks[0].stock = 123;
@@ -278,7 +279,9 @@ test('public demo wish submission appends pending fields without changing stock 
   assert.notEqual(wish.id, 'chosen-id');
   assert.ok(Date.parse(wish.createdAt) >= started);
   assert.ok(Date.parse(wish.createdAt) <= Date.now());
-  assert.deepEqual(Object.keys(wish).sort(), ['id', 'name', 'url', 'note', 'status', 'createdAt'].sort());
+  assert.deepEqual(Object.keys(wish).sort(), ['id', 'name', 'url', 'note', 'status', 'createdAt', 'votes', 'voterIds'].sort());
+  assert.equal(wish.votes, 0);
+  assert.deepEqual(wish.voterIds, []);
   assert.deepEqual(store.data.drinks, before.drinks);
   assert.deepEqual(store.data.events, before.events);
   assert.deepEqual(store.data.wishes.slice(0, -1), before.wishes);
@@ -381,4 +384,138 @@ test('an older admin stock save cannot erase a newly submitted public wish', asy
   const persisted = JSON.parse(localStorage.getItem(DATA_KEY)).data;
   assert.equal(persisted.wishes.at(-1).name, '保留這個願望');
   assert.notEqual(persisted.drinks[0].stock, 777);
+});
+
+
+test('stored version-one catalog is upgraded once without resetting user stock or history', async (t) => {
+  setup(t);
+  const data = createCompanyData();
+  data.catalogVersion = 1;
+  data.drinks = data.drinks.slice(0, 29);
+  data.drinks[0].stock = 35;
+  data.drinks[0].active = false;
+  data.events = [{ id: 'manual-count', drinkId: data.drinks[0].id, type: 'count', quantity: 35, createdAt: TIMESTAMP }];
+  data.wishes = [{ id: 'manual-wish', name: '既有願望', status: 'pending', createdAt: TIMESTAMP }];
+  localStorage.setItem(DATA_KEY, JSON.stringify({ data, revision: 5, updatedAt: TIMESTAMP }));
+  const first = new InventoryStore();
+  await first.init();
+  assert.equal(first.data.drinks.length, 32);
+  assert.equal(first.data.catalogVersion, 2);
+  assert.equal(first.data.drinks[0].stock, 35);
+  assert.equal(first.data.drinks[0].active, false);
+  assert.deepEqual(first.data.events, data.events);
+  assert.deepEqual(first.data.wishes, data.wishes);
+  assert.equal(first.revision, 6);
+  const second = new InventoryStore();
+  await second.init();
+  assert.equal(second.revision, 6);
+  assert.deepEqual(second.data, first.data);
+});
+
+test('anonymous demo votes count once per browser and preserve inventory and wish details', async (t) => {
+  const calls = setup(t);
+  const store = new InventoryStore();
+  await store.init();
+  assert.equal(store.canManage, true);
+  await store.submitWish({ name: '想喝的茶', note: '下午補給', url: 'https://example.com/tea' });
+  await store.submitWish({ name: '想喝的咖啡' });
+  store.preview = true;
+  const firstId = store.data.wishes[0].id;
+  const secondId = store.data.wishes[1].id;
+  const before = structuredClone(store.data);
+  assert.equal(store.canEdit, false);
+  assert.equal(store.hasVoted(firstId), false);
+  assert.equal(localStorage.getItem('holdwin-wish-voter-v1'), null, 'rendering vote state does not create an identity');
+  await store.voteWish(firstId);
+  assert.equal(store.data.wishes[0].votes, 1);
+  assert.equal(store.hasVoted(firstId), true);
+  assert.equal(store.hasVoted(secondId), false);
+  const voterId = localStorage.getItem('holdwin-wish-voter-v1');
+  assert.ok(voterId);
+  assert.deepEqual(store.data.wishes[0].voterIds, [voterId]);
+  assert.deepEqual(store.data.drinks, before.drinks);
+  assert.deepEqual(store.data.events, before.events);
+  assert.deepEqual(store.data.wishes[0], { ...before.wishes[0], votes: 1, voterIds: [voterId] });
+  const revision = store.revision;
+  await store.voteWish(firstId);
+  assert.equal(store.revision, revision, 'a repeated click performs no write');
+  const reopened = new InventoryStore();
+  await reopened.init();
+  assert.equal(reopened.hasVoted(firstId), true);
+  await reopened.voteWish(firstId);
+  assert.equal(reopened.data.wishes[0].votes, 1);
+  await reopened.voteWish(secondId);
+  assert.equal(reopened.data.wishes[1].votes, 1);
+  assert.equal(reopened.data.wishes[0].votes, 1);
+  assert.equal(localStorage.getItem('holdwin-wish-voter-v1'), voterId);
+  assert.equal(calls.length, 0);
+});
+
+test('votes reject missing wishes and stale tabs without overwriting another change', async (t) => {
+  setup(t);
+  const store = new InventoryStore();
+  await store.init();
+  await store.submitWish({ name: '氣泡水' });
+  const wishId = store.data.wishes[0].id;
+  const stale = new InventoryStore();
+  await stale.init();
+  const before = localStorage.getItem(DATA_KEY);
+  await assert.rejects(store.voteWish('missing'), /找不到這個願望/);
+  assert.equal(localStorage.getItem(DATA_KEY), before);
+  await store.voteWish(wishId);
+  await assert.rejects(stale.voteWish(wishId), /另一個分頁/);
+  assert.equal(stale.data.wishes[0].votes, 0);
+  assert.equal(JSON.parse(localStorage.getItem(DATA_KEY)).data.wishes[0].votes, 1);
+  await stale.read();
+  await stale.voteWish(wishId);
+  assert.equal(stale.data.wishes[0].votes, 1);
+});
+
+test('unsupported shared voting never writes local fallback data', async (t) => {
+  setup(t, [{ path: READ_PATH, result: row() }]);
+  const store = new InventoryStore(CONFIG);
+  await store.init();
+  assert.equal(store.canManage, false);
+  await assert.rejects(store.voteWish('wish-1'), /尚未啟用贊同/);
+  assert.equal(localStorage.getItem(DATA_KEY), null);
+  assert.equal(localStorage.getItem('holdwin-wish-voter-v1'), null);
+});
+
+test('new stock records require a recorder while older history remains valid', async (t) => {
+  setup(t);
+  const data = createCompanyData();
+  data.events.push({ id: 'old-count', type: 'count', drinkId: data.drinks[0].id, quantity: 20, createdAt: TIMESTAMP });
+  localStorage.setItem(DATA_KEY, JSON.stringify({ data, revision: 0, updatedAt: TIMESTAMP }));
+  const store = new InventoryStore();
+  await store.init();
+  await store.save(structuredClone(store.data));
+  const before = localStorage.getItem(DATA_KEY);
+  for (const recorder of [undefined, '', '  ', 5, '人'.repeat(81)]) {
+    const next = structuredClone(store.data);
+    next.events.push({ id: 'new-arrival', type: 'restock', drinkId: data.drinks[0].id, quantity: 12, createdAt: TIMESTAMP, recorder });
+    await assert.rejects(store.save(next), /請填寫登記人/);
+    assert.equal(localStorage.getItem(DATA_KEY), before);
+  }
+  const next = structuredClone(store.data);
+  next.events.push({ id: 'new-arrival', type: 'restock', drinkId: data.drinks[0].id, quantity: 12, createdAt: TIMESTAMP, recorder: '茶水間同事' });
+  await store.save(next);
+  assert.equal(store.data.events.at(-1).recorder, '茶水間同事');
+  assert.deepEqual(store.data.events[0], data.events[0]);
+});
+
+test('blocked voter storage fails clearly without incrementing the vote', async (t) => {
+  setup(t);
+  const store = new InventoryStore();
+  await store.init();
+  await store.submitWish({ name: '果汁' });
+  const wishId = store.data.wishes[0].id;
+  const before = localStorage.getItem(DATA_KEY);
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = (key, value) => {
+    if (key === 'holdwin-wish-voter-v1') throw new Error('storage blocked');
+    return originalSetItem(key, value);
+  };
+  await assert.rejects(store.voteWish(wishId), /無法儲存此瀏覽器的贊同紀錄/);
+  assert.equal(localStorage.getItem(DATA_KEY), before);
+  assert.equal(store.data.wishes[0].votes, 0);
 });

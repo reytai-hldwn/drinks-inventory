@@ -3,73 +3,237 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { COMPANY_CATALOG } from '../js/catalog.js';
 import test from 'node:test';
-test('Google warehouse calculations, intake authorization, public privacy and archives', async () => {
-const code=await readFile(new URL('../google-apps-script/Code.gs', import.meta.url),'utf8');
-const props=new Map();
-const properties={getProperty:key=>props.get(key)??null,setProperty:(key,value)=>{props.set(key,value);return properties;}};
-const ctx=vm.createContext({console,Date,JSON,Number,PropertiesService:{getScriptProperties:()=>properties}});
-vm.runInContext(code,ctx);
-const plain=x=>JSON.parse(JSON.stringify(x));
-assert.equal(ctx.INITIAL_CATALOG.length,29);
-assert.deepEqual(plain(ctx.INITIAL_CATALOG.map(d=>d.name)),COMPANY_CATALOG.map(d=>d.name));
-assert.ok(ctx.INITIAL_CATALOG.every(d=>!('stock'in d)&&!('perCase'in d)));
-const drinks=[{id:'tea',name:'茶',threshold:10,active:true},{id:'coffee',name:'咖啡',threshold:10,active:true}];
-const event=(id,type,quantity,date,accepted=true,drinkId='tea')=>({id,type,quantity,createdAt:`2026-10-${date}T00:00:00Z`,accepted,drinkId});
-let inventory=ctx.computeInventory_(drinks,[event('c1','count',20,'01'),event('a1','restock',12,'02')]);
-assert.equal(inventory[0].stock,32);assert.equal(inventory[1].stock,null);
-inventory=ctx.computeInventory_(drinks,[event('c1','count',20,'01'),event('a1','restock',12,'02'),event('c2','count',7,'03'),event('a2','restock',5,'04'),event('bad','restock',99,'05',false)]);
-assert.equal(inventory[0].stock,12);assert.equal(inventory[0].receivedAfterCount,5);
-assert.equal(ctx.computeInventory_(drinks,[event('a1','restock',12,'02')])[0].stock,null);
-props.set('HOLDWIN_PRIVATE_FORMS_READY','true');props.set('HOLDWIN_ADMIN_INTAKE_SINCE','2026-10-01T00:00:00Z');props.set('HOLDWIN_ADMINS',JSON.stringify(['owner@example.com','boss@example.com']));
-props.set('HOLDWIN_COUNT_FORM_ID','count');props.set('HOLDWIN_ARRIVAL_FORM_ID','arrival');props.set('HOLDWIN_WISH_FORM_ID','wish');
-props.set('HOLDWIN_FORM_FIELDS',JSON.stringify({count:{'1':'tea'},arrivalDrink:'2',arrivalQuantity:'3',arrivalNote:'4'}));
-const response=(id,email,date,answers)=>({getRespondentEmail:()=>email,getTimestamp:()=>new Date(`2026-10-${date}T00:00:00Z`),getId:()=>id,getItemResponses:()=>Object.entries(answers).map(([key,value])=>({getItem:()=>({getId:()=>Number(key)}),getResponse:()=>value}))});
-const forms={count:{getResponses:()=>[response('goodcount','owner@example.com','02',{'1':'20'}),response('old','owner@example.com','00',{'1':'100'})]},arrival:{getResponses:()=>[response('goodarrival','boss@example.com','03',{'2':'tea｜茶','3':'12'}),response('forged','attacker@example.com','04',{'2':'tea｜茶','3':'999','email':'owner@example.com'}),response('anonymous','','04',{'2':'tea｜茶','3':'999'})]},wish:{getResponses:()=>[],getPublishedUrl:()=> 'https://docs.google.com/forms/d/e/publicwish/viewform'}};
-// Invalid timestamp fixture replaced with a valid pre-enablement date.
-forms.count.getResponses=()=>[response('goodcount','owner@example.com','02',{'1':'20'}),{...response('old','owner@example.com','01',{'1':'100'}),getTimestamp:()=>new Date('2026-09-30T00:00:00Z')}];
-ctx.FormApp={openById:id=>forms[id]};
-const events=ctx.intakeEvents_(drinks);
-assert.equal(events.filter(e=>e.accepted).length,2);
-assert.equal(events.filter(e=>!e.accepted).length,3);
-assert.equal(ctx.computeInventory_(drinks,events)[0].stock,32);
-props.set('HOLDWIN_PRIVATE_FORMS_READY','false');assert.deepEqual(plain(ctx.intakeEvents_(drinks)),[]);
-const catalogRows=COMPANY_CATALOG.map(d=>[d.id,d.name,d.category,d.packaging,d.unit,'',10,true]);
-const wishRows=[['wish-1','新飲料','https://example.com/drink','不加糖','pending','2026-10-30T00:00:00Z']];
-const sheets={Catalog:{getLastRow:()=>30,getRange:()=>({getValues:()=>catalogRows})},WishReview:{getLastRow:()=>2,getRange:(row,col,n,columns)=>{assert.equal(columns,6);return{getValues:()=>wishRows};}},Warehouse:{getSheetId:()=>7,getRange:()=>{throw Error('PRIVATE STOCK READ');}}};
-const ss={getUrl:()=> 'https://docs.google.com/spreadsheets/d/privatewarehouse/edit',getSheetByName:name=>sheets[name]};
-props.set('HOLDWIN_SHEET_ID','ss');props.set('HOLDWIN_PUBLIC_UPDATED_AT','2026-10-30T00:00:00Z');
-ctx.SpreadsheetApp={openById:id=>{assert.equal(id,'ss');return ss;}};
-ctx.FormApp={openById:id=>{assert.equal(id,'wish','Public GET must never read private forms');return forms.wish;}};
-ctx.ContentService={MimeType:{JSON:'json',JAVASCRIPT:'js'},createTextOutput:body=>({body,setMimeType(type){this.type=type;return this;}})};
-const data=ctx.publicData_();assert.equal(data.drinks.length,29);assert.equal(data.wishes.length,1);assert.equal(data.drinks[0].perCase,null);
-assert.deepEqual(Object.keys(data).sort(),['ok','provider','drinks','wishes','formUrls','adminUrl','updatedAt'].sort());
-for(const item of data.drinks){for(const key of ['stock','quantity','events','lastCountAt','email']) assert.equal(key in item,false);}
-const serialized=JSON.stringify(data);assert.equal(serialized.includes('owner@example.com'),false);assert.equal(serialized.includes('boss@example.com'),false);
-assert.equal(data.formUrls.wish,'https://docs.google.com/forms/d/e/publicwish/viewform');
-const jsonp=ctx.doGet({parameter:{callback:'holdwinCallback'}});assert.equal(jsonp.type,'js');assert.match(jsonp.body,/^holdwinCallback\(/);
-assert.deepEqual(JSON.parse(ctx.doGet({parameter:{action:'warehouse'}}).body),{ok:false,error:'unsupported_action'});
-assert.deepEqual(JSON.parse(ctx.doGet({parameter:{callback:'alert(1)//'}}).body),{ok:false,error:'invalid_callback'});
-assert.equal(ctx.safeUrl_('javascript:alert(1)'),'');assert.equal(ctx.safeUrl_('https://u:p@example.com'),'');assert.equal(ctx.safeUrl_('https://example.com/a?x=1'),'https://example.com/a?x=1');assert.equal(ctx.sheetText_('=IMPORTXML("x")'),"'=IMPORTXML(\"x\")");
-// Admins can start with one account; historical accepted decisions survive later changes.
-ctx.ADMIN_EMAILS=['owner@example.com'];ctx.setupConfig();assert.equal(JSON.parse(props.get('HOLDWIN_ADMINS')).length,1);
-ctx.ADMIN_EMAILS=['owner@example.com','OWNER@example.com'];assert.throws(()=>ctx.setupConfig(),/不可重複/);
-const ledgerRows=[['goodcount:1','2026-10-02T00:00:00Z','count','tea','茶',20,'','old@example.com','採計'],['goodarrival:arrival','2026-10-03T00:00:00Z','restock','tea','茶',12,'','old@example.com','採計']];
-const recorded=ctx.historyEvents_({getSheetByName:()=>({getLastRow:()=>3,getRange:()=>({getValues:()=>ledgerRows})})});
-const seen=Object.fromEntries(recorded.map(e=>[e.id.slice(0,e.id.lastIndexOf(':')),true]));
-props.set('HOLDWIN_ADMINS',JSON.stringify(['new@example.com']));props.set('HOLDWIN_PRIVATE_FORMS_READY','true');
-ctx.FormApp={openById:id=>forms[id]};
-const fresh=ctx.intakeEvents_(drinks,seen);
-assert.equal(ctx.computeInventory_(drinks,[...recorded,...fresh])[0].stock,32);
-assert.ok(fresh.every(e=>!e.accepted));
-// Exercise the generated private views and inclusive threshold rule with sheet mocks.
-const writes=[];const rules=[];
-const range=(row,col,n,columns)=>({row,col,n,columns,setValue(value){writes.push({row,col,value});return this;},setValues(values){writes.push({row,col,values});return this;},setFormula(value){writes.push({row,col,formula:value});return this;},setNumberFormat(){return this;},setFontWeight(){return this;},setBackground(){return this;},setFontColor(){return this;}});
-const view={clearContents(){},getRange:range,setFrozenRows(){},setColumnWidth(){}};
-const viewSs={getSheetByName:()=>view};
-ctx.renderArchive_(viewSs,[{drink:{id:'oldtea',name:'舊茶',category:'茶飲',packaging:'鐵罐',unit:'罐',perCase:null,threshold:10,active:false},stock:32,lastCountAt:'2026-10-02T00:00:00Z',receivedAfterCount:12},{drink:drinks[1],stock:10,lastCountAt:null,receivedAfterCount:0}]);
-const archive=writes.find(w=>w.row===5&&w.values);assert.equal(archive.values.length,1);assert.equal(archive.values[0][0],'oldtea');assert.equal(archive.values[0][6],32);
-forms.count.getPublishedUrl=()=> 'https://docs.google.com/forms/d/e/privatecount/viewform';forms.arrival.getPublishedUrl=()=> 'https://docs.google.com/forms/d/e/privatearrival/viewform';
-ctx.SpreadsheetApp.newConditionalFormatRule=()=>{const r={whenFormulaSatisfied(formula){rules.push(formula);return this;},setBackground(){return this;},setFontColor(){return this;},setRanges(){return this;},build(){return this;}};return r;};view.setConditionalFormatRules=()=>{};writes.length=0;
-ctx.renderWarehouse_(viewSs,[{drink:{...drinks[0],perCase:null,unit:'包',category:'茶飲',packaging:'鋁箔包'},stock:10,lastCountAt:null,receivedAfterCount:0}]);
-const warehouse=writes.find(w=>w.row===7&&w.values);assert.equal(warehouse.values[0][6],10);assert.equal(warehouse.values[0][9],'需要補貨');assert.ok(rules.includes('=AND(ISNUMBER($G7),$G7<=$K7)'));
+function backend() {
+  const props = new Map();
+  const properties = { getProperty: key => props.get(key) ?? null, setProperty(key, value) { props.set(key, value); return this; } };
+  const ctx = vm.createContext({ console, Date, JSON, Number, PropertiesService: { getScriptProperties: () => properties } });
+  return readFile(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8').then(code => { vm.runInContext(code, ctx); return { ctx, props }; });
+}
+const plain = value => JSON.parse(JSON.stringify(value));
+function response(id, answers, time = '2026-10-03T00:00:00Z') {
+  return { getId: () => id, getTimestamp: () => new Date(time), getItemResponses: () => Object.entries(answers).map(([key, value]) => ({ getItem: () => ({ getId: () => Number(key) }), getResponse: () => value })) };
+}
+function memorySheet(rows = []) {
+  return { rows, getLastRow: () => rows.length, getSheetId: () => 7, setFrozenRows() {}, setColumnWidth() {},
+    getRange(row, column, count = 1, columns = 1) {
+      const range = new Proxy({
+        getValues: () => Array.from({ length: count }, (_, offset) => Array.from({ length: columns }, (_, col) => rows[row - 1 + offset]?.[column - 1 + col] ?? '')),
+        setValues(values) { values.forEach((valuesRow, offset) => { rows[row - 1 + offset] ||= []; valuesRow.forEach((value, col) => { rows[row - 1 + offset][column - 1 + col] = value; }); }); return range; },
+        setValue(value) { rows[row - 1] ||= []; rows[row - 1][column - 1] = value; return range; },
+      }, { get: (target, property) => property in target ? target[property] : () => range });
+      return range;
+    },
+  };
+}
+
+test('anonymous stocktake and arrival require recorder and validate whole counts before intake', async () => {
+  const { ctx, props } = await backend();
+  const catalog = [{ id: 'tea', name: '茶', active: true }, { id: 'water', name: '水', active: true }];
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ count: { 1: 'tea', 2: 'water' }, countRecorder: '3', arrivalRecorder: '4', arrivalDrink: '5', arrivalQuantity: '6', arrivalNote: '7' }));
+  ctx.forms_ = () => ({ stocktake: { getResponses: () => [
+    response('count1', { 1: '20', 2: '0', 3: '小王' }, '2026-10-02T00:00:00Z'),
+    response('missing-name', { 1: '99', 2: '1' }),
+    response('partial-count', { 1: '99', 3: '小陳' }),
+    response('bad-name', { 1: '99', 2: '1', 3: 'a'.repeat(81) }),
+  ] }, arrival: { getResponses: () => [
+    response('arrival1', { 4: '小李', 5: 'tea｜茶', 6: '12', 7: '今天到貨' }),
+    response('missing-arrival-name', { 5: 'tea｜茶', 6: '99' }),
+    response('unknown-drink', { 4: '小李', 5: 'unknown｜未知', 6: '3' }),
+    response('zero-arrival', { 4: '小李', 5: 'tea｜茶', 6: '0' }),
+  ] } });
+  const events = ctx.intakeEvents_(catalog);
+  const accepted = events.filter(event => event.accepted);
+  assert.equal(accepted.length, 3);
+  assert.equal(events.filter(event => !event.accepted).length, 6);
+  assert.deepEqual(plain(accepted.map(event => event.recorder)), ['小王', '小王', '小李']);
+  assert.equal(ctx.computeInventory_(catalog, events)[0].stock, 32);
+  assert.equal(ctx.computeInventory_(catalog, events)[1].stock, 0);
+  assert.equal(ctx.computeInventory_(catalog, [{ id: 'a', drinkId: 'tea', type: 'restock', quantity: 5, accepted: true, createdAt: '2026-10-04T00:00:00Z' }])[0].stock, null);
+  const seen = Object.fromEntries(events.map(event => [event.id.slice(0, event.id.lastIndexOf(':')), true]));
+  assert.deepEqual(plain(ctx.intakeEvents_(catalog, seen)), []);
+  ctx.ADMIN_EMAILS = []; assert.doesNotThrow(() => ctx.setupConfig());
+  ctx.ADMIN_EMAILS = ['owner@example.com', 'OWNER@example.com']; assert.throws(() => ctx.setupConfig(), /不可重複/);
+});
+
+test('public fridge omits stocks while anonymous warehouse exposes only accepted events and recorder names', async () => {
+  const { ctx, props } = await backend();
+  assert.equal(ctx.INITIAL_CATALOG.length, 32);
+  assert.deepEqual(plain(ctx.INITIAL_CATALOG.map(drink => drink.name)), COMPANY_CATALOG.map(drink => drink.name));
+  assert.ok(ctx.INITIAL_CATALOG.every(drink => !('stock' in drink)));
+  const sheets = {
+    Catalog: memorySheet([['id', 'name', 'category', 'packaging', 'unit', 'perCase', 'threshold', 'active'], ['tea', '茶', '茶飲', '鋁箔包', '包', '', 10, true]]),
+    WishReview: memorySheet([['id', 'name', 'url', 'note', 'status', 'createdAt'], ['wish-one', '新飲料', 'https://example.com', '', 'pending', '2026-10-01T00:00:00Z']]),
+    WishVotes: memorySheet([['id', 'wish', 'voter', 'date', 'status'], ['vote1', 'wish-one', 'browser-1234567890123456', '2026-10-02T00:00:00Z', '採計']]),
+    History: memorySheet([['id', 'time', 'type', 'drink', 'name', 'quantity', 'note', 'recorder', 'status'],
+      ['c1', '2026-10-02T00:00:00Z', 'count', 'tea', '茶', 10, '實盤', 'private@example.com', '採計'],
+      ['a1', '2026-10-03T00:00:00Z', 'restock', 'tea', '茶', 2, '實收', '小王', '採計'],
+      ['bad', '2026-10-04T00:00:00Z', 'rejected', '', '', '', 'bad', 'private@example.com', '未採計']]),
+    Warehouse: memorySheet(),
+  };
+  const ss = { getSheetByName: name => sheets[name], getUrl: () => 'https://docs.google.com/spreadsheets/d/privateSheet/edit' };
+  ctx.requiredSpreadsheet_ = () => ss;
+  ctx.forms_ = () => Object.fromEntries(['wish', 'stocktake', 'arrival', 'vote'].map(kind => [kind, { getPublishedUrl: () => `https://docs.google.com/forms/d/e/${kind}/viewform` }]));
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ voteWishEntry: '123', voteVoterEntry: '456' }));
+  const front = ctx.publicData_();
+  assert.equal(front.wishes[0].votes, 1);
+  assert.equal(front.drinks[0].stock, undefined);
+  assert.equal(front.events, undefined);
+  assert.equal(JSON.stringify(front).includes('browser-1234567890123456'), false);
+  const warehouse = ctx.warehouseData_();
+  assert.equal(warehouse.drinks[0].stock, 12);
+  assert.equal(warehouse.drinks[0].lastCountAt, '2026-10-02T00:00:00.000Z');
+  assert.equal(warehouse.events.length, 2);
+  assert.deepEqual(plain(warehouse.events.map(event => event.recorder)), ['先前管理者', '小王']);
+  assert.equal(warehouse.lastInventoryAt, '2026-10-02T00:00:00.000Z');
+  assert.equal(JSON.stringify(warehouse).includes('private@example.com'), false);
+  assert.equal(warehouse.events[0].email, undefined);
+  assert.deepEqual(plain(front.voteForm), { url: 'https://docs.google.com/forms/d/e/vote/viewform', wishEntryId: '123', voterEntryId: '456' });
+  ctx.ContentService = { MimeType: { JSON: 'json', JAVASCRIPT: 'js' }, createTextOutput: body => ({ body, setMimeType(type) { this.type = type; return this; } }) };
+  assert.equal(JSON.parse(ctx.doGet({ parameter: { action: 'warehouse' } }).body).drinks[0].stock, 12);
+  assert.deepEqual(JSON.parse(ctx.doGet({ parameter: { action: 'write' } }).body), { ok: false, error: 'unsupported_action' });
+  assert.deepEqual(JSON.parse(ctx.doGet({ parameter: { callback: 'alert(1)//' } }).body), { ok: false, error: 'invalid_callback' });
+  assert.match(ctx.doGet({ parameter: { callback: 'safeCallback' } }).body, /^safeCallback\(/);
+});
+
+test('wish votes deduplicate browser/wish pairs and reject invalid references without changing wishes or inventory', async () => {
+  const { ctx, props } = await backend();
+  const wishSheet = memorySheet([['id', 'name', 'url', 'note', 'status', 'createdAt'], ['wish-one', '新飲料', '', '喜歡', 'purchased', '2026-10-01T00:00:00Z']]);
+  const voteSheet = memorySheet([['id', 'wish', 'voter', 'date', 'status']]);
+  const sheets = { WishReview: wishSheet, WishVotes: voteSheet };
+  const ss = { getSheetByName: name => sheets[name] };
+  const beforeWish = structuredClone(wishSheet.rows);
+  const voters = ['browser-1234567890123456', 'browser-9876543210987654'];
+  const answers = (wish, voter) => ({ 11: wish, 12: voter });
+  const responses = [response('v1', answers('wish-one', voters[0])), response('v2', answers('wish-one', voters[0])), response('v3', answers('wish-one', voters[1])), response('v4', answers('wish-unknown', voters[1])), response('v5', answers('wish-one', 'short'))];
+  props.set('HOLDWIN_VOTE_FORM_ID', 'vote');
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ voteWish: '11', voteVoter: '12' }));
+  ctx.FormApp = { openById: () => ({ getResponses: () => responses }) };
+  ctx.syncVotes_(ss);
+  assert.equal(voteSheet.rows.length, 6);
+  assert.equal(ctx.voteCounts_(ss)['wish-one'], 2);
+  assert.equal(ctx.voteCounts_(ss)['wish-unknown'], undefined);
+  assert.equal(voteSheet.rows.filter(row => row[4] === '採計').length, 2);
+  assert.deepEqual(wishSheet.rows, beforeWish);
+  ctx.syncVotes_(ss);
+  assert.equal(voteSheet.rows.length, 6);
+  assert.equal(ctx.voteCounts_(ss)['wish-one'], 2);
+  // Counting also ignores duplicate ledger pairs if a row was accidentally copied.
+  voteSheet.rows.push([...voteSheet.rows[1]]);
+  assert.equal(ctx.voteCounts_(ss)['wish-one'], 2);
+});
+
+test('Google catalog initialization appends missing products without overwriting existing rows', async () => {
+  const code = await readFile(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8');
+  const rows = COMPANY_CATALOG.slice(0, 29).map((drink) => [drink.id, drink.name, drink.category, drink.packaging, drink.unit, '', 10, true]);
+  rows[0][2] = '管理者自訂分類';
+  rows[0][5] = 12;
+  rows[0][7] = false;
+  const before = structuredClone(rows);
+  const sheet = {
+    getLastRow: () => rows.length + 1,
+    setFrozenRows() { return this; },
+    getRange(row, column, count = 1, columns = 1) {
+      const range = new Proxy({
+        getValues: () => rows.slice(row - 2, row - 2 + count).map((item) => item.slice(column - 1, column - 1 + columns)),
+        setValues(values) {
+          values.forEach((value, index) => { rows[row - 2 + index] = [...value]; });
+          return range;
+        },
+      }, { get(target, property) { return property in target ? target[property] : () => range; } });
+      return range;
+    },
+  };
+  const validation = { requireCheckbox() { return this; }, build() { return {}; } };
+  const ctx = vm.createContext({ console, Date, JSON, Number, SpreadsheetApp: { newDataValidation: () => validation } });
+  vm.runInContext(code, ctx);
+  const spreadsheet = { getSheetByName(name) { assert.equal(name, 'Catalog'); return sheet; } };
+  ctx.initializeCatalog_(spreadsheet);
+  assert.equal(rows.length, 32);
+  assert.deepEqual(rows.slice(0, 29), before);
+  assert.deepEqual(rows.slice(29).map((row) => row.slice(0, 5)), COMPANY_CATALOG.slice(29).map((drink) => [drink.id, drink.name, drink.category, drink.packaging, '瓶']));
+  assert.ok(rows.slice(29).every((row) => row[5] === '' && row[6] === 10 && row[7] === true));
+  const firstRun = structuredClone(rows);
+  ctx.initializeCatalog_(spreadsheet);
+  assert.deepEqual(rows, firstRun, 'running setup again must neither duplicate nor overwrite products');
+});
+
+
+test('Google catalog corrects the known chocolate tea typo without changing user fields', async () => {
+  const code = await readFile(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8');
+  const rows = COMPANY_CATALOG.map((drink) => [drink.id, drink.name, drink.category, drink.packaging, drink.unit, '', 10, true]);
+  const old = rows.find((row) => row[0] === 'company-drink-09');
+  old[1] = '立頓巧克力牛奶'; old[2] = '牛奶／豆漿'; old[5] = 12; old[7] = false;
+  const before = structuredClone(rows);
+  const sheet = {
+    getLastRow: () => rows.length + 1,
+    setFrozenRows() { return this; },
+    getRange(row, column, count = 1, columns = 1) {
+      const range = new Proxy({
+        getValues: () => rows.slice(row - 2, row - 2 + count).map((item) => item.slice(column - 1, column - 1 + columns)),
+        setValue(value) { rows[row - 2][column - 1] = value; return range; },
+        setValues(values) {
+          values.forEach((value, index) => {
+            if (!rows[row - 2 + index]) rows[row - 2 + index] = [];
+            value.forEach((item, offset) => { rows[row - 2 + index][column - 1 + offset] = item; });
+          });
+          return range;
+        },
+      }, { get(target, property) { return property in target ? target[property] : () => range; } });
+      return range;
+    },
+  };
+  const validation = { requireCheckbox() { return this; }, build() { return {}; } };
+  const ctx = vm.createContext({ console, Date, JSON, Number, SpreadsheetApp: { newDataValidation: () => validation } });
+  vm.runInContext(code, ctx);
+  const spreadsheet = { getSheetByName: () => sheet };
+  ctx.initializeCatalog_(spreadsheet);
+  const updated = rows.find((row) => row[0] === 'company-drink-09');
+  assert.deepEqual(updated, [before[8][0], '立頓巧克力奶茶', '茶飲', ...before[8].slice(3)]);
+  updated[1] = '立頓巧克力牛奶'; updated[2] = '公司自訂分類';
+  ctx.initializeCatalog_(spreadsheet);
+  const custom = rows.find((row) => row[0] === 'company-drink-09');
+  assert.equal(custom[1], '立頓巧克力奶茶');
+  assert.equal(custom[2], '公司自訂分類');
+});
+
+test('form setup removes account checks, requires recorders and exports real prefill entry IDs', async () => {
+  const { ctx, props } = await backend();
+  let sequence = 100;
+  function form(kind) {
+    const result = { kind, items: [], collectEmail: true, accepting: false,
+      getItems() { return this.items; },
+      getPublishedUrl() { return `https://docs.google.com/forms/d/e/${kind}/viewform`; },
+      setTitle(value) { this.title = value; return this; },
+      setDescription() { return this; },
+      setCollectEmail(value) { this.collectEmail = value; return this; },
+      setLimitOneResponsePerUser(value) { this.limitOnce = value; return this; },
+      setShowLinkToRespondAgain() { return this; }, setAllowResponseEdits() { return this; },
+      setAcceptingResponses(value) { this.accepting = value; return this; },
+      createResponse() { let answer; return { withItemResponse(value) { answer = value; return this; }, toPrefilledUrl() { return `${result.getPublishedUrl()}?usp=pp_url&entry.${answer.id + 90000}=${encodeURIComponent(answer.value)}`; } }; },
+    };
+    function addItem() {
+      const item = { id: ++sequence, title: '', getId() { return this.id; }, getTitle() { return this.title; }, setTitle(value) { this.title = value; return this; }, setRequired(value) { this.required = value; return this; }, setValidation() { return this; }, setChoiceValues(values) { this.choices = values; return this; }, asTextItem() { return this; }, asParagraphTextItem() { return this; }, asListItem() { return this; }, createResponse(value) { return { id: this.id, value }; } };
+      result.items.push(item); return item;
+    }
+    result.addTextItem = result.addListItem = result.addParagraphTextItem = addItem;
+    return result;
+  }
+  const forms = Object.fromEntries(['stocktake', 'arrival', 'wish', 'vote'].map(kind => [kind, form(kind)]));
+  for (const [kind, property] of Object.entries({ stocktake: 'HOLDWIN_COUNT_FORM_ID', arrival: 'HOLDWIN_ARRIVAL_FORM_ID', wish: 'HOLDWIN_WISH_FORM_ID', vote: 'HOLDWIN_VOTE_FORM_ID' })) props.set(property, kind);
+  props.set('HOLDWIN_PRIVATE_FORMS_READY', 'false');
+  const validation = () => { const builder = new Proxy({ build: () => ({}) }, { get: (target, key) => key in target ? target[key] : () => builder }); return builder; };
+  ctx.FormApp = { openById: id => forms[id], createTextValidation: validation, createParagraphTextValidation: validation };
+  ctx.catalog_ = () => [{ id: 'tea', name: '茶', unit: '包', active: true }];
+  ctx.configureForms_({});
+  const fields = JSON.parse(props.get('HOLDWIN_FORM_FIELDS'));
+  assert.ok(Object.values(forms).every(form => form.collectEmail === false && form.limitOnce === false && form.accepting === true));
+  assert.equal(forms.stocktake.items.find(item => item.title === '登記人').required, true);
+  assert.equal(forms.arrival.items.find(item => item.title === '登記人').required, true);
+  assert.equal(fields.voteWishEntry, String(Number(fields.voteWish) + 90000));
+  assert.equal(fields.voteVoterEntry, String(Number(fields.voteVoter) + 90000));
+  assert.notEqual(fields.voteWishEntry, fields.voteWish);
+  assert.notEqual(fields.voteVoterEntry, fields.voteVoter);
+  const ids = Object.values(forms).flatMap(form => form.items.map(item => item.id));
+  ctx.configureForms_({});
+  assert.deepEqual(Object.values(forms).flatMap(form => form.items.map(item => item.id)), ids, 'setup rerun must preserve existing questions and their response IDs');
 });
