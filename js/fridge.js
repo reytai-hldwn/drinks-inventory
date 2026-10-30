@@ -1,5 +1,6 @@
 import { escapeHtml as h, stockStatus } from './domain.js';
 import { CATEGORIES_ORDER } from './catalog.js';
+import { findProductPhoto } from './product-photos.js';
 
 const FRIDGE_DOOR_TIMERS = new WeakMap();
 const FRIDGE_CONTENT_ID = 'pantry-fridge-content';
@@ -31,11 +32,6 @@ const FRIDGE_PACK_LABELS = new Map([
   ['Miiki', ['Milkis']],
   ['Milkis', ['Milkis']],
 ]);
-const FRIDGE_PRODUCT_PHOTOS = new Map([
-  ['Miilkis', './assets/milkis-original.png'],
-  ['Miiki', './assets/milkis-original.png'],
-  ['Milkis', './assets/milkis-original.png'],
-]);
 
 function fridgePackName(name) {
   const lines = FRIDGE_PACK_LABELS.get(name);
@@ -52,8 +48,8 @@ function fridgeIconFor(category) {
 
 /** Packaging is visual: a drawing never represents a number of containers. */
 export function drinkPack(drink) {
-  const photo = FRIDGE_PRODUCT_PHOTOS.get(drink.name);
-  if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo" src="${h(photo)}" alt="" aria-hidden="true" width="64" height="132" loading="lazy" decoding="async"><span class="pack-shadow"></span></div>`;
+  const photo = findProductPhoto(drink.name);
+  if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo${photo.height === 113 ? ' drink-product-photo-carton' : ''}" src="${h(photo.src)}" alt="" aria-hidden="true" width="84" height="${photo.height}" loading="lazy" decoding="async"><span class="pack-shadow"></span></div>`;
   let colors = ['#749b75', '#f2eedb', '#35513c'];
   if (/紅茶|蜜茶|烏龍/.test(drink.name)) colors = ['#a96740', '#f1e1bb', '#6b382c'];
   if (/奶|乳|豆|米漿/.test(drink.name)) colors = ['#dfc79e', '#fff6dc', '#7f5d3e'];

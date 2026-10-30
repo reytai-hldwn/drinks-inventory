@@ -229,6 +229,70 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
     "category": "大瓶飲料",
     "packaging": "大瓶裝",
     "unit": "瓶"
+  },
+  {
+    "id": "company-drink-33",
+    "name": "愛之味純濃燕麥",
+    "category": "其他",
+    "packaging": "寶特瓶",
+    "unit": "瓶",
+    "active": false
+  },
+  {
+    "id": "company-drink-34",
+    "name": "光泉燕麥奶",
+    "category": "牛奶／豆漿",
+    "packaging": "窄瓶鋁箔包",
+    "unit": "包",
+    "active": false
+  },
+  {
+    "id": "company-drink-35",
+    "name": "雪碧",
+    "category": "汽水",
+    "packaging": "小型鐵罐",
+    "unit": "罐",
+    "active": false
+  },
+  {
+    "id": "company-drink-36",
+    "name": "紅牌蜂蜜奶茶",
+    "category": "茶飲",
+    "packaging": "鋁箔包",
+    "unit": "包",
+    "active": false
+  },
+  {
+    "id": "company-drink-37",
+    "name": "立頓蜂蜜紅茶",
+    "category": "茶飲",
+    "packaging": "寶特瓶",
+    "unit": "瓶",
+    "active": false
+  },
+  {
+    "id": "company-drink-38",
+    "name": "蘋果西打",
+    "category": "汽水",
+    "packaging": "小型鐵罐",
+    "unit": "罐",
+    "active": false
+  },
+  {
+    "id": "company-drink-39",
+    "name": "克寧草莓優酪乳",
+    "category": "牛奶／豆漿",
+    "packaging": "窄瓶鋁箔包",
+    "unit": "包",
+    "active": false
+  },
+  {
+    "id": "company-drink-40",
+    "name": "愛之味麥仔茶",
+    "category": "茶飲",
+    "packaging": "鋁箔包",
+    "unit": "包",
+    "active": false
   }
 ] /* GENERATED_CATALOG_END */;
 var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', setup: 'Setup' };
@@ -524,7 +588,7 @@ function initializeCatalog_(ss) {
     }
   });
   var additions = INITIAL_CATALOG.filter(function (drink) { return !knownIds[drink.id]; }).map(function (drink) {
-    return [drink.id, drink.name, drink.category, drink.packaging, drink.unit, '', 10, true];
+    return [drink.id, drink.name, drink.category, drink.packaging, drink.unit, '', 10, drink.active !== false];
   });
   if (additions.length) {
     var startRow = sheet.getLastRow() + 1;

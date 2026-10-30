@@ -231,7 +231,7 @@ test('local demo edits persist across store instances without network calls', as
   const first = new InventoryStore();
   await first.init();
   assert.equal(first.mode, 'demo');
-  assert.equal(first.data.drinks.length, 32);
+  assert.equal(first.data.drinks.length, 40);
   assert.equal(first.canEdit, true);
   const changed = structuredClone(first.data);
   changed.drinks[0].stock = 123;
@@ -399,8 +399,8 @@ test('stored version-one catalog is upgraded once without resetting user stock o
   localStorage.setItem(DATA_KEY, JSON.stringify({ data, revision: 5, updatedAt: TIMESTAMP }));
   const first = new InventoryStore();
   await first.init();
-  assert.equal(first.data.drinks.length, 32);
-  assert.equal(first.data.catalogVersion, 2);
+  assert.equal(first.data.drinks.length, 40);
+  assert.equal(first.data.catalogVersion, 4);
   assert.equal(first.data.drinks[0].stock, 35);
   assert.equal(first.data.drinks[0].active, false);
   assert.deepEqual(first.data.events, data.events);
@@ -409,6 +409,58 @@ test('stored version-one catalog is upgraded once without resetting user stock o
   const second = new InventoryStore();
   await second.init();
   assert.equal(second.revision, 6);
+  assert.deepEqual(second.data, first.data);
+});
+
+test('stored version-two catalog adds historical products once without changing existing user records', async (t) => {
+  setup(t);
+  const data = createCompanyData();
+  data.catalogVersion = 2;
+  data.drinks = data.drinks.slice(0, 32);
+  data.drinks[0].stock = 18;
+  data.drinks[0].lastCountAt = TIMESTAMP;
+  data.events = [{ id: 'existing-count', type: 'count', drinkId: data.drinks[0].id, quantity: 18, createdAt: TIMESTAMP }];
+  data.wishes = [{ id: 'existing-wish', name: '既有願望', votes: 2, voterIds: ['visitor-1', 'visitor-2'], status: 'pending', createdAt: TIMESTAMP }];
+  localStorage.setItem(DATA_KEY, JSON.stringify({ data, revision: 9, updatedAt: TIMESTAMP }));
+  const first = new InventoryStore();
+  await first.init();
+  assert.equal(first.revision, 10);
+  assert.equal(first.data.catalogVersion, 4);
+  assert.deepEqual(first.data.drinks.slice(0, 32), data.drinks);
+  assert.deepEqual(first.data.drinks.slice(32).map((drink) => [drink.name, drink.active]), [
+    ['愛之味純濃燕麥', false], ['光泉燕麥奶', false], ['雪碧', false],
+    ['紅牌蜂蜜奶茶', false], ['立頓蜂蜜紅茶', false], ['蘋果西打', false], ['克寧草莓優酪乳', false], ['愛之味麥仔茶', false],
+  ]);
+  assert.deepEqual(first.data.events, data.events);
+  assert.deepEqual(first.data.wishes, data.wishes);
+  const second = new InventoryStore();
+  await second.init();
+  assert.equal(second.revision, 10);
+  assert.deepEqual(second.data, first.data);
+});
+
+test('stored version-three catalog retains prior archives and appends five newly stopped drinks once', async (t) => {
+  setup(t);
+  const data = createCompanyData();
+  data.catalogVersion = 3;
+  data.drinks = data.drinks.slice(0, 35);
+  Object.assign(data.drinks[32], { active: true, stock: 4, name: '重新採購的純濃燕麥', lastCountAt: TIMESTAMP });
+  data.events = [{ id: 'archive-count', type: 'count', drinkId: data.drinks[32].id, quantity: 4, createdAt: TIMESTAMP }];
+  data.wishes = [{ id: 'archive-wish', name: '再買燕麥', status: 'purchased', votes: 2 }];
+  localStorage.setItem(DATA_KEY, JSON.stringify({ data, revision: 12, updatedAt: TIMESTAMP }));
+  const first = new InventoryStore();
+  await first.init();
+  assert.equal(first.revision, 13);
+  assert.equal(first.data.catalogVersion, 4);
+  assert.deepEqual(first.data.drinks.slice(0, 35), data.drinks);
+  assert.deepEqual(first.data.drinks.slice(35).map((drink) => [drink.name, drink.active]), [
+    ['紅牌蜂蜜奶茶', false], ['立頓蜂蜜紅茶', false], ['蘋果西打', false], ['克寧草莓優酪乳', false], ['愛之味麥仔茶', false],
+  ]);
+  assert.deepEqual(first.data.events, data.events);
+  assert.deepEqual(first.data.wishes, data.wishes);
+  const second = new InventoryStore();
+  await second.init();
+  assert.equal(second.revision, 13);
   assert.deepEqual(second.data, first.data);
 });
 

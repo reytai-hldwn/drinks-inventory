@@ -28,6 +28,9 @@ jobs:
   build:
     if: ${{ vars.GOOGLE_SCRIPT_URL != '' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     steps:
       - name: Check out source
         uses: actions/checkout@v4

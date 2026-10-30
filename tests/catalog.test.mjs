@@ -9,16 +9,37 @@ const expectedNames = [
   '荔枝氣泡水', '零卡可口可樂', '零卡百事可樂', '八寶粥', '可口可樂', '百事可樂', '黑松沙士',
   'Milkiis水蜜桃', 'Miilkis', 'Redbull能量飲', 'Vida氣泡飲', '蜂蜜燕麥', '麥萃麥茶', '原萃綠茶', '十全果醋',
   '冷萃金萱烏龍', 'Moriyama紅茶', 'Moriyama奶茶',
+  '愛之味純濃燕麥', '光泉燕麥奶', '雪碧',
+  '紅牌蜂蜜奶茶', '立頓蜂蜜紅茶', '蘋果西打', '克寧草莓優酪乳', '愛之味麥仔茶',
 ];
 
-test('company catalog preserves all 32 supplied names with stable IDs', () => {
+test('company catalog preserves all 40 supplied names with stable IDs', () => {
   assert.deepEqual(COMPANY_CATALOG.map((drink) => drink.name), expectedNames);
   assert.deepEqual(COMPANY_CATALOG.map((drink) => drink.id), expectedNames.map((_, index) => `company-drink-${String(index + 1).padStart(2, '0')}`));
 });
 
+test('the eight formerly purchased drinks begin archived without fabricated quantities', () => {
+  assert.equal(COMPANY_CATALOG.filter((drink) => drink.active).length, 32);
+  assert.deepEqual(COMPANY_CATALOG.filter((drink) => !drink.active).map((drink) => [drink.id, drink.name, drink.category, drink.packaging, drink.unit]), [
+    ['company-drink-33', '愛之味純濃燕麥', '其他', '寶特瓶', '瓶'],
+    ['company-drink-34', '光泉燕麥奶', '牛奶／豆漿', '窄瓶鋁箔包', '包'],
+    ['company-drink-35', '雪碧', '汽水', '小型鐵罐', '罐'],
+    ['company-drink-36', '紅牌蜂蜜奶茶', '茶飲', '鋁箔包', '包'],
+    ['company-drink-37', '立頓蜂蜜紅茶', '茶飲', '寶特瓶', '瓶'],
+    ['company-drink-38', '蘋果西打', '汽水', '小型鐵罐', '罐'],
+    ['company-drink-39', '克寧草莓優酪乳', '牛奶／豆漿', '窄瓶鋁箔包', '包'],
+    ['company-drink-40', '愛之味麥仔茶', '茶飲', '鋁箔包', '包'],
+  ]);
+  for (const drink of COMPANY_CATALOG.slice(32)) {
+    assert.equal(drink.lastCountAt, null);
+    assert.equal(drink.perCase, null);
+    assert.equal(drink.stock, 0, 'zero is an unobserved placeholder, not a stocktake');
+  }
+});
+
 test('semantic milk category is first while tea and rice drink stay distinct', () => {
   assert.deepEqual(CATEGORIES_ORDER, ['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
-  assert.deepEqual(COMPANY_CATALOG.filter((drink) => drink.category === '牛奶／豆漿').map((drink) => drink.name), [
+  assert.deepEqual(COMPANY_CATALOG.filter((drink) => drink.active && drink.category === '牛奶／豆漿').map((drink) => drink.name), [
     '光泉牛乳', '光泉巧克力牛乳', '統一豆漿',
   ]);
   const category = (name) => COMPANY_CATALOG.find((drink) => drink.name === name).category;
@@ -27,14 +48,14 @@ test('semantic milk category is first while tea and rice drink stay distinct', (
   assert.equal(category('立頓巧克力奶茶'), '茶飲');
   assert.equal(category('光泉薏仁糙米漿'), '其他');
   assert.equal(category('蜂蜜燕麥'), '其他');
-  assert.deepEqual(Object.fromEntries(CATEGORIES_ORDER.map((name) => [name, COMPANY_CATALOG.filter((drink) => drink.category === name).length])), {
+  assert.deepEqual(Object.fromEntries(CATEGORIES_ORDER.map((name) => [name, COMPANY_CATALOG.filter((drink) => drink.active && drink.category === name).length])), {
     '牛奶／豆漿': 3, '茶飲': 7, '咖啡': 0, '果汁': 4, '汽水': 9, '其他': 6, '大瓶飲料': 3,
   });
 });
 
 test('packaging affects drawing independently of semantic categories and container units', () => {
   assert.deepEqual(Object.fromEntries(['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '其他', '大瓶裝'].map((packaging) => [packaging, COMPANY_CATALOG.filter((drink) => drink.packaging === packaging).length])), {
-    '窄瓶鋁箔包': 5, '鋁箔包': 9, '鐵罐': 4, '小型鐵罐': 3, '長鐵罐': 4, '寶特瓶': 3, '其他': 1, '大瓶裝': 3,
+    '窄瓶鋁箔包': 7, '鋁箔包': 11, '鐵罐': 4, '小型鐵罐': 5, '長鐵罐': 4, '寶特瓶': 5, '其他': 1, '大瓶裝': 3,
   });
   for (const drink of COMPANY_CATALOG) {
     assert.equal(drink.unit, ['寶特瓶', '大瓶裝'].includes(drink.packaging) ? '瓶' : drink.packaging.includes('鐵罐') ? '罐' : '包');
@@ -43,7 +64,7 @@ test('packaging affects drawing independently of semantic categories and contain
 
 test('company data starts unknown with no invented stocktake, box size, target or history', () => {
   const data = createCompanyData();
-  assert.equal(data.catalogVersion, 2);
+  assert.equal(data.catalogVersion, 4);
   assert.equal(data.lastInventoryAt, null);
   assert.deepEqual(data.events, []);
   assert.deepEqual(data.wishes, []);
@@ -63,7 +84,7 @@ test('unchanged fictional catalog and its synthetic history and wishes are repla
   const old = sampleData();
   const before = structuredClone(old);
   const result = prepareCompanyCatalog(old);
-  assert.equal(result.drinks.length, 32);
+  assert.equal(result.drinks.length, 40);
   assert.deepEqual(result.drinks.map((drink) => drink.name), expectedNames);
   assert.deepEqual(result.events, []);
   assert.deepEqual(result.wishes, []);
@@ -95,7 +116,7 @@ test('changed seed drinks, manual events, genuine wishes and custom metadata sur
   assert.deepEqual(result.customMetadata, old.customMetadata);
   assert.equal(result.lastInventoryAt, old.lastInventoryAt);
   assert.deepEqual(old, before);
-  assert.equal(result.drinks.length, 39);
+  assert.equal(result.drinks.length, 47);
 });
 
 test('user-created events with demonstration-like notes are never mistaken for seeded events', () => {
@@ -116,7 +137,7 @@ test('already prepared company data is idempotent and existing company IDs are n
   assert.equal(prepareCompanyCatalog(prepared), prepared);
   const legacy = { drinks: [{ ...data.drinks[0] }], events: [], wishes: [], lastInventoryAt: null };
   const result = prepareCompanyCatalog(legacy);
-  assert.equal(result.drinks.length, 32);
+  assert.equal(result.drinks.length, 40);
   assert.equal(result.drinks[0].stock, 18);
   assert.equal(result.drinks[0].category, '管理員自訂分類');
 });
@@ -128,7 +149,7 @@ test('blank data can be prepared without fixtures or side effects', () => {
 });
 
 
-test('version-one catalog gains only the three large bottles while preserving stock, archives and history', () => {
+test('version-one catalog gains the three large bottles and eight archived products while preserving stock, archives and history', () => {
   const old = createCompanyData();
   old.catalogVersion = 1;
   old.drinks = old.drinks.slice(0, 29);
@@ -143,16 +164,16 @@ test('version-one catalog gains only the three large bottles while preserving st
   old.customMetadata = { warehouse: 'A' };
   const before = structuredClone(old);
   const result = prepareCompanyCatalog(old);
-  assert.equal(result.catalogVersion, 2);
-  assert.equal(result.drinks.length, 32);
+  assert.equal(result.catalogVersion, 4);
+  assert.equal(result.drinks.length, 40);
   assert.deepEqual(result.drinks.slice(0, 29), before.drinks);
   assert.deepEqual(result.events, before.events);
   assert.deepEqual(result.wishes, before.wishes);
   assert.equal(result.lastInventoryAt, before.lastInventoryAt);
   assert.deepEqual(result.customMetadata, before.customMetadata);
   assert.deepEqual(old, before, 'the migration must not mutate existing browser data');
-  assert.deepEqual(result.drinks.slice(29).map((drink) => drink.name), ['冷萃金萱烏龍', 'Moriyama紅茶', 'Moriyama奶茶']);
-  for (const drink of result.drinks.slice(29)) {
+  assert.deepEqual(result.drinks.slice(29, 32).map((drink) => drink.name), ['冷萃金萱烏龍', 'Moriyama紅茶', 'Moriyama奶茶']);
+  for (const drink of result.drinks.slice(29, 32)) {
     assert.equal(drink.category, '大瓶飲料');
     assert.equal(drink.packaging, '大瓶裝');
     assert.equal(drink.unit, '瓶');
@@ -170,8 +191,8 @@ test('version-one upgrade retains existing large-bottle edits and custom product
   data.drinks = [...data.drinks.slice(0, 29), existing, { id: 'custom-water', name: '公司水', category: '其他', stock: 8 }];
   const before = structuredClone(data.drinks);
   const result = prepareCompanyCatalog(data);
-  assert.equal(result.drinks.length, 33);
-  assert.equal(new Set(result.drinks.map((drink) => drink.id)).size, 33);
+  assert.equal(result.drinks.length, 41);
+  assert.equal(new Set(result.drinks.map((drink) => drink.id)).size, 41);
   for (const drink of before) assert.deepEqual(result.drinks.find((item) => item.id === drink.id), drink);
   assert.deepEqual(result.drinks.find((drink) => drink.id === 'company-drink-31'), existing);
   assert.equal(prepareCompanyCatalog(result), result);
@@ -200,4 +221,68 @@ test('version-one typo correction preserves the product ID, counts, archive stat
   const renamed = prepareCompanyCatalog(data).drinks.find((item) => item.id === drink.id);
   assert.equal(renamed.name, '管理者自訂巧克力飲');
   assert.equal(renamed.category, '公司自訂分類');
+});
+
+test('version-two upgrade only adds archived products and preserves current inventory, wishes and history', () => {
+  const data = createCompanyData();
+  data.catalogVersion = 2;
+  data.drinks = data.drinks.slice(0, 32);
+  Object.assign(data.drinks[0], { name: '管理者品名', stock: 18, active: false, perCase: 12, lastCountAt: '2026-10-30T00:00:00Z' });
+  data.events = [{ id: 'stock-count', type: 'count', drinkId: data.drinks[0].id, quantity: 18, createdAt: data.drinks[0].lastCountAt }];
+  data.wishes = [{ id: 'wish-1', name: '同事願望', status: 'pending', votes: 3 }];
+  data.lastInventoryAt = data.drinks[0].lastCountAt;
+  data.customMetadata = { location: 'office' };
+  const before = structuredClone(data);
+  const upgraded = prepareCompanyCatalog(data);
+  assert.equal(upgraded.catalogVersion, 4);
+  assert.equal(upgraded.drinks.length, 40);
+  assert.deepEqual(upgraded.drinks.slice(0, 32), before.drinks);
+  assert.ok(upgraded.drinks.slice(32).every((drink) => drink.active === false && drink.lastCountAt === null));
+  assert.deepEqual(upgraded.events, before.events);
+  assert.deepEqual(upgraded.wishes, before.wishes);
+  assert.equal(upgraded.lastInventoryAt, before.lastInventoryAt);
+  assert.deepEqual(upgraded.customMetadata, before.customMetadata);
+  assert.deepEqual(data, before);
+  assert.equal(prepareCompanyCatalog(upgraded), upgraded);
+});
+
+test('version-two upgrade preserves already restored archive IDs and does not recreate removed active products', () => {
+  const data = createCompanyData();
+  data.catalogVersion = 2;
+  data.drinks = data.drinks.filter((drink) => !['company-drink-30', 'company-drink-34', 'company-drink-35'].includes(drink.id));
+  const restored = data.drinks.find((drink) => drink.id === 'company-drink-33');
+  Object.assign(restored, { name: '已復買的純濃燕麥', active: true, stock: 5, category: '自訂分類', perCase: 6, lastCountAt: '2026-10-30T00:00:00Z' });
+  data.events = [{ id: 'arrival-1', type: 'restock', drinkId: restored.id, quantity: 5, createdAt: restored.lastCountAt }];
+  const before = structuredClone(data);
+  const upgraded = prepareCompanyCatalog(data);
+  assert.equal(upgraded.drinks.length, 39);
+  assert.equal(new Set(upgraded.drinks.map((drink) => drink.id)).size, 39);
+  assert.deepEqual(upgraded.drinks.find((drink) => drink.id === restored.id), restored);
+  assert.equal(upgraded.drinks.some((drink) => drink.id === 'company-drink-30'), false);
+  assert.deepEqual(upgraded.events, before.events);
+  assert.deepEqual(data, before);
+});
+
+test('version-three upgrade appends only the five new archives and preserves reopened or renamed products', () => {
+  const data = createCompanyData();
+  data.catalogVersion = 3;
+  const newExisting = { ...data.drinks[35], name: '重新上架的蜂蜜奶茶', active: true, stock: 9, perCase: 12, lastCountAt: '2026-10-30T00:00:00Z' };
+  data.drinks = [...data.drinks.slice(0, 35), newExisting].filter((drink) => drink.id !== 'company-drink-30');
+  data.drinks.find((drink) => drink.id === 'company-drink-33').active = true;
+  data.events = [{ id: 'restored-count', type: 'count', drinkId: newExisting.id, quantity: 9, createdAt: newExisting.lastCountAt }];
+  data.wishes = [{ id: 'wish-1', name: '想再喝到的', status: 'pending', votes: 2 }];
+  const before = structuredClone(data);
+  const upgraded = prepareCompanyCatalog(data);
+  assert.equal(upgraded.catalogVersion, 4);
+  assert.equal(upgraded.drinks.length, 39);
+  assert.equal(new Set(upgraded.drinks.map((drink) => drink.id)).size, 39);
+  for (const drink of before.drinks) assert.deepEqual(upgraded.drinks.find((item) => item.id === drink.id), drink);
+  assert.deepEqual(upgraded.drinks.slice(-4).map((drink) => [drink.id, drink.active]), [
+    ['company-drink-37', false], ['company-drink-38', false], ['company-drink-39', false], ['company-drink-40', false],
+  ]);
+  assert.equal(upgraded.drinks.some((drink) => drink.id === 'company-drink-30'), false);
+  assert.deepEqual(upgraded.events, before.events);
+  assert.deepEqual(upgraded.wishes, before.wishes);
+  assert.deepEqual(data, before);
+  assert.equal(prepareCompanyCatalog(upgraded), upgraded);
 });
