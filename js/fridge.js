@@ -54,11 +54,12 @@ export function drinkPack(drink) {
     const [originalWidth, originalHeight] = photo.originalSize;
     const scale = Math.min(84 / width, photo.height / height);
     const px = (value) => `${(value * scale).toFixed(3)}px`;
-    // Keep the supplied image intact. A CSS viewport shows the single product,
-    // excluding store badges or neighbouring cartons without repainting labels.
-    return `<div class="drink-pack-group drink-pack-group-photo"><span class="drink-photo-viewport" style="width:${px(width)};height:${px(height)}"><img class="drink-product-photo drink-product-photo-original" style="width:${px(originalWidth)};height:${px(originalHeight)};left:-${px(x)};top:-${px(y)}" src="${h(photo.src)}" alt="" aria-hidden="true" width="${originalWidth}" height="${originalHeight}" loading="lazy" decoding="async"></span><span class="pack-shadow"></span></div>`;
+    const clip = photo.outline ? `;clip-path:polygon(${photo.outline.map(([pointX, pointY]) => `${((pointX - x) / width * 100).toFixed(4)}% ${((pointY - y) / height * 100).toFixed(4)}%`).join(',')})` : '';
+    // The silhouette removes the background while the original pixels retain
+    // white labels, silver cans and every printed detail inside the product.
+    return `<div class="drink-pack-group drink-pack-group-photo"><span class="drink-photo-viewport" style="width:${px(width)};height:${px(height)}${clip}"><img class="drink-product-photo drink-product-photo-original" style="width:${px(originalWidth)};height:${px(originalHeight)};left:-${px(x)};top:-${px(y)}" src="${h(photo.src)}" alt="" aria-hidden="true" width="${originalWidth}" height="${originalHeight}" loading="lazy" decoding="async"></span></div>`;
   }
-  if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo${photo.height === 113 ? ' drink-product-photo-carton' : ''}" src="${h(photo.src)}" alt="" aria-hidden="true" width="84" height="${photo.height}" loading="lazy" decoding="async"><span class="pack-shadow"></span></div>`;
+  if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo${photo.height === 113 ? ' drink-product-photo-carton' : ''}" src="${h(photo.src)}" alt="" aria-hidden="true" width="84" height="${photo.height}" loading="lazy" decoding="async"></div>`;
   let colors = ['#749b75', '#f2eedb', '#35513c'];
   if (/紅茶|蜜茶|烏龍/.test(drink.name)) colors = ['#a96740', '#f1e1bb', '#6b382c'];
   if (/奶|乳|豆|米漿/.test(drink.name)) colors = ['#dfc79e', '#fff6dc', '#7f5d3e'];
@@ -80,7 +81,7 @@ export function drinkPack(drink) {
     '其他': 'drink-pack-sachet',
   }[drink.packaging] || (drink.unit === '瓶' ? 'drink-pack-bottle' : drink.unit === '罐' ? 'drink-pack-can' : 'drink-pack-carton');
 
-  return `<div class="drink-pack-group" style="--pack-color:${colors[0]};--pack-label:${colors[1]};--pack-ink:${colors[2]}"><div class="drink-pack ${packagingClass}" aria-hidden="true"><span class="pack-cap"></span><span class="pack-fold"></span><span class="pack-label">${fridgePackName(drink.name)}<b>${h(drink.icon || fridgeIconFor(drink.category))}</b></span></div><span class="pack-shadow"></span></div>`;
+  return `<div class="drink-pack-group" style="--pack-color:${colors[0]};--pack-label:${colors[1]};--pack-ink:${colors[2]}"><div class="drink-pack ${packagingClass}" aria-hidden="true"><span class="pack-cap"></span><span class="pack-fold"></span><span class="pack-label">${fridgePackName(drink.name)}<b>${h(drink.icon || fridgeIconFor(drink.category))}</b></span></div></div>`;
 }
 
 function renderFridgeProduct(drink, showQuantities, dateLabel) {

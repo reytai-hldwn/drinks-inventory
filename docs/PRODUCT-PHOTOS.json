@@ -556,5 +556,6 @@
     }
   ],
   "pending": [],
-  "note": "原圖檔案未修改，僅在網站用 CSS 顯示單品範圍；光泉無糖豆漿.png 實為統一陽光無加糖豆奶。 飲料圖片補.zip 內 Tree Top 蘋果汁.jpg 實為立頓沁香奶綠宣傳圖，取右側奶綠單包；Tree Top 蘋果汁.webp 才是蘋果汁。"
+  "note": "原圖檔案未修改，依商品輪廓透明呈現，移除輪廓外白底與陰影，保留商品內部白色與印刷細節；光泉無糖豆漿.png 實為統一陽光無加糖豆奶。 飲料圖片補.zip 內 Tree Top 蘋果汁.jpg 實為立頓沁香奶綠宣傳圖，取右側奶綠單包；Tree Top 蘋果汁.webp 才是蘋果汁。",
+  "rendering": "CSS silhouette clip-path; no added product shadows or background blending."
 }
