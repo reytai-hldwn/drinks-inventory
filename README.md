@@ -18,6 +18,8 @@
 
 ## 本機試用
 
+可從 [預覽 ZIP](https://raw.githubusercontent.com/reytai-hldwn/drinks-inventory/main/downloads/holdwin-pantry-preview.zip) 下載，解壓縮後以瀏覽器開啟 `demo.html`。此下載包含全部商品圖，不需要額外安裝。
+
 `demo.html` 是可獨立開啟的單檔示範，內嵌程式與品牌圖片。若瀏覽器限制本機檔案，請啟動開發伺服器：
 
 ```sh
