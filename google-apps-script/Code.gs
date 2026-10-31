@@ -298,6 +298,7 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
 var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup' };
 var PRODUCT_CATEGORIES = ['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料'];
 var PRODUCT_PACKAGING = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
+var DEFAULT_CASE_SIZE = 24;
 var PRODUCT_INTAKE_HEADERS = ['回應 ID', 'Google 收件時間', '品項 ID', '飲料名稱', '分類', '包裝', '登記人', '採計狀態'];
 
 function setupConfig() {
@@ -320,6 +321,7 @@ function setupOnce() {
       props.setProperty('HOLDWIN_SHEET_ID', ss.getId());
     }
     initializeCatalog_(ss);
+    migrateCaseSizes_(ss);
     ensureSheet_(ss, SHEETS.history, ['事件 ID', 'Google 收件時間', '類型', '品項 ID', '飲料名稱', '數量', '備註', '登記人', '採計狀態']);
     ss.getSheetByName(SHEETS.history).getRange(1, 8).setValue('登記人');
     var wishes = ensureSheet_(ss, SHEETS.wishes, ['願望 ID', '品項名稱', '購買連結', '備註', '狀態', 'Google 收件時間', '許願分類']);
@@ -499,11 +501,12 @@ function publicRecorder_(value) {
 
 function refreshWarehouse_() {
   var ss = requiredSpreadsheet_();
+  var caseSizesUpdated = migrateCaseSizes_(ss);
   // Add actual submitted products before reading stock responses, then update
   // form choices in the same locked refresh. No count or arrival is invented.
   var added = syncNewProducts_(ss);
   var props = PropertiesService.getScriptProperties();
-  if (added || props.getProperty('HOLDWIN_CATALOG_FORMS_DIRTY') === 'true') {
+  if (caseSizesUpdated || added || props.getProperty('HOLDWIN_CATALOG_FORMS_DIRTY') === 'true') {
     configureForms_(ss);
     props.setProperty('HOLDWIN_CATALOG_FORMS_DIRTY', 'false');
   }
@@ -565,19 +568,21 @@ function intakeEvents_(catalog, seenResponses) {
       if (kind === 'stocktake') {
         var active = catalog.filter(function (drink) { return drink.active !== false; });
         var pending = [];
-        var valid = active.length > 0 && active.every(function (drink) {
+        var valid = active.every(function (drink) {
           var itemId = Object.keys(fields.count || {}).filter(function (id) { return fields.count[id] === drink.id; })[0];
+          if (!itemId || answers[itemId] == null || String(answers[itemId]).trim() === '') return true;
           var quantity = quantity_(answers[itemId], true);
-          if (!itemId || quantity === null) return false;
+          if (quantity === null) return false;
           pending.push({ id: responseId + ':' + itemId, type: 'count', drinkId: drink.id, quantity: quantity, createdAt: stamp, recorder: recorder, email: recorder, accepted: true, note: 'Google 表單實際盤點' });
           return true;
         });
-        if (!valid) reject('完整盤點有品項未填或數量無效；整份未計入庫存');
+        if (!valid || !pending.length) reject('請至少填寫一個品項，且已填數量須為有效整數；整份未計入庫存');
         else events = events.concat(pending);
       } else {
         var drinkId = String(answers[fields.arrivalDrink] || '').split('｜')[0].trim();
-        var quantity = quantity_(answers[fields.arrivalQuantity], false);
-        if (!catalog.some(function (drink) { return drink.id === drinkId && drink.active !== false; }) || quantity === null) {
+        var drink = catalog.filter(function (entry) { return entry.id === drinkId && entry.active !== false; })[0];
+        var quantity = arrivalQuantity_(answers[fields.arrivalCases], answers[fields.arrivalQuantity], drink && drink.perCase);
+        if (!drink || quantity === null) {
           reject('到貨品項或數量無效；未計入庫存');
           return;
         }
@@ -610,7 +615,7 @@ function initializeCatalog_(ss) {
     }
   });
   var additions = INITIAL_CATALOG.filter(function (drink) { return !knownIds[drink.id]; }).map(function (drink) {
-    return [drink.id, drink.name, drink.category, drink.packaging, drink.unit, '', 10, drink.active !== false];
+    return [drink.id, drink.name, drink.category, drink.packaging, drink.unit, DEFAULT_CASE_SIZE, 10, drink.active !== false];
   });
   if (additions.length) {
     var startRow = sheet.getLastRow() + 1;
@@ -634,6 +639,22 @@ function catalog_(ss) {
     var threshold = quantity_(row[6], true);
     return { id: id, name: name, category: text_(row[2], 30), packaging: text_(row[3], 30), unit: ['包', '瓶', '罐'].indexOf(row[4]) >= 0 ? row[4] : '包', perCase: perCase, threshold: threshold === null ? 10 : threshold, active: row[7] !== false && String(row[7]).toLowerCase() !== 'false' };
   });
+}
+
+function migrateCaseSizes_(ss) {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('HOLDWIN_CASE_SIZE_VERSION') === '1') return false;
+  var sheet = ss.getSheetByName(SHEETS.catalog);
+  if (!sheet) return false;
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+    sheet.getRange(2, 6, rows.length, 1).setValues(rows.map(function (row) { return [row[0] || row[1] ? DEFAULT_CASE_SIZE : row[5]]; }));
+  }
+  props.setProperty('HOLDWIN_CASE_SIZE_VERSION', '1');
+  props.setProperty('HOLDWIN_CATALOG_FORMS_DIRTY', 'true');
+  props.setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
+  return true;
 }
 
 function productNameKey_(value) {
@@ -676,7 +697,7 @@ function syncNewProducts_(ss) {
       : !knownIds[id] && catalog.length + additions.length >= 1000 ? '未採計：品項數量已達上限' : '採計';
     if (status === '採計' && !knownIds[id]) {
       var unit = ['寶特瓶', '大瓶裝'].indexOf(packaging) >= 0 ? '瓶' : packaging.indexOf('鐵罐') >= 0 ? '罐' : '包';
-      additions.push([id, sheetText_(name), category, packaging, unit, '', 10, true]);
+      additions.push([id, sheetText_(name), category, packaging, unit, DEFAULT_CASE_SIZE, 10, true]);
       knownIds[id] = { id: id }; names[key] = id;
     }
     intake.push([sheetText_(responseId), stamp || '', status === '採計' ? id : '', sheetText_(text_(name, 80)), sheetText_(text_(category, 30)), sheetText_(text_(packaging, 30)), sheetText_(text_(recorder, 80)), status]);
@@ -695,15 +716,15 @@ function syncNewProducts_(ss) {
 function configureForms_(ss) {
   var props = PropertiesService.getScriptProperties();
   var catalog = catalog_(ss);
-  var stocktake = ensureForm_('HOLDWIN_COUNT_FORM_ID', '宏穩茶水間｜完整盤點', ss);
+  var stocktake = ensureForm_('HOLDWIN_COUNT_FORM_ID', '宏穩茶水間｜盤點', ss);
   var arrival = ensureForm_('HOLDWIN_ARRIVAL_FORM_ID', '宏穩茶水間｜到貨入庫', ss);
   var wish = ensureForm_('HOLDWIN_WISH_FORM_ID', '宏穩茶水間｜採買許願池', ss);
   var vote = ensureForm_('HOLDWIN_VOTE_FORM_ID', '宏穩茶水間｜我也喜歡', ss);
   var product = ensureForm_('HOLDWIN_PRODUCT_FORM_ID', '宏穩茶水間｜快速新增飲料', ss);
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   fields.count = fields.count || {};
-  stocktake.setTitle('宏穩茶水間｜完整盤點').setDescription('不用登入，請填寫登記人。啟用品項全部填寫實際單包／瓶／罐數量，沒有就是 0。Google 自動記錄收到表單的時間。').setCollectEmail(false);
-  arrival.setTitle('宏穩茶水間｜到貨入庫').setDescription('不用登入，請填寫登記人。實際收到飲料才登記，以單包／瓶／罐計數；分批收到就分次填寫。Google 自動記錄時間。').setCollectEmail(false);
+  stocktake.setTitle('宏穩茶水間｜盤點').setDescription('不用登入，請填寫登記人。至少填一個品項的實際單包／瓶／罐數量即可；空白代表這次未盤點，保留原紀錄，填 0 才代表實際剩餘 0。Google 自動記錄收到表單的時間；全空白不計入盤點。').setCollectEmail(false);
+  arrival.setTitle('宏穩茶水間｜到貨入庫').setDescription('不用登入，請填寫登記人。整箱或零散數量至少填一項且大於 0；兩項都填會加總，每箱預設 24 包／瓶／罐。實際收到才登記，分批收到就分次填寫。兩項都留白或為 0 不計入庫存。Google 自動記錄時間。').setCollectEmail(false);
   wish.setTitle('宏穩茶水間｜採買許願池').setDescription('先選擇飲料許願或零食許願，再留下想買的品項、連結與備註。許願不用填姓名。').setCollectEmail(false);
   vote.setTitle('宏穩茶水間｜我也喜歡').setDescription('請填姓名，再送出贊同。姓名會顯示在網站的贊同名單。保留網站預填的願望代號與匿名識別碼；同一瀏覽器的同一個願望只計一票。').setCollectEmail(false);
   product.setTitle('宏穩茶水間｜快速新增飲料').setDescription('填品名、分類、包裝與登記人即可新增。圖片可以之後再補，先以包裝示意圖上架；數量仍須另外實際盤點或入庫，不會自動填入。已有品項請沿用原品項，避免重複。').setCollectEmail(false);
@@ -725,14 +746,16 @@ function configureForms_(ss) {
       return (existingId && String(item.getId()) === existingId) || item.getTitle().indexOf(drink.id + '｜') === 0 || item.getTitle().indexOf('[停用] ' + drink.id + '｜') === 0;
     })[0];
     var item = existing ? existing.asTextItem() : stocktake.addTextItem();
-    item.setTitle(drink.id + '｜' + drink.name + '（現存' + drink.unit + '）').setRequired(true).setValidation(countValidator);
+    item.setTitle(drink.id + '｜' + drink.name + '（現存' + drink.unit + '）').setRequired(false).setValidation(countValidator);
     fields.count[String(item.getId())] = drink.id;
   });
   var arrivalDrink = findItem_(arrival, '飲料品項', 'list');
   var active = catalog.filter(function (drink) { return drink.active; });
   if (active.length) arrivalDrink.setChoiceValues(active.map(function (drink) { return drink.id + '｜' + drink.name + '（' + drink.unit + '）'; }));
   arrivalDrink.setRequired(true);
-  var arrivalQuantity = findItem_(arrival, '實際到貨數量（單包／瓶／罐）', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[1-9][0-9]{0,5}$').setHelpText('請填 1 到 999999 的整數，不是箱數。').build());
+  var arrivalCases = findItem_(arrival, '整箱數量', 'text').setRequired(false).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^(0|[1-9][0-9]{0,3})$').setHelpText('每箱預設 24 包／瓶／罐，請填 0 到 9999 的整數；與零散數量至少填一項。').build());
+  // Keep the original loose-quantity question and ID for historical responses.
+  var arrivalQuantity = findItem_(arrival, '實際到貨數量（單包／瓶／罐）', 'text').setRequired(false).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^(0|[1-9][0-9]{0,5})$').setHelpText('填零散的單包／瓶／罐數量，0 到 999999 的整數；與整箱數量至少填一項，兩項都填會加總。').build());
   var arrivalNote = findItem_(arrival, '備註（選填）', 'paragraph').setRequired(false);
   // Rename the original question in place so existing responses retain their ID.
   var oldWishName = wish.getItems().filter(function (item) { return String(item.getId()) === fields.wishName || item.getTitle() === '想喝的飲料' || item.getTitle() === '品項名稱'; })[0];
@@ -748,7 +771,7 @@ function configureForms_(ss) {
   var productPackaging = findItem_(product, '包裝外觀', 'list').setChoiceValues(PRODUCT_PACKAGING).setRequired(true);
   var productRecorder = findItem_(product, '登記人', 'text').setRequired(true).setValidation(recorderValidator);
   fields.countRecorder = String(countRecorder.getId()); fields.arrivalRecorder = String(arrivalRecorder.getId());
-  fields.arrivalDrink = String(arrivalDrink.getId()); fields.arrivalQuantity = String(arrivalQuantity.getId()); fields.arrivalNote = String(arrivalNote.getId());
+  fields.arrivalDrink = String(arrivalDrink.getId()); fields.arrivalCases = String(arrivalCases.getId()); fields.arrivalQuantity = String(arrivalQuantity.getId()); fields.arrivalNote = String(arrivalNote.getId());
   fields.wishName = String(wishName.getId()); fields.wishUrl = String(wishUrl.getId()); fields.wishNote = String(wishNote.getId());
   fields.wishKind = String(wishKind.getId()); fields.wishKindEntry = formEntryId_(wish, wishKind, '飲料');
   fields.voteWish = String(voteWish.getId()); fields.voteVoter = String(voteVoter.getId()); fields.voteName = String(voteName.getId());
@@ -879,7 +902,7 @@ function renderWarehouse_(ss, inventory) {
   sheet.clearContents();
   sheet.getRange(1, 1).setValue('宏穩茶水間｜私人倉庫庫存');
   sheet.getRange(2, 1).setValue('數量＝最近一次實際盤點＋之後實際到貨；尚未盤點顯示待盤點。日常取用不會自動扣除。');
-  sheet.getRange(3, 1).setFormula('=HYPERLINK("' + forms.stocktake.getPublishedUrl() + '","開啟完整盤點表單")');
+  sheet.getRange(3, 1).setFormula('=HYPERLINK("' + forms.stocktake.getPublishedUrl() + '","開啟盤點表單")');
   sheet.getRange(3, 4).setFormula('=HYPERLINK("' + forms.arrival.getPublishedUrl() + '","開啟實際到貨表單")');
   sheet.getRange(4, 1).setValue('檢視更新時間'); sheet.getRange(4, 2).setValue(new Date()).setNumberFormat('yyyy/MM/dd HH:mm');
   var headers = ['品項 ID', '飲料名稱', '分類', '包裝', '單位', '每箱數量', '目前庫存', '最近實際盤點', '盤點後到貨', '狀態', '提醒門檻'];
@@ -917,7 +940,7 @@ function writeSetup_(ss) {
       ['宏穩茶水間｜設定與入口', '網址／說明'],
       ['私人倉庫庫存', ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId()],
       ['封存品項與數量紀錄', ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.archive).getSheetId()],
-      ['完整盤點表單（免登入、必填登記人）', forms.stocktake.getPublishedUrl()],
+      ['盤點表單（免登入、必填登記人，可部分盤點）', forms.stocktake.getPublishedUrl()],
       ['到貨入庫表單（免登入、必填登記人）', forms.arrival.getPublishedUrl()],
       ['同事許願表單（公開）', forms.wish.getPublishedUrl()],
       ['我也喜歡贊同表單（必填姓名、網站預填）', forms.vote.getPublishedUrl()],
@@ -998,6 +1021,15 @@ function quantity_(value, allowZero) {
   if (!/^\d{1,6}$/.test(text)) return null;
   var number = Number(text);
   return Number.isSafeInteger(number) && number >= (allowZero ? 0 : 1) && number <= 999999 ? number : null;
+}
+
+function arrivalQuantity_(casesInput, looseInput, perCase) {
+  function optional(value) { return value == null || String(value).trim() === '' ? 0 : quantity_(value, true); }
+  var cases = optional(casesInput), loose = optional(looseInput);
+  if (cases === null || loose === null || cases > 9999) return null;
+  if (cases > 0 && (!Number.isSafeInteger(perCase) || perCase < 1)) return null;
+  var total = cases * (perCase || 0) + loose;
+  return Number.isSafeInteger(total) && total > 0 && total <= 999999 ? total : null;
 }
 
 function text_(value, max) {

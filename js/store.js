@@ -1,5 +1,5 @@
-import { blankData, safeUrl, uid } from './domain.js';
-import { CATEGORIES_ORDER, createCompanyData, prepareCompanyCatalog } from './catalog.js';
+import { applyInitialStocktake, blankData, safeUrl, uid } from './domain.js';
+import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE, createCompanyData, prepareCompanyCatalog } from './catalog.js';
 
 const DATA_KEY = 'office-pantry-demo-v1';
 const SESSION_KEY = 'office-pantry-session-v1';
@@ -28,6 +28,7 @@ export class InventoryStore {
     this.url = (config.supabaseUrl || '').trim().replace(/\/$/, '');
     this.key = (config.supabaseAnonKey || '').trim();
     this.mode = this.url || this.key ? 'shared' : 'demo';
+    this.initialStocktake = this.mode === 'demo' ? config.initialStocktake : null;
     this.data = blankData();
     this.revision = 0;
     this.user = null;
@@ -137,7 +138,7 @@ export class InventoryStore {
     if (this.mode === 'demo') {
       try {
         const local = JSON.parse(localStorage.getItem(DATA_KEY));
-        const prepared = prepareCompanyCatalog(local?.data);
+        const prepared = applyInitialStocktake(prepareCompanyCatalog(local?.data), this.initialStocktake);
         if (prepared !== local?.data) {
           local.data = prepared;
           local.revision += 1;
@@ -204,7 +205,7 @@ export class InventoryStore {
     const drink = {
       id: `custom-drink-${uid()}`, name: name.trim(), category, packaging,
       unit: ['寶特瓶', '大瓶裝'].includes(packaging) ? '瓶' : packaging.includes('鐵罐') ? '罐' : '包',
-      active: true, perCase: null, threshold: 10, target: null, stock: 0, lastCountAt: null,
+      active: true, perCase: DEFAULT_CASE_SIZE, threshold: 10, target: null, stock: 0, lastCountAt: null,
       createdAt: new Date().toISOString(), createdBy: recorder.trim(),
     };
     const next = structuredClone(this.data);

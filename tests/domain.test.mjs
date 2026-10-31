@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  blankData, escapeHtml, getConsumption, number, safeUrl, sampleData, stockStatus, uid,
+  applyInitialStocktake, blankData, escapeHtml, getConsumption, number, restockQuantity, stocktakeQuantities, safeUrl, sampleData, stockStatus, uid,
 } from '../js/domain.js';
 
 const event = (type, quantity, day, drinkId = 'tea') => ({
@@ -113,4 +113,47 @@ test('demo data contains 30 complete items and internally consistent stocktakes'
     assert.ok(getConsumption(drink.id, data.events).dailyRate > 0);
   }
   assert.deepEqual(blankData(), { drinks: [], events: [], wishes: [], lastInventoryAt: null });
+});
+
+
+test('arrivals accept either case or loose quantity and add both without relaxing stocktakes', () => {
+  assert.equal(restockQuantity('2', '', 24), 48);
+  assert.equal(restockQuantity('', '5', 24), 5);
+  assert.equal(restockQuantity('2', '5', 24), 53);
+  assert.equal(restockQuantity('0', '5', null), 5);
+  assert.equal(restockQuantity(undefined, '5', 24), 5);
+  for (const [cases, loose] of [['', ''], ['0', '0'], [' ', null]]) assert.throws(() => restockQuantity(cases, loose, 24), /至少填一項/);
+  for (const [cases, loose] of [['-1', '3'], ['1', '-3'], ['1.5', ''], ['', '2.5'], ['oops', '2'], [true, '2'], ['10000', ''], ['1', '999999']]) assert.throws(() => restockQuantity(cases, loose, 24));
+  assert.throws(() => restockQuantity('1', '', null), /每箱數量/);
+  assert.throws(() => number(''), /整數/);
+});
+
+
+test('partial stocktakes omit blanks, preserve explicit zero and reject invalid filled quantities', () => {
+  const drinks = [{ id: 'tea' }, { id: 'water' }, { id: 'old', active: false }];
+  assert.deepEqual(stocktakeQuantities(drinks, { tea: '0', water: '', old: '99' }), [{ drinkId: 'tea', quantity: 0 }]);
+  assert.deepEqual(stocktakeQuantities(drinks, { water: '8' }), [{ drinkId: 'water', quantity: 8 }]);
+  assert.deepEqual(stocktakeQuantities(drinks, { tea: '7', water: '8' }), [{ drinkId: 'tea', quantity: 7 }, { drinkId: 'water', quantity: 8 }]);
+  assert.throws(() => stocktakeQuantities(drinks, { tea: ' ', old: '1' }), /至少填寫一個/);
+  for (const value of ['-1', '1.5', '1000000', 'invalid', true]) assert.throws(() => stocktakeQuantities(drinks, { tea: '1', water: value }));
+});
+
+
+test('private preview baselines import once, retain zero and later arrivals, and preserve newer counts', () => {
+  const data = { drinks: [{ id: 'tea', stock: 4, lastCountAt: null }, { id: 'water', stock: 9, lastCountAt: '2020-01-03T00:00:00Z' }], events: [{ id: 'arrival', drinkId: 'tea', type: 'restock', quantity: 4, createdAt: '2020-01-02T00:00:00Z' }], wishes: [{ id: 'wish' }], lastInventoryAt: null };
+  const snapshot = { snapshotId: 'private-test', countedAt: '2020-01-01T00:00:00Z', countedAtApproximate: true, items: [{ id: 'tea', quantity: 0 }, { id: 'water', quantity: 2 }] };
+  const before = structuredClone(data);
+  const result = applyInitialStocktake(data, snapshot);
+  assert.equal(result.drinks[0].stock, 4);
+  assert.equal(result.drinks[0].lastCountAt, '2020-01-01T00:00:00.000Z');
+  assert.equal(result.drinks[1].stock, 9);
+  assert.equal(result.drinks[1].lastCountAt, data.drinks[1].lastCountAt);
+  assert.equal(result.events.length, 3);
+  assert.match(result.events[1].note, /約略/);
+  assert.deepEqual(result.wishes, data.wishes);
+  assert.deepEqual(data, before);
+  result.drinks[0].stock = 8;
+  assert.equal(applyInitialStocktake(result, snapshot), result);
+  assert.equal(applyInitialStocktake(result, null), result);
+  assert.throws(() => applyInitialStocktake(data, { ...snapshot, items: [{ id: 'unknown', quantity: 5 }] }), /品項/);
 });

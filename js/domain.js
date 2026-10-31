@@ -33,6 +33,76 @@ export function number(value) {
   return quantity;
 }
 
+/** Empty arrival fields mean zero; stocktake fields must still be explicit. */
+export function restockQuantity(casesInput, looseInput, perCase) {
+  const optional = (value) => value == null || (typeof value === 'string' && !value.trim()) ? 0 : number(value);
+  const cases = optional(casesInput);
+  const loose = optional(looseInput);
+  if (cases > 0 && (!Number.isSafeInteger(perCase) || perCase < 1)) {
+    throw new Error('此品項尚未設定每箱數量，請先設定，或改以單包／瓶／罐數量入庫。');
+  }
+  const quantity = cases * (perCase || 0) + loose;
+  if (!quantity) throw new Error('整箱或零散數量至少填一項，且須大於 0。');
+  if (cases > 9999 || loose > 999999 || !Number.isSafeInteger(quantity) || quantity > 999999) {
+    throw new Error('單次入庫不可超過 999,999，請確認輸入。');
+  }
+  return quantity;
+}
+
+/** Only explicitly filled active products are part of a stocktake. */
+export function stocktakeQuantities(drinks, values) {
+  const entries = [];
+  for (const drink of drinks.filter((item) => item.active !== false)) {
+    const value = values[drink.id];
+    if (value == null || (typeof value === 'string' && !value.trim())) continue;
+    const quantity = number(value);
+    if (quantity > 999999) throw new Error('盤點數量不可超過 999,999。');
+    entries.push({ drinkId: drink.id, quantity });
+  }
+  if (!entries.length) throw new Error('請至少填寫一個品項的實際數量；未盤點的品項請留白。');
+  return entries;
+}
+
+/** Optional private-preview baseline; never used by the shared database mode. */
+export function applyInitialStocktake(data, snapshot) {
+  if (!snapshot || data.initialStocktakeId === snapshot.snapshotId) return data;
+  const stamp = Date.parse(snapshot.countedAt);
+  if (typeof snapshot.snapshotId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(snapshot.snapshotId) ||
+      !Number.isFinite(stamp) || !Array.isArray(snapshot.items) || !snapshot.items.length) {
+    throw new Error('私人預覽的盤點資料格式不正確。');
+  }
+  const seen = new Set();
+  for (const item of snapshot.items) {
+    if (!data.drinks.some((drink) => drink.id === item.id) || seen.has(item.id) ||
+        !Number.isSafeInteger(item.quantity) || item.quantity < 0 || item.quantity > 999999) {
+      throw new Error('私人預覽的盤點品項或數量不正確。');
+    }
+    seen.add(item.id);
+  }
+  const next = structuredClone(data);
+  const createdAt = new Date(stamp).toISOString();
+  for (const item of snapshot.items) {
+    const drink = next.drinks.find((entry) => entry.id === item.id);
+    const eventId = `${snapshot.snapshotId}:${item.id}`;
+    if (!next.events.some((event) => event.id === eventId)) next.events.push({
+      id: eventId, drinkId: item.id, type: 'count', quantity: item.quantity, createdAt,
+      recorder: '既有盤點', note: snapshot.countedAtApproximate ? '既有盤點匯入（時間為約略時間）' : '既有盤點匯入',
+    });
+    if (!drink.lastCountAt || Date.parse(drink.lastCountAt) <= stamp) {
+      const arrivals = next.events.filter((event) => event.drinkId === item.id && event.type === 'restock' && Date.parse(event.createdAt) > stamp);
+      const stock = item.quantity + arrivals.reduce((total, event) => total + number(event.quantity), 0);
+      if (!Number.isSafeInteger(stock) || stock > 999999) throw new Error('私人預覽的累計庫存超過上限。');
+      drink.stock = stock;
+      drink.lastCountAt = createdAt;
+    }
+  }
+  const active = next.drinks.filter((drink) => drink.active !== false);
+  next.lastInventoryAt = active.length && active.every((drink) => drink.lastCountAt)
+    ? active.map((drink) => drink.lastCountAt).sort()[0] : next.lastInventoryAt;
+  next.initialStocktakeId = snapshot.snapshotId;
+  return next;
+}
+
 export function stockStatus(drink) {
   if (Object.hasOwn(drink, 'lastCountAt') && !drink.lastCountAt) return 'unknown';
   return drink.stock <= drink.threshold ? 'low' : 'ok';

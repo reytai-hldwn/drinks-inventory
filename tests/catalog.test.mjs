@@ -32,7 +32,7 @@ test('the eight formerly purchased drinks begin archived without fabricated quan
   ]);
   for (const drink of COMPANY_CATALOG.slice(32)) {
     assert.equal(drink.lastCountAt, null);
-    assert.equal(drink.perCase, null);
+    assert.equal(drink.perCase, 24);
     assert.equal(drink.stock, 0, 'zero is an unobserved placeholder, not a stocktake');
   }
 });
@@ -62,7 +62,7 @@ test('packaging affects drawing independently of semantic categories and contain
   }
 });
 
-test('company data starts unknown with no invented stocktake, box size, target or history', () => {
+test('company data starts unknown with the requested case size and no invented stocktake, target or history', () => {
   const data = createCompanyData();
   assert.equal(data.catalogVersion, 4);
   assert.equal(data.lastInventoryAt, null);
@@ -71,7 +71,7 @@ test('company data starts unknown with no invented stocktake, box size, target o
   for (const drink of data.drinks) {
     assert.equal(drink.stock, 0);
     assert.equal(drink.lastCountAt, null);
-    assert.equal(drink.perCase, null);
+    assert.equal(drink.perCase, 24);
     assert.equal(drink.target, null);
     assert.equal(drink.threshold, 10);
   }
@@ -109,7 +109,7 @@ test('changed seed drinks, manual events, genuine wishes and custom metadata sur
   const before = structuredClone(old);
   const result = prepareCompanyCatalog(old);
   for (const id of ['demo-drink-1', 'demo-drink-2', 'demo-drink-3', 'demo-drink-4', 'demo-drink-5', 'demo-drink-6', 'real-water']) {
-    assert.deepEqual(result.drinks.find((drink) => drink.id === id), old.drinks.find((drink) => drink.id === id));
+    assert.deepEqual(result.drinks.find((drink) => drink.id === id), { ...old.drinks.find((drink) => drink.id === id), perCase: 24 });
     assert.deepEqual(result.events.filter((event) => event.drinkId === id), old.events.filter((event) => event.drinkId === id));
   }
   assert.deepEqual(result.wishes, [old.wishes[0], actualWish]);
@@ -177,7 +177,7 @@ test('version-one catalog gains the three large bottles and eight archived produ
     assert.equal(drink.category, '大瓶飲料');
     assert.equal(drink.packaging, '大瓶裝');
     assert.equal(drink.unit, '瓶');
-    assert.equal(drink.perCase, null);
+    assert.equal(drink.perCase, 24);
     assert.equal(drink.stock, 0);
     assert.equal(drink.lastCountAt, null);
   }
@@ -285,4 +285,27 @@ test('version-three upgrade appends only the five new archives and preserves reo
   assert.deepEqual(upgraded.wishes, before.wishes);
   assert.deepEqual(data, before);
   assert.equal(prepareCompanyCatalog(upgraded), upgraded);
+});
+
+
+test('case-size migration applies 24 once to old and custom products without changing stock facts', () => {
+  const old = createCompanyData();
+  delete old.caseSizeVersion;
+  old.drinks[0].perCase = null;
+  old.drinks[1].perCase = 12;
+  old.drinks[0].stock = 7;
+  old.drinks[0].lastCountAt = '2026-10-30T00:00:00Z';
+  old.drinks.push({ id: 'custom', name: '新飲料', perCase: 6, stock: 3, active: false });
+  old.events.push({ id: 'arrival', type: 'restock', drinkId: old.drinks[1].id, quantity: 12 });
+  old.wishes.push({ id: 'wish', name: '同事許願' });
+  const before = structuredClone(old);
+  const migrated = prepareCompanyCatalog(old);
+  assert.equal(migrated.caseSizeVersion, 1);
+  assert.ok(migrated.drinks.every(drink => drink.perCase === 24));
+  assert.deepEqual(migrated.drinks.map(({ perCase, ...rest }) => rest), old.drinks.map(({ perCase, ...rest }) => rest));
+  assert.deepEqual(migrated.events, old.events);
+  assert.deepEqual(migrated.wishes, old.wishes);
+  assert.deepEqual(old, before);
+  migrated.drinks[0].perCase = 12;
+  assert.equal(prepareCompanyCatalog(migrated), migrated, 'later manual overrides must survive reloads');
 });

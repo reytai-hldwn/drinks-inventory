@@ -1,11 +1,33 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, realpath, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { extname } from 'node:path';
+import { dirname, extname, isAbsolute, join, basename, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PRODUCT_PHOTOS } from '../js/product-photos.js';
+import { createCompanyData } from '../js/catalog.js';
+import { applyInitialStocktake } from '../js/domain.js';
 
 // A single file for previews and double-click use. No server, npm install,
 // external libraries, fonts, or network connection are required for the demo.
 const root = new URL('../', import.meta.url);
+const argumentsList = process.argv.slice(2);
+let output = new URL('demo.html', root);
+let previewConfig = {};
+if (argumentsList.length) {
+  if (argumentsList.length !== 4 || argumentsList[0] !== '--stocktake' || argumentsList[2] !== '--output') throw new Error('Usage: --stocktake private.json --output /private/path/demo.html');
+  const sourcePath = await realpath(resolve(argumentsList[1]));
+  const outputPath = resolve(argumentsList[3]);
+  const actualOutput = await realpath(outputPath).catch(async (error) => {
+    if (error.code !== 'ENOENT') throw error;
+    return join(await realpath(dirname(outputPath)), basename(outputPath));
+  });
+  const outsideRepository = (path) => { const relation = relative(fileURLToPath(root), path); return relation.startsWith('..' + '/') || isAbsolute(relation); };
+  if (!outsideRepository(sourcePath) || !outsideRepository(actualOutput)) throw new Error('Private snapshots and their preview output must stay outside the repository.');
+  const snapshot = JSON.parse(await readFile(sourcePath, 'utf8'));
+  if (snapshot.pendingConfirmations?.length || snapshot.items?.some((item) => item.requiresConfirmation)) throw new Error('The snapshot still needs confirmation.');
+  previewConfig = { initialStocktake: { snapshotId: snapshot.snapshotId, countedAt: snapshot.countedAt, countedAtApproximate: snapshot.countedAtApproximate === true, items: snapshot.items?.map(({ id, quantity }) => ({ id, quantity })) } };
+  applyInitialStocktake(createCompanyData(), previewConfig.initialStocktake);
+  output = outputPath;
+}
 const read = (path) => readFile(new URL(path, root), 'utf8');
 let html = await read('index.html');
 const [styles, themes, fridge, theme, domain, catalog, productPhotosModule, wishSupportModule, drinkInformationModule, fridgeModule, googleStore, store, app, mark, productImages] = await Promise.all([
@@ -27,8 +49,8 @@ html = html
   .replace('  <link rel="stylesheet" href="./themes.css">', '')
   .replace('  <link rel="stylesheet" href="./fridge.css">', '')
   .replace('  <script src="./theme.js"></script>', `<script>\n${theme}\n</script>`)
-  .replace('  <script src="./config.js"></script>', '<script>window.DRINKS_CONFIG = {};</script>')
+  .replace('  <script src="./config.js"></script>', () => `<script>window.DRINKS_CONFIG = ${JSON.stringify(previewConfig).replaceAll('<', '\\u003c')};</script>`)
   .replace('  <script type="module" src="./js/app.js"></script>', () => `<script type="module">\n${inline}\n</script>`);
 for (const { src, dataUrl } of productImages) html = html.replaceAll(src, dataUrl);
-await writeFile(new URL('demo.html', root), html);
-console.log('Built demo.html — self-contained, local-only, no external requests.');
+await writeFile(output, html);
+console.log('Built a self-contained local preview with no external requests.' + (previewConfig.initialStocktake ? ' Private stocktake included only in the external output.' : ''));

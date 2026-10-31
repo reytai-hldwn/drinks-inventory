@@ -1,6 +1,6 @@
-import { escapeHtml as h, safeUrl, uid, number, getConsumption, stockStatus } from './domain.js';
+import { escapeHtml as h, safeUrl, uid, number, restockQuantity, stocktakeQuantities, getConsumption, stockStatus } from './domain.js';
 import { InventoryStore } from './store.js';
-import { CATEGORIES_ORDER } from './catalog.js';
+import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE } from './catalog.js';
 import { drinkPack, renderFridge, syncFridgeDoor } from './fridge.js';
 import { GoogleInventoryStore } from './google-store.js';
 import { wishSupportDetails, wishSupportPreview } from './wish-support.js';
@@ -144,14 +144,14 @@ function renderGoogleLink(url, label) {
 function renderGoogleEntry() {
   const count = view === 'count';
   main.innerHTML = heading('KEEP THE PANTRY READY', count ? '幫飲料架點個名' : '到貨了，記一筆就好', '免登入，填寫登記人與實際數量，送出後就會留下時間與紀錄。') +
-    `<section class="panel form-panel"><h2>${count ? '登記實際盤點' : '登記到貨入庫'}</h2><p class="page-description">${count ? '一次確認目前供應品項的實際剩餘數量。' : '只登記這次實際收到的單包／瓶／罐數量。'}Google 表單內的「登記人」為必填。送出後回來重新整理，即可查看更新的庫存。</p><div class="form-actions">${renderGoogleLink(count ? store.formUrls.stocktake : store.formUrls.arrival, count ? '填寫盤點表單' : '填寫入庫表單')}<a href="#products" class="button button-outline">查看倉庫庫存</a></div></section>`;
+    `<section class="panel form-panel"><h2>${count ? '登記實際盤點' : '登記到貨入庫'}</h2><p class="page-description">${count ? '至少填一個品項即可，未盤點的品項留白，實際為零請填 0。' : '整箱或零散數量至少填一項，兩項都填會加總；每箱預設 24 包／瓶／罐。'}Google 表單內的「登記人」為必填。送出後回來重新整理，即可查看更新的庫存。</p><div class="form-actions">${renderGoogleLink(count ? store.formUrls.stocktake : store.formUrls.arrival, count ? '填寫盤點表單' : '填寫入庫表單')}<a href="#products" class="button button-outline">查看倉庫庫存</a></div></section>`;
 }
 
 function openDrinkDetails(id) {
   const drink = drinkById(id);
   if (!drink) return;
   if (!store.canEdit) {
-    showModal(h(drink.name), '資料依所提供的包裝核對，尚未確認的欄位會標為待補。', `<div class="drink-detail-hero">${drinkPack(drink)}<div><span class="category-label">${h(drink.category)}</span><p class="subtle">${h(drink.packaging || drink.unit)}</p></div></div>${renderDrinkInformation(drink)}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
+    showModal(h(drink.name), '查看成分、過敏原與營養標示，資料來源與核對日期列於下方。', `<div class="drink-detail-hero">${drinkPack(drink)}<div><span class="category-label">${h(drink.category)}</span><p class="subtle">${h(drink.packaging || drink.unit)}</p></div></div>${renderDrinkInformation(drink)}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
     return;
   }
   const arrival = store.data.events.filter((event) => event.type === 'restock' && event.drinkId === id)
@@ -182,8 +182,8 @@ async function copyLowStock() {
 function renderCount() {
   const drinks = activeDrinks();
   main.innerHTML = heading('A FRESH COUNT', '幫飲料架點個名', '每三天或一週盤點一次，就很夠用了。請填實際剩餘的單瓶／單罐數量。') +
-    '<div class="info-box">請實際清點每一項。按下儲存表示已確認全部品項，即使數量沒變，也會留下新的盤點紀錄。只計算現場實際剩餘的飲料。</div>' +
-    (drinks.length ? `<form id="count-form">${recorderField()}<div class="panel table-scroll"><table class="count-table"><thead><tr><th>飲料品項</th><th>上次帳面庫存</th><th>這次實際盤點</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="muted">${drink.lastCountAt ? `${drink.stock} ${h(drink.unit)}` : '尚未盤點'}</span></td><td><input class="count-input" type="number" inputmode="numeric" min="0" max="999999" step="1" required name="${h(drink.id)}" value="${drink.lastCountAt ? drink.stock : ''}" aria-label="${h(drink.name)}實際剩餘數量"><span class="count-unit">${h(drink.unit)}</span></td></tr>`).join('')}</tbody></table></div><div class="sticky-actions"><span>本次確認全部 ${drinks.length} 種飲料</span><button type="submit" class="button">✓ 儲存本次盤點</button></div></form>` : `<div class="panel">${empty('還沒有飲料品項', '先新增品項，下一步就可以盤點了。', button('＋ 新增品項', 'new-drink'))}</div>`);
+    '<div class="info-box">至少填寫一個品項即可送出。空白代表這次未盤點，保留原紀錄；填 0 代表實際剩餘 0。已填數量即使沒變，也會留下新的盤點紀錄。</div>' +
+    (drinks.length ? `<form id="count-form">${recorderField()}<div class="panel table-scroll"><table class="count-table"><thead><tr><th>飲料品項</th><th>上次帳面庫存</th><th>這次實際盤點</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="muted">${drink.lastCountAt ? `${drink.stock} ${h(drink.unit)}` : '尚未盤點'}</span></td><td><input class="count-input" type="number" inputmode="numeric" min="0" max="999999" step="1" name="${h(drink.id)}" placeholder="未盤點請留白" aria-label="${h(drink.name)}實際剩餘數量"><span class="count-unit">${h(drink.unit)}</span></td></tr>`).join('')}</tbody></table></div><div class="sticky-actions"><span>可選填 ${drinks.length} 種飲料，至少一項</span><button type="submit" class="button">✓ 儲存本次盤點</button></div></form>` : `<div class="panel">${empty('還沒有飲料品項', '先新增品項，下一步就可以盤點了。', button('＋ 新增品項', 'new-drink'))}</div>`);
 }
 
 function renderRestock() {
@@ -192,8 +192,8 @@ function renderRestock() {
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, 5);
   const options = [...drinks].sort((a, b) => (stockStatus(a) === 'low' ? -1 : 1) - (stockStatus(b) === 'low' ? -1 : 1));
   main.innerHTML = heading('A LITTLE REFILL', '到貨了，記一筆就好', '收到多少就記多少，入庫後立即加到帳面庫存，並自動留下時間與數量。') +
-    '<div class="info-box">只登記已實際收到的飲料。可輸入整箱或單包／瓶／罐，每個品項依自己的箱裝數量換算；分批到貨就分次登記。</div>' +
-    (drinks.length ? `<div class="restock-layout"><section class="panel form-panel"><h2>登記到貨入庫</h2><form id="restock-form">${recorderField()}<label class="field">飲料品項<select name="drinkId" id="restock-drink">${options.map((drink) => `<option value="${h(drink.id)}">${h(drink.name)}${stockStatus(drink) === 'low' ? ' · 需要補貨' : ''}</option>`).join('')}</select></label><div class="form-grid"><label class="field">整箱數量<input name="cases" type="number" inputmode="numeric" min="0" max="9999" step="1" value="0" required></label><label class="field"><span id="loose-label">另外的單包／瓶／罐</span><input name="loose" type="number" inputmode="numeric" min="0" max="999999" step="1" value="0" required><small id="loose-hint">不足整箱也可登記</small></label></div><label class="field">備註（選填）<input name="note" maxlength="200" placeholder="例如：下午到貨、分批入庫"></label><div id="restock-summary" class="order-summary"></div><div class="form-actions"><button type="submit" class="button" id="restock-submit">確認到貨入庫</button></div><p class="subtle">儲存時會自動記錄本次入庫時間。</p></form></section><section><div class="section-heading"><h2>最近入庫紀錄</h2><a href="#history" class="text-link">完整紀錄 ↗</a></div><div class="panel">${arrivals.length ? arrivals.map((event) => {
+    '<div class="info-box">只登記已實際收到的飲料。整箱或零散數量至少填一項，兩項都填會加總。每箱預設 24 包／瓶／罐；分批到貨就分次登記。</div>' +
+    (drinks.length ? `<div class="restock-layout"><section class="panel form-panel"><h2>登記到貨入庫</h2><form id="restock-form">${recorderField()}<label class="field">飲料品項<select name="drinkId" id="restock-drink">${options.map((drink) => `<option value="${h(drink.id)}">${h(drink.name)}${stockStatus(drink) === 'low' ? ' · 需要補貨' : ''}</option>`).join('')}</select></label><div class="form-grid"><label class="field">整箱數量<input name="cases" type="number" inputmode="numeric" min="0" max="9999" step="1" placeholder="0"></label><label class="field"><span id="loose-label">另外的單包／瓶／罐</span><input name="loose" type="number" inputmode="numeric" min="0" max="999999" step="1" placeholder="0"><small id="loose-hint">不足整箱也可登記</small></label></div><label class="field">備註（選填）<input name="note" maxlength="200" placeholder="例如：下午到貨、分批入庫"></label><div id="restock-summary" class="order-summary"></div><div class="form-actions"><button type="submit" class="button" id="restock-submit">確認到貨入庫</button></div><p class="subtle">儲存時會自動記錄本次入庫時間。</p></form></section><section><div class="section-heading"><h2>最近入庫紀錄</h2><a href="#history" class="text-link">完整紀錄 ↗</a></div><div class="panel">${arrivals.length ? arrivals.map((event) => {
       const drink = drinkById(event.drinkId);
       return `<article class="order-card"><div class="order-card-top"><div><h3>${h(drink?.name || '已封存品項')}</h3><span class="cell-note">${formatDate(event.createdAt, true)} · ${h(event.recorder || '未記錄登記人')}</span></div><span class="pill pill-ok">＋${event.quantity} ${h(drink?.unit || '個')}</span></div>${event.note ? `<p>${h(event.note)}</p>` : ''}</article>`;
     }).join('') : empty('還沒有入庫紀錄', '第一次到貨登記後，時間與數量會自動記在這裡。')}</div></section></div>` : `<div class="panel">${empty('先把飲料加入清單', '每個品項設定好每箱數量後，就可以快速登記入庫。', button('＋ 新增品項', 'new-drink'))}</div>`);
@@ -242,7 +242,7 @@ function renderAdmin() {
   const pending = store.data.wishes.filter((wish) => wish.status === 'pending').length;
   main.innerHTML = heading('PANTRY MANAGEMENT', '把補給的小事，整理好', '免登入管理。每次盤點或登記到貨，請填寫登記人，方便之後核對。', button('＋ 快速新增飲料', 'quick-add-drink')) +
     `<div class="admin-summary"><span>目前 ${store.data.drinks.length} 種飲料</span><span>${low} 種在 10 以內</span><span>${pending} 個願望待評估</span></div><div class="admin-grid">${[
-      ['count', '☷', '快速盤點', '每三天或一週，輸入所有品項的實際剩餘數量。', '開始盤點'],
+      ['count', '☷', '快速盤點', '可只盤一個品項；未盤點留白，實際為零填 0。', '開始盤點'],
       ['restock', '↗', '到貨入庫', '收到飲料再登記，時間、數量與庫存一併保存。', '登記入庫'],
       ['products', '▦', '倉庫庫存與歷史品項', '查看實際庫存，確認哪些品項需要補貨。', '查看庫存'],
       ['manage-wishes', '♡', '大家的願望', '看看同事想喝的飲料、想吃的零食，以及大家的贊同。', '查看願望'],
@@ -319,7 +319,7 @@ function openQuickDrink() {
 
 function openDrink(id) {
   const drink = drinkById(id);
-  showModal(drink ? '編輯飲料與供應狀態' : '讓飲料架多一個選擇', '停買可收進歷史品項，原本庫存與入庫紀錄仍會保留。', `<form id="drink-form" data-id="${h(id || '')}"><div class="form-grid"><label class="field full-width">飲料名稱<input name="name" required maxlength="80" value="${h(drink?.name || '')}"></label><label class="field">飲料分類<select name="category">${categoryNames().map((name) => `<option value="${h(name)}"${drink?.category === name ? ' selected' : ''}>${h(name)}</option>`).join('')}</select></label><label class="field">包裝外觀<select name="packaging">${packagingTypes.map((type) => `<option value="${h(type)}"${drink?.packaging === type ? ' selected' : ''}>${h(type)}</option>`).join('')}</select></label><label class="field">單個計算單位<select name="unit">${['包', '瓶', '罐'].map((unit) => `<option${drink?.unit === unit ? ' selected' : ''}>${unit}</option>`).join('')}</select></label><label class="field">供應狀態<select name="active"><option value="true"${drink?.active !== false ? ' selected' : ''}>目前供應</option><option value="false"${drink?.active === false ? ' selected' : ''}>歷史品項（停買）</option></select></label><label class="field">每箱數量（可稍後填）<input type="number" inputmode="numeric" min="1" max="9999" step="1" name="perCase" placeholder="待設定" value="${drink?.perCase ?? ''}"><small>未設定時，只登記單包／瓶／罐入庫</small></label><label class="field">補貨提醒門檻<input type="number" inputmode="numeric" min="1" max="999999" step="1" name="threshold" required value="${drink?.threshold ?? 10}"><small>剩餘此數量以內標紅，包含此數量</small></label><label class="field full-width">補貨目標庫存（選填）<input type="number" inputmode="numeric" min="1" max="999999" step="1" name="target" placeholder="待設定" value="${drink?.target ?? ''}"></label></div><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">儲存品項</button></div></form>`);
+  showModal(drink ? '編輯飲料與供應狀態' : '讓飲料架多一個選擇', '停買可收進歷史品項，原本庫存與入庫紀錄仍會保留。', `<form id="drink-form" data-id="${h(id || '')}"><div class="form-grid"><label class="field full-width">飲料名稱<input name="name" required maxlength="80" value="${h(drink?.name || '')}"></label><label class="field">飲料分類<select name="category">${categoryNames().map((name) => `<option value="${h(name)}"${drink?.category === name ? ' selected' : ''}>${h(name)}</option>`).join('')}</select></label><label class="field">包裝外觀<select name="packaging">${packagingTypes.map((type) => `<option value="${h(type)}"${drink?.packaging === type ? ' selected' : ''}>${h(type)}</option>`).join('')}</select></label><label class="field">單個計算單位<select name="unit">${['包', '瓶', '罐'].map((unit) => `<option${drink?.unit === unit ? ' selected' : ''}>${unit}</option>`).join('')}</select></label><label class="field">供應狀態<select name="active"><option value="true"${drink?.active !== false ? ' selected' : ''}>目前供應</option><option value="false"${drink?.active === false ? ' selected' : ''}>歷史品項（停買）</option></select></label><label class="field">每箱數量<input type="number" inputmode="numeric" min="1" max="9999" step="1" name="perCase" placeholder="待設定" value="${drink ? drink.perCase ?? '' : DEFAULT_CASE_SIZE}"><small>新飲料預設每箱 24 包／瓶／罐</small></label><label class="field">補貨提醒門檻<input type="number" inputmode="numeric" min="1" max="999999" step="1" name="threshold" required value="${drink?.threshold ?? 10}"><small>剩餘此數量以內標紅，包含此數量</small></label><label class="field full-width">補貨目標庫存（選填）<input type="number" inputmode="numeric" min="1" max="999999" step="1" name="target" placeholder="待設定" value="${drink?.target ?? ''}"></label></div><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">儲存品項</button></div></form>`);
 }
 
 function openWish(id) {
@@ -420,14 +420,15 @@ async function submitForm(form) {
   const recorder = String(values.get('recorder') || '').trim();
   if (['count-form', 'restock-form'].includes(form.id) && (!recorder || recorder.length > 80)) throw new Error('請填寫登記人，最多 80 字。');
   if (form.id === 'count-form') {
-    for (const drink of next.drinks.filter((item) => item.active !== false)) {
-      const quantity = number(values.get(drink.id));
+    const entries = stocktakeQuantities(next.drinks, Object.fromEntries(values));
+    for (const { drinkId, quantity } of entries) {
+      const drink = next.drinks.find((item) => item.id === drinkId);
       addEvent(next, 'count', drink, quantity, now, '定期盤點', recorder);
       drink.stock = quantity;
       drink.lastCountAt = now;
     }
-    next.lastInventoryAt = now;
-    await save(next, `已完成 ${activeDrinks().length} 種飲料的盤點，辛苦了！`);
+    if (entries.length === activeDrinks().length) next.lastInventoryAt = now;
+    await save(next, `已完成 ${entries.length} 種飲料的盤點，其他品項保留原紀錄。`);
   } else if (form.id === 'drink-form') {
     const perCase = values.get('perCase').trim() ? number(values.get('perCase')) : null;
     const threshold = number(values.get('threshold'));
@@ -458,12 +459,8 @@ async function submitForm(form) {
     await save(next, '小願望已經好好記下來了。', true);
   } else if (form.id === 'restock-form') {
     const drink = next.drinks.find((item) => item.id === values.get('drinkId'));
-    const cases = number(values.get('cases'));
-    const loose = number(values.get('loose'));
-    if (cases > 0 && !drink.perCase) throw new Error('此品項尚未設定每箱數量，請先設定，或改以單包／瓶／罐數量入庫。');
-    const quantity = cases * (drink.perCase || 0) + loose;
-    if (!quantity) throw new Error('請輸入大於 0 的數量。');
-    if (quantity > 999999 || drink.stock + quantity > 999999) throw new Error('單次或累計數量不可超過 999,999，請確認輸入。');
+    const quantity = restockQuantity(values.get('cases'), values.get('loose'), drink.perCase);
+    if (drink.stock + quantity > 999999) throw new Error('累計數量不可超過 999,999，請確認輸入。');
     const note = values.get('note').trim();
     addEvent(next, 'restock', drink, quantity, now, note || '到貨入庫', recorder);
     drink.stock += quantity;

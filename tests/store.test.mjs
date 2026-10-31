@@ -632,7 +632,7 @@ test('quick drink creation uses a stable new identity and leaves stock history a
   assert.equal(drink.name, '新口味無糖茶');
   assert.equal(drink.createdBy, '小王');
   assert.ok(Date.parse(drink.createdAt) >= started && Date.parse(drink.createdAt) <= Date.now());
-  assert.deepEqual({ unit: drink.unit, active: drink.active, stock: drink.stock, perCase: drink.perCase, threshold: drink.threshold, target: drink.target, lastCountAt: drink.lastCountAt }, { unit: '瓶', active: true, stock: 0, perCase: null, threshold: 10, target: null, lastCountAt: null });
+  assert.deepEqual({ unit: drink.unit, active: drink.active, stock: drink.stock, perCase: drink.perCase, threshold: drink.threshold, target: drink.target, lastCountAt: drink.lastCountAt }, { unit: '瓶', active: true, stock: 0, perCase: 24, threshold: 10, target: null, lastCountAt: null });
   assert.deepEqual(store.data.drinks.slice(0, -1), before.drinks);
   assert.deepEqual(store.data.events, before.events);
   assert.deepEqual(store.data.wishes, before.wishes);

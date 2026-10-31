@@ -1,4 +1,5 @@
-/** Company-confirmed product names. Counts and box sizes await real input. */
+/** Company-confirmed products; case size defaults to the owner's requested 24. */
+export const DEFAULT_CASE_SIZE = 24;
 export const CATEGORIES_ORDER = Object.freeze(['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
 
 const COMPANY_CATALOG_ROWS = [
@@ -51,7 +52,7 @@ export const COMPANY_CATALOG = Object.freeze(COMPANY_CATALOG_ROWS.map(([name, ca
   packaging,
   unit: ['寶特瓶', '大瓶裝'].includes(packaging) ? '瓶' : packaging.includes('鐵罐') ? '罐' : '包',
   active,
-  perCase: null,
+  perCase: DEFAULT_CASE_SIZE,
   stock: 0,
   threshold: 10,
   target: null,
@@ -65,6 +66,7 @@ export function createCompanyData() {
     wishes: [],
     lastInventoryAt: null,
     catalogVersion: 4,
+    caseSizeVersion: 1,
   };
 }
 
@@ -131,7 +133,7 @@ function isUnchangedDemoDrink(drink) {
  * browser store or database. The caller decides when it is safe to persist.
  * Human-entered seed changes remain separate: names do not imply a safe merge.
  */
-export function prepareCompanyCatalog(data) {
+function prepareCatalogVersion(data) {
   if (data?.catalogVersion >= 4) return data;
   if (!data) return createCompanyData();
   if (!Array.isArray(data.drinks) || !Array.isArray(data.events) || !Array.isArray(data.wishes)) {
@@ -169,4 +171,14 @@ export function prepareCompanyCatalog(data) {
     lastInventoryAt: preservedDrinks.length || events.length ? (data.lastInventoryAt ?? null) : null,
     catalogVersion: 4,
   };
+}
+
+export function prepareCompanyCatalog(data) {
+  const prepared = prepareCatalogVersion(data);
+  if (prepared.caseSizeVersion >= 1) return prepared;
+  if (!Array.isArray(prepared.drinks) || !Array.isArray(prepared.events) || !Array.isArray(prepared.wishes)) {
+    throw new Error('庫存資料格式不正確，無法準備公司飲料清單。');
+  }
+  // Apply the owner's uniform case size once, without changing historical facts.
+  return { ...prepared, drinks: prepared.drinks.map((drink) => ({ ...drink, perCase: DEFAULT_CASE_SIZE })), caseSizeVersion: 1 };
 }

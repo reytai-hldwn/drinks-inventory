@@ -35,3 +35,22 @@ test('package facts match exact product names while unverified fields remain unk
   assert.doesNotMatch(known, /0 公克/);
   assert.match(renderDrinkInformation({ id: 'new', name: '未核對新品' }), /尚待核對完整包裝標示/);
 });
+
+
+test('official information matches the checked package and keeps zero distinct from unverified fields', () => {
+  const milk = findDrinkInformation({ name: '光泉牛乳', packaging: '窄瓶鋁箔包' });
+  assert.equal(milk.container, '200 毫升');
+  assert.equal(milk.ingredients, '100%生乳');
+  assert.match(milk.allergens, /本產品含牛奶/);
+  assert.equal(milk.source.type, 'official');
+  assert.equal(milk.nutrition.energyKcal, 132.2);
+  assert.equal(milk.nutrition.per100.energyKcal, 66.1);
+  const orange = renderDrinkInformation({ id: 'orange', name: '光泉柳橙汁', packaging: '窄瓶鋁箔包' });
+  assert.match(orange, /0 公克/);
+  assert.match(orange, /每 100 毫升/);
+  assert.match(orange, /查看官方營養標籤/);
+  assert.match(orange, /https:\/\/www.kuangchuan.com\/KCGO\/Item\/202411822137/);
+  assert.doesNotMatch(orange, /無過敏原/);
+  assert.equal(findDrinkInformation({ name: '光泉牛乳', packaging: '大瓶裝' }), null);
+  assert.equal(findDrinkInformation({ id: 'company-drink-01', name: '改名的飲料', packaging: '窄瓶鋁箔包' }), null);
+});

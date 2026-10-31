@@ -38,7 +38,7 @@ test('anonymous stocktake and arrival require recorder and validate whole counts
   ctx.forms_ = () => ({ stocktake: { getResponses: () => [
     response('count1', { 1: '20', 2: '0', 3: '小王' }, '2026-10-02T00:00:00Z'),
     response('missing-name', { 1: '99', 2: '1' }),
-    response('partial-count', { 1: '99', 3: '小陳' }),
+    response('invalid-count', { 1: '99', 2: '1.5', 3: '小陳' }),
     response('bad-name', { 1: '99', 2: '1', 3: 'a'.repeat(81) }),
   ] }, arrival: { getResponses: () => [
     response('arrival1', { 4: '小李', 5: 'tea｜茶', 6: '12', 7: '今天到貨' }),
@@ -236,7 +236,7 @@ test('Google catalog initialization appends missing products without overwriting
   assert.equal(rows.length, 40);
   assert.deepEqual(rows.slice(0, 29), before);
   assert.deepEqual(rows.slice(29).map((row) => row.slice(0, 5)), COMPANY_CATALOG.slice(29).map((drink) => [drink.id, drink.name, drink.category, drink.packaging, drink.unit]));
-  assert.ok(rows.slice(29).every((row) => row[5] === '' && row[6] === 10));
+  assert.ok(rows.slice(29).every((row) => row[5] === 24 && row[6] === 10));
   assert.deepEqual(rows.slice(29).map(row => row[7]), [true, true, true, ...Array(8).fill(false)]);
   const firstRun = structuredClone(rows);
   ctx.initializeCatalog_(spreadsheet);
@@ -323,6 +323,9 @@ test('form setup removes account checks, requires recorders and exports real pre
   assert.ok(Object.values(forms).every(form => form.collectEmail === false && form.limitOnce === false && form.accepting === true));
   assert.equal(forms.stocktake.items.find(item => item.title === '登記人').required, true);
   assert.equal(forms.arrival.items.find(item => item.title === '登記人').required, true);
+  assert.equal(forms.arrival.items.find(item => item.title === '整箱數量').required, false);
+  assert.equal(forms.arrival.items.find(item => item.title === '實際到貨數量（單包／瓶／罐）').required, false);
+  assert.ok(forms.stocktake.items.filter(item => item.title.includes('（現存')).every(item => !item.required));
   assert.equal(Object.keys(fields.count).length, 32);
   assert.deepEqual(Object.values(fields.count), COMPANY_CATALOG.filter(drink => drink.active !== false).map(drink => drink.id));
   const arrivalChoices = forms.arrival.items.find(item => item.title === '飲料品項').choices;
@@ -350,7 +353,7 @@ test('form setup removes account checks, requires recorders and exports real pre
   ctx.configureForms_({});
   assert.equal(Object.keys(JSON.parse(props.get('HOLDWIN_FORM_FIELDS')).count).length, 33);
   assert.ok(forms.arrival.items.find(item => item.title === '飲料品項').choices.some(choice => choice.startsWith(custom.id + '｜')));
-  assert.ok(forms.stocktake.items.some(item => item.required && item.title.startsWith(custom.id + '｜')));
+  assert.ok(forms.stocktake.items.some(item => !item.required && item.title.startsWith(custom.id + '｜')));
 });
 
 test('quick product intake is idempotent, validates actual submissions and preserves all inventory history', async () => {
@@ -379,7 +382,7 @@ test('quick product intake is idempotent, validates actual submissions and prese
   assert.equal(intake.rows.length, 11);
   const added = plain(ctx.catalog_(ss)).slice(1);
   assert.deepEqual(added.map(drink => drink.unit), ['瓶', '罐', '包']);
-  assert.ok(added.every(drink => drink.active && drink.perCase === null && drink.threshold === 10));
+  assert.ok(added.every(drink => drink.active && drink.perCase === 24 && drink.threshold === 10));
   assert.ok(added.every(drink => /^custom-drink-[a-f0-9]{64}$/.test(drink.id) && drink.id.length <= 80));
   assert.equal(added[0].name, '新飲料');
   assert.equal(intake.rows.filter(row => row[7] === '採計').length, 3);
@@ -421,4 +424,47 @@ test('product submission refresh updates form choices and retries safely if form
   assert.equal(rendered[0].stock, null);
   assert.equal(rendered[0].lastCountAt, null);
   assert.equal(rendered[0].drink.name, '現在看到的新茶');
+});
+
+
+test('Google arrivals accept cases only, loose only or both and reject missing or invalid quantities', async () => {
+  const { ctx, props } = await backend();
+  const catalog = [{ id: 'tea', name: '茶', active: true, perCase: 24 }];
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ arrivalRecorder: '1', arrivalDrink: '2', arrivalQuantity: '3', arrivalCases: '4' }));
+  const quantities = [['cases', '', '2'], ['loose', '5', ''], ['both', '5', '2'], ['empty', '', ''], ['zero', '0', '0'], ['negative', '3', '-1'], ['fraction', '1.5', '1'], ['overflow', '999999', '1'], ['too-many-cases', '', '10000']];
+  ctx.forms_ = () => ({ stocktake: { getResponses: () => [] }, arrival: { getResponses: () => quantities.map(([id, loose, cases]) => response(id, { 1: '小王', 2: 'tea｜茶', 3: loose, 4: cases })) } });
+  const events = plain(ctx.intakeEvents_(catalog));
+  assert.deepEqual(events.filter(event => event.accepted).map(event => event.quantity), [48, 5, 53]);
+  assert.equal(events.filter(event => !event.accepted).length, 6);
+});
+
+test('Google partial stocktakes record filled products only, accept zero and reject blank or invalid forms', async () => {
+  const { ctx, props } = await backend();
+  const catalog = [{ id: 'tea', active: true }, { id: 'water', active: true }];
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ count: { 1: 'tea', 2: 'water' }, countRecorder: '3' }));
+  ctx.forms_ = () => ({ stocktake: { getResponses: () => [
+    response('partial', { 1: '0', 2: '', 3: '小王' }),
+    response('other', { 2: '5', 3: '小李' }),
+    response('empty', { 3: '小王' }),
+    response('invalid', { 1: '8', 2: '1.5', 3: '小王' }),
+  ] }, arrival: { getResponses: () => [] } });
+  const events = plain(ctx.intakeEvents_(catalog));
+  assert.deepEqual(events.filter(event => event.accepted).map(({ drinkId, quantity }) => ({ drinkId, quantity })), [{ drinkId: 'tea', quantity: 0 }, { drinkId: 'water', quantity: 5 }]);
+  assert.equal(events.filter(event => !event.accepted).length, 2);
+  const previous = { id: 'old', drinkId: 'water', quantity: 9, type: 'count', accepted: true, createdAt: '2026-10-01T00:00:00Z' };
+  const partial = events.find(event => event.drinkId === 'tea');
+  assert.equal(ctx.computeInventory_(catalog, [previous, partial])[1].stock, 9);
+});
+
+test('Google case-size migration updates only case-size cells once and preserves stock history', async () => {
+  const { ctx, props } = await backend();
+  const rows = [['id', 'name', 'category', 'packaging', 'unit', 'perCase', 'threshold', 'active'], ['tea', '茶', '茶飲', '鋁箔包', '包', '', 10, true], ['water', '水', '其他', '寶特瓶', '瓶', 6, 10, false]];
+  const sheet = memorySheet(rows);
+  const before = structuredClone(rows);
+  assert.equal(ctx.migrateCaseSizes_({ getSheetByName: () => sheet }), true);
+  assert.deepEqual(rows, before.map((row, index) => index ? row.map((value, col) => col === 5 ? 24 : value) : row));
+  assert.equal(props.get('HOLDWIN_CASE_SIZE_VERSION'), '1');
+  rows[1][5] = 12;
+  assert.equal(ctx.migrateCaseSizes_({ getSheetByName: () => sheet }), false);
+  assert.equal(rows[1][5], 12);
 });
