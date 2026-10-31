@@ -9,14 +9,14 @@ const COMPANY_CATALOG_ROWS = [
   ['tree top瓶果汁', '果汁', '窄瓶鋁箔包'],
   ['光泉柳橙汁', '果汁', '窄瓶鋁箔包'],
   ['統一豆漿', '牛奶／豆漿', '鋁箔包'],
-  ['波利芭樂汁', '果汁', '鋁箔包'],
+  ['波蜜芭樂汁', '果汁', '鋁箔包'],
   ['立頓原味奶茶', '茶飲', '鋁箔包'],
   ['立頓巧克力奶茶', '茶飲', '鋁箔包'],
   ['立頓沁香奶綠', '茶飲', '鋁箔包'],
   ['日月潭紅茶', '茶飲', '鋁箔包'],
   ['十六茶', '茶飲', '鋁箔包'],
   ['Fin', '其他', '鋁箔包'],
-  ['波蜜一日蔬果', '果汁', '鋁箔包'],
+  ['一日蔬果100%蘋果柳橙蔬果汁', '果汁', '鋁箔包'],
   ['荔枝氣泡水', '汽水', '鐵罐'],
   ['零卡可口可樂', '汽水', '鐵罐'],
   ['零卡百事可樂', '汽水', '鐵罐'],
@@ -24,8 +24,8 @@ const COMPANY_CATALOG_ROWS = [
   ['可口可樂', '汽水', '小型鐵罐'],
   ['百事可樂', '汽水', '小型鐵罐'],
   ['黑松沙士', '汽水', '小型鐵罐'],
-  ['Milkiis水蜜桃', '汽水', '長鐵罐'],
-  ['Miilkis', '汽水', '長鐵罐'],
+  ['Milkis水蜜桃', '汽水', '長鐵罐'],
+  ['Milkis', '汽水', '長鐵罐'],
   ['Redbull能量飲', '其他', '長鐵罐'],
   ['Vida氣泡飲', '汽水', '長鐵罐'],
   ['蜂蜜燕麥', '其他', '寶特瓶'],
@@ -174,11 +174,19 @@ function prepareCatalogVersion(data) {
 }
 
 export function prepareCompanyCatalog(data) {
-  const prepared = prepareCatalogVersion(data);
-  if (prepared.caseSizeVersion >= 1) return prepared;
+  let prepared = prepareCatalogVersion(data);
   if (!Array.isArray(prepared.drinks) || !Array.isArray(prepared.events) || !Array.isArray(prepared.wishes)) {
     throw new Error('庫存資料格式不正確，無法準備公司飲料清單。');
   }
+  const correctedNames = prepared.drinks.map((drink) => {
+    if (drink.id === 'company-drink-07' && drink.name === '波利芭樂汁') return { ...drink, name: '波蜜芭樂汁' };
+    if (drink.id === 'company-drink-14' && drink.name === '波蜜一日蔬果') return { ...drink, name: '一日蔬果100%蘋果柳橙蔬果汁' };
+    if (drink.id === 'company-drink-22' && ['Milkiis水蜜桃', 'Miilkis水蜜桃'].includes(drink.name)) return { ...drink, name: 'Milkis水蜜桃' };
+    if (drink.id === 'company-drink-23' && ['Miilkis', 'Milkiis'].includes(drink.name)) return { ...drink, name: 'Milkis' };
+    return drink;
+  });
+  if (correctedNames.some((drink, index) => drink !== prepared.drinks[index])) prepared = { ...prepared, drinks: correctedNames };
+  if (prepared.caseSizeVersion >= 1) return prepared;
   // Apply the owner's uniform case size once, without changing historical facts.
   return { ...prepared, drinks: prepared.drinks.map((drink) => ({ ...drink, perCase: DEFAULT_CASE_SIZE })), caseSizeVersion: 1 };
 }

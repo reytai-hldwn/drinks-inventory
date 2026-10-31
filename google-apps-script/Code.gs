@@ -50,7 +50,7 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
   },
   {
     "id": "company-drink-07",
-    "name": "波利芭樂汁",
+    "name": "波蜜芭樂汁",
     "category": "果汁",
     "packaging": "鋁箔包",
     "unit": "包"
@@ -99,7 +99,7 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
   },
   {
     "id": "company-drink-14",
-    "name": "波蜜一日蔬果",
+    "name": "一日蔬果100%蘋果柳橙蔬果汁",
     "category": "果汁",
     "packaging": "鋁箔包",
     "unit": "包"
@@ -155,14 +155,14 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
   },
   {
     "id": "company-drink-22",
-    "name": "Milkiis水蜜桃",
+    "name": "Milkis水蜜桃",
     "category": "汽水",
     "packaging": "長鐵罐",
     "unit": "罐"
   },
   {
     "id": "company-drink-23",
-    "name": "Miilkis",
+    "name": "Milkis",
     "category": "汽水",
     "packaging": "長鐵罐",
     "unit": "罐"
@@ -607,12 +607,16 @@ function initializeCatalog_(ss) {
   var knownIds = {};
   existingRows.forEach(function (row, index) {
     knownIds[String(row[0])] = true;
-    // Apply only the owner's exact typo correction, retaining the product ID,
+    // Apply only the owner's exact name corrections, retaining the product ID,
     // custom category, stock, history and all other administrator changes.
     if (row[0] === 'company-drink-09' && row[1] === '立頓巧克力牛奶') {
       sheet.getRange(index + 2, 2).setValue('立頓巧克力奶茶');
       if (row[2] === '牛奶／豆漿') sheet.getRange(index + 2, 3).setValue('茶飲');
     }
+    if (row[0] === 'company-drink-07' && row[1] === '波利芭樂汁') sheet.getRange(index + 2, 2).setValue('波蜜芭樂汁');
+    if (row[0] === 'company-drink-14' && row[1] === '波蜜一日蔬果') sheet.getRange(index + 2, 2).setValue('一日蔬果100%蘋果柳橙蔬果汁');
+    if (row[0] === 'company-drink-22' && ['Milkiis水蜜桃', 'Miilkis水蜜桃'].indexOf(row[1]) >= 0) sheet.getRange(index + 2, 2).setValue('Milkis水蜜桃');
+    if (row[0] === 'company-drink-23' && ['Miilkis', 'Milkiis'].indexOf(row[1]) >= 0) sheet.getRange(index + 2, 2).setValue('Milkis');
   });
   var additions = INITIAL_CATALOG.filter(function (drink) { return !knownIds[drink.id]; }).map(function (drink) {
     return [drink.id, drink.name, drink.category, drink.packaging, drink.unit, DEFAULT_CASE_SIZE, 10, drink.active !== false];

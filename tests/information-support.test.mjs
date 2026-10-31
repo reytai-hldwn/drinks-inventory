@@ -96,9 +96,27 @@ test('every checked name has one source and missing labels remain unknown', () =
     if (info.source.type !== 'provided-package') assert.match(info.source.url, /^https:\/\//);
     for (const key of keys) if (typeof info.nutrition?.[key] === 'number') assert.ok(Number.isFinite(info.nutrition[key]) && info.nutrition[key] >= 0);
   }
-  assert.equal(findDrinkInformation('愛之味純濃燕麥').nutrition, null);
+  assert.equal(findDrinkInformation('愛之味純濃燕麥').nutrition.energyKcal, 131.3);
   assert.equal(findDrinkInformation('蜂蜜燕麥').allergens, null);
   assert.equal(findDrinkInformation({ id:'company-drink-27', name:'新口味麥茶', packaging:'寶特瓶' }), null);
+});
+
+test('a user-specified reference package keeps its capacity separate from the catalog package', () => {
+  const drink = { name: '波蜜一日蔬果', packaging: '鋁箔包' };
+  const info = findDrinkInformation(drink);
+  assert.equal(findDrinkInformation('一日蔬果100%蘋果柳橙蔬果汁'), info);
+  assert.match(info.container, /160 毫升罐裝.*參考/);
+  assert.match(info.nutrition.basis, /參考罐裝.*160 毫升/);
+  assert.equal(info.nutrition.energyKcal, 68.8);
+  assert.equal(info.nutrition.per100.energyKcal, 43);
+  assert.equal(info.nutrition.sugarG, 15.7);
+  assert.equal(info.allergens, null);
+  const html = renderDrinkInformation(drink);
+  assert.match(html, /不是鋁箔包的整包數值/);
+  assert.ok(html.indexOf('不是鋁箔包的整包數值') < html.indexOf('<h3>成分</h3>'));
+  assert.match(html, /崇德發/);
+  assert.doesNotMatch(html, /查看官方營養標籤/);
+  assert.equal(findDrinkInformation({ ...drink, packaging: '大瓶裝' }), null);
 });
 
 
@@ -111,4 +129,30 @@ test('solid-food labels use grams and no-added-sugar milk does not imply zero su
   assert.ok(soy.nutrition.sugarG > 0);
   assert.match(soy.allergens, /大豆/);
   assert.match(soy.ingredients, /非基因改造黃豆/);
+});
+
+test('requested references distinguish calculated package totals, a whole can and an omitted sugar field', () => {
+  const guava = findDrinkInformation({ name: '波蜜芭樂汁', packaging: '鋁箔包' });
+  for (const key of ['energyKcal', 'proteinG', 'fatG', 'saturatedFatG', 'transFatG', 'carbohydrateG', 'sugarG', 'sodiumMg']) {
+    assert.equal(guava.nutrition[key], guava.nutrition.per100[key] * 3);
+  }
+  const html = renderDrinkInformation({ name: '波蜜芭樂汁', packaging: '鋁箔包' });
+  assert.match(html, /每包 300 毫升（換算）/);
+  assert.match(html, /每 100 毫升/);
+  assert.match(html, /不是鋁箔包的原始營養標籤/);
+  const zero = findDrinkInformation({ name: '零卡百事可樂', packaging: '鐵罐' });
+  assert.equal(zero.nutrition.sodiumMg, 59);
+  assert.equal(zero.nutrition.sugarG, 0);
+  assert.match(renderDrinkInformation('零卡百事可樂'), /整罐 330 毫升/);
+  const pepsi = findDrinkInformation({ name: '百事可樂', packaging: '小型鐵罐' });
+  assert.equal(pepsi.nutrition.energyKcal, 115.2);
+  assert.equal(pepsi.nutrition.sugarG, 28.5);
+  assert.equal(pepsi.nutrition.per100.energyKcal, 46.1);
+  assert.match(renderDrinkInformation('百事可樂'), /每罐 250 毫升（換算）/);
+  assert.match(pepsi.referenceNote, /並非 250 毫升罐的原始標籤/);
+  assert.match(pepsi.source.scope, /單位.*不一致/);
+  const sarsi = findDrinkInformation({ name: '黑松沙士', packaging: '小型鐵罐' });
+  assert.equal(sarsi.nutrition.carbohydrateG, 24.5);
+  assert.equal(sarsi.nutrition.sugarG, null);
+  assert.match(renderDrinkInformation('黑松沙士'), /糖欄，糖維持待補/);
 });

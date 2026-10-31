@@ -468,3 +468,24 @@ test('Google case-size migration updates only case-size cells once and preserves
   assert.equal(ctx.migrateCaseSizes_({ getSheetByName: () => sheet }), false);
   assert.equal(rows[1][5], 12);
 });
+
+
+test('Google setup applies owner name corrections without changing quantities or custom product names', async () => {
+  const { ctx } = await backend();
+  const rows = [['id', 'name', 'category', 'packaging', 'unit', 'perCase', 'threshold', 'active'], ...COMPANY_CATALOG.map(drink => [drink.id, drink.name, drink.category, drink.packaging, drink.unit, 12, 8, drink.active])];
+  rows[7][1] = '波利芭樂汁';
+  rows[14][1] = '波蜜一日蔬果';
+  rows[22][1] = 'Milkiis水蜜桃'; rows[23][1] = 'Miilkis';
+  rows.push(['custom', 'Milkiis水蜜桃', '汽水', '長鐵罐', '罐', 6, 5, true]);
+  const before = structuredClone(rows);
+  const sheet = memorySheet(rows);
+  ctx.initializeCatalog_({ getSheetByName: () => sheet });
+  assert.deepEqual(rows[7], before[7].map((value, column) => column === 1 ? '波蜜芭樂汁' : value));
+  assert.deepEqual(rows[14], before[14].map((value, column) => column === 1 ? '一日蔬果100%蘋果柳橙蔬果汁' : value));
+  assert.deepEqual(rows[22], before[22].map((value, column) => column === 1 ? 'Milkis水蜜桃' : value));
+  assert.deepEqual(rows[23], before[23].map((value, column) => column === 1 ? 'Milkis' : value));
+  assert.deepEqual(rows.at(-1), before.at(-1));
+  const saved = structuredClone(rows);
+  ctx.initializeCatalog_({ getSheetByName: () => sheet });
+  assert.deepEqual(rows, saved);
+});

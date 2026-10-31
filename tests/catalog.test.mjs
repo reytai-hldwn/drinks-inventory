@@ -5,9 +5,9 @@ import { sampleData } from '../js/domain.js';
 
 const expectedNames = [
   '光泉牛乳', '光泉巧克力牛乳', '光泉薏仁糙米漿', 'tree top瓶果汁', '光泉柳橙汁',
-  '統一豆漿', '波利芭樂汁', '立頓原味奶茶', '立頓巧克力奶茶', '立頓沁香奶綠', '日月潭紅茶', '十六茶', 'Fin', '波蜜一日蔬果',
+  '統一豆漿', '波蜜芭樂汁', '立頓原味奶茶', '立頓巧克力奶茶', '立頓沁香奶綠', '日月潭紅茶', '十六茶', 'Fin', '一日蔬果100%蘋果柳橙蔬果汁',
   '荔枝氣泡水', '零卡可口可樂', '零卡百事可樂', '八寶粥', '可口可樂', '百事可樂', '黑松沙士',
-  'Milkiis水蜜桃', 'Miilkis', 'Redbull能量飲', 'Vida氣泡飲', '蜂蜜燕麥', '麥萃麥茶', '原萃綠茶', '十全果醋',
+  'Milkis水蜜桃', 'Milkis', 'Redbull能量飲', 'Vida氣泡飲', '蜂蜜燕麥', '麥萃麥茶', '原萃綠茶', '十全果醋',
   '冷萃金萱烏龍', 'Moriyama紅茶', 'Moriyama奶茶',
   '愛之味純濃燕麥', '光泉燕麥奶', '雪碧',
   '紅牌蜂蜜奶茶', '立頓蜂蜜紅茶', '蘋果西打', '克寧草莓優酪乳', '愛之味麥仔茶',
@@ -308,4 +308,33 @@ test('case-size migration applies 24 once to old and custom products without cha
   assert.deepEqual(old, before);
   migrated.drinks[0].perCase = 12;
   assert.equal(prepareCompanyCatalog(migrated), migrated, 'later manual overrides must survive reloads');
+});
+
+
+test('owner name corrections preserve product IDs, inventory and manual edits in existing browsers', () => {
+  const old = createCompanyData();
+  old.drinks[6].name = '波利芭樂汁';
+  old.drinks[13].name = '波蜜一日蔬果';
+  Object.assign(old.drinks[13], { stock: 6, lastCountAt: '2020-01-01T00:00:00Z', perCase: 12 });
+  old.drinks[21].name = 'Milkiis水蜜桃';
+  old.drinks[22].name = 'Miilkis';
+  Object.assign(old.drinks[21], { stock: 7, lastCountAt: '2020-01-01T00:00:00Z', perCase: 12, active: false });
+  old.drinks.push({ id: 'custom', name: 'Milkiis水蜜桃', stock: 8 });
+  old.events.push({ id: 'count', type: 'count', drinkId: old.drinks[21].id, quantity: 7 });
+  old.wishes.push({ id: 'wish', name: '想喝的' });
+  const before = structuredClone(old);
+  const next = prepareCompanyCatalog(old);
+  assert.deepEqual(next.drinks[6], { ...before.drinks[6], name: '波蜜芭樂汁' });
+  assert.deepEqual(next.drinks[13], { ...before.drinks[13], name: '一日蔬果100%蘋果柳橙蔬果汁' });
+  assert.deepEqual(next.drinks[21], { ...before.drinks[21], name: 'Milkis水蜜桃' });
+  assert.deepEqual(next.drinks[22], { ...before.drinks[22], name: 'Milkis' });
+  assert.deepEqual(next.drinks.at(-1), before.drinks.at(-1));
+  assert.deepEqual(next.events, before.events);
+  assert.deepEqual(next.wishes, before.wishes);
+  assert.deepEqual(old, before);
+  assert.equal(prepareCompanyCatalog(next), next);
+  next.drinks[13].name = '管理者自訂蔬果汁';
+  assert.equal(prepareCompanyCatalog(next).drinks[13].name, '管理者自訂蔬果汁');
+  next.drinks[21].name = '管理者自訂口味';
+  assert.equal(prepareCompanyCatalog(next).drinks[21].name, '管理者自訂口味');
 });

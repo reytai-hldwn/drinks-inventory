@@ -1,11 +1,11 @@
 {
   "checkedAt": "2026-11-01",
-  "note": "完整狀態只表示基本八項數值齊全，成分與過敏原是否已核對分別列示；不代表所有欄位均完整。",
+  "note": "完整狀態只表示基本八項數值齊全（含註明的參考與換算版本），成分與過敏原是否已核對分別列示；不代表所有欄位均完整。",
   "summary": {
     "total": 40,
-    "basicNutritionComplete": 22,
+    "basicNutritionComplete": 27,
     "partial": 9,
-    "pending": 9
+    "pending": 4
   },
   "products": [
     {
@@ -17,6 +17,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "200 毫升",
+      "referenceNote": null,
       "basis": "每份 200 毫升，本包裝含 1 份",
       "source": {
         "type": "official",
@@ -36,6 +37,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "200 毫升",
+      "referenceNote": null,
       "basis": "每份 200 毫升，本包裝含 1 份",
       "source": {
         "type": "official",
@@ -55,6 +57,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "200 毫升",
+      "referenceNote": null,
       "basis": "每份 200 毫升，本包裝含 1 份",
       "source": {
         "type": "official",
@@ -74,6 +77,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "200 毫升",
+      "referenceNote": null,
       "basis": "每份 200 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -93,6 +97,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "200 毫升",
+      "referenceNote": null,
       "basis": "每份 200 毫升，本包裝含 1 份",
       "source": {
         "type": "official",
@@ -112,6 +117,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "250 毫升",
+      "referenceNote": null,
       "basis": "每份 250 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -124,26 +130,23 @@
     },
     {
       "id": "company-drink-07",
-      "name": "波利芭樂汁",
+      "name": "波蜜芭樂汁",
       "active": true,
-      "status": "pending",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": false,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "同款通路文字成分有疑似誤植，未取得清楚完整原標籤，未自行改寫配方。",
-      "attemptedSource": "https://24h.pchome.com.tw/prod/DBAB7L-A9007SKYN"
+      "missingNutrients": [],
+      "container": "300 毫升鋁箔包（換算參考）",
+      "referenceNote": "依指定的 580 毫升瓶裝標籤，每 100 毫升數值乘以 3，換算為每包 300 毫升參考值；不是鋁箔包的原始營養標籤。",
+      "basis": "每包 300 毫升（依每 100 毫升標示 × 3 換算，僅供參考）",
+      "source": {
+        "type": "retailer-label",
+        "label": "momo購物網・使用者指定的波蜜芭樂汁標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "以指定頁面 580 毫升瓶裝相片的每 100 毫升欄換算 300 毫升鋁箔包參考值。原標籤每瓶 256 大卡、碳水化合物 64 公克、糖 58 公克、鈉 116 毫克；每 100 毫升欄已有四捨五入，因此換算值與整瓶欄可能略有差異。成分及過敏原仍待清楚標籤核對。",
+        "url": "https://www.momoshop.com.tw/TP/TP0009821/goodsDetail/TP00098210000006",
+        "labelUrl": "https://i8.momoshop.com.tw/1787311855/goodsimg/TP000/9821/0000/006/TP00098210000006_R1_m.jpg"
+      }
     },
     {
       "id": "company-drink-08",
@@ -154,6 +157,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "300 毫升",
+      "referenceNote": null,
       "basis": "每份 300 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -173,6 +177,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "300 毫升",
+      "referenceNote": null,
       "basis": "每份 300 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -192,6 +197,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "300 毫升",
+      "referenceNote": null,
       "basis": "每份 300 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -211,6 +217,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "300 毫升",
+      "referenceNote": null,
       "basis": "每份 300 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -239,6 +246,7 @@
         "sodiumMg"
       ],
       "container": "330 毫升",
+      "referenceNote": null,
       "basis": null,
       "source": {
         "type": "retailer-label",
@@ -257,6 +265,7 @@
       "allergensChecked": false,
       "missingNutrients": [],
       "container": "300 毫升",
+      "referenceNote": null,
       "basis": "每份 300 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -269,26 +278,23 @@
     },
     {
       "id": "company-drink-14",
-      "name": "波蜜一日蔬果",
+      "name": "一日蔬果100%蘋果柳橙蔬果汁",
       "active": true,
-      "status": "pending",
-      "ingredientsChecked": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "查得的一日蔬果資料主要為160毫升罐裝，未套用至目前鋁箔包版本。",
-      "attemptedSource": "https://www.bomy.com.tw/%e5%93%81%e7%89%8c%e4%b8%80%e8%a6%bd/%e8%87%aa%e6%9c%89%e5%93%81%e7%89%8c/%e4%b8%80%e6%97%a5%e8%94%ac%e6%9e%9c%e7%b3%bb%e5%88%97/"
+      "missingNutrients": [],
+      "container": "160 毫升罐裝（參考版本）",
+      "referenceNote": "依提供的連結採用 160 毫升罐裝參考標示；網站目前的鋁箔包容量及每包營養值仍待核對，以下不是鋁箔包的整包數值。",
+      "basis": "參考罐裝：每份 160 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "崇德發素食購物網・使用者指定參考來源",
+        "checkedAt": "2026-11-01",
+        "scope": "使用者確認口味為「一日蔬果100%蘋果柳橙蔬果汁」，並指定此頁作營養參考。頁面同時有五種口味，僅採用蘋果柳橙段落的成分圖及 160 毫升營養圖，未套用葡萄或水蜜桃版本，也未換算為鋁箔包的單包營養。",
+        "url": "https://www.cdfe.com.tw/products/pmsgz160",
+        "labelUrl": "https://img2.momoshop.com.tw/expertimg/0012/152/127/0.jpg?t=1705628943446"
+      }
     },
     {
       "id": "company-drink-15",
@@ -308,6 +314,7 @@
         "sodiumMg"
       ],
       "container": "330 毫升",
+      "referenceNote": null,
       "basis": null,
       "source": {
         "type": "provided-package",
@@ -325,6 +332,7 @@
       "allergensChecked": false,
       "missingNutrients": [],
       "container": "330 毫升",
+      "referenceNote": null,
       "basis": "每份 330 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -339,24 +347,21 @@
       "id": "company-drink-17",
       "name": "零卡百事可樂",
       "active": true,
-      "status": "pending",
-      "ingredientsChecked": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "一般無糖與生可樂為不同版本；生可樂頁面標題330毫升、文字容量300毫升互有衝突，未取得相符完整標籤。",
-      "attemptedSource": "https://24h.pchome.com.tw/prod/DBABJF-A900JLS12"
+      "missingNutrients": [],
+      "container": "330 毫升",
+      "referenceNote": null,
+      "basis": "每罐 330 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "Costco 好市多・使用者指定來源",
+        "checkedAt": "2026-11-01",
+        "scope": "採用指定的無糖生可樂 330 毫升商品成分與清楚營養標籤圖，每罐 1 份。未以一般無糖百事或其他容量配方取代。",
+        "url": "https://www.costco.com.tw/Warehouse-Only/Food-Beverages/Water-Beverages/Pepsi-Zero-Sugar-Nama-330-ml-X-24-Count/p/159778",
+        "labelUrl": "https://www.costco.com.tw/medias/sys_master/images/h9b/h81/436453418565662.jpg"
+      }
     },
     {
       "id": "company-drink-18",
@@ -367,6 +372,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "360 公克",
+      "referenceNote": null,
       "basis": "每份 360 公克（來源為 24 入整箱標示）",
       "source": {
         "type": "retailer-label",
@@ -386,6 +392,7 @@
       "allergensChecked": false,
       "missingNutrients": [],
       "container": "250 毫升",
+      "referenceNote": null,
       "basis": "每份 250 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -400,51 +407,45 @@
       "id": "company-drink-20",
       "name": "百事可樂",
       "active": true,
-      "status": "pending",
-      "ingredientsChecked": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "250毫升通路頁只有文字成分及品牌圖，部分文字疑似誤植，沒有可確認的完整營養標籤。",
-      "attemptedSource": "https://24h.pchome.com.tw/prod/DBAB0G-A900BBSRH"
+      "missingNutrients": [],
+      "container": "250 毫升（換算參考）",
+      "referenceNote": "依台灣通路一般原味百事 330 毫升整罐資料，換算為 250 毫升參考值。來源規格及照片為 330 毫升／罐、本包裝 1 份，營養文字的份量單位卻寫「330公克」；此處依整罐規格換算，並非 250 毫升罐的原始標籤。",
+      "basis": "每罐 250 毫升（依原味 330 毫升整罐 × 250 ÷ 330 換算，僅供參考）",
+      "source": {
+        "type": "retailer-label",
+        "label": "全聯全電商・一般原味百事330毫升商品規格",
+        "checkedAt": "2026-11-01",
+        "scope": "依使用者指示，可參考一般百事可樂並換算 250 毫升。採用台灣原味 330 毫升罐裝的整包裝 1 份數值；來源的「330公克」份量單位與照片／商品規格「330ml/罐」不一致，已保留說明，不假稱取得 250 毫升原標籤。不同容量或改版配方可能有差異，實際以手上包裝為準。",
+        "url": "https://pxbox.es.pxmart.com.tw/product/11558"
+      }
     },
     {
       "id": "company-drink-21",
       "name": "黑松沙士",
       "active": true,
-      "status": "pending",
-      "ingredientsChecked": false,
+      "status": "partial",
+      "ingredientsChecked": true,
       "allergensChecked": false,
       "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
+        "sugarG"
       ],
-      "container": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "245毫升商品頁的營養圖為330毫升，未自行換算或混用不同容量。",
-      "attemptedSource": "https://24h.pchome.com.tw/prod/DBABGF-A900DF634"
+      "container": "245 毫升",
+      "referenceNote": null,
+      "basis": "每罐 245 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "momo購物網・使用者指定的黑松沙士商品規格",
+        "checkedAt": "2026-11-01",
+        "scope": "採用指定的 245 毫升頁面文字營養表。該表沒有糖欄，糖維持待補；未把碳水化合物當成糖，也未與 330 毫升圖版混合。實際以手上包裝為準。",
+        "url": "https://www.momoshop.com.tw/product/4081572"
+      }
     },
     {
       "id": "company-drink-22",
-      "name": "Milkiis水蜜桃",
+      "name": "Milkis水蜜桃",
       "active": true,
       "status": "pending",
       "ingredientsChecked": false,
@@ -460,6 +461,7 @@
         "sodiumMg"
       ],
       "container": null,
+      "referenceNote": null,
       "basis": null,
       "source": null,
       "pendingReason": "尚未找到台灣此口味與容量的進口標籤；原廠入口此次回應503，通路搜尋未取得相符飲料。",
@@ -467,7 +469,7 @@
     },
     {
       "id": "company-drink-23",
-      "name": "Miilkis",
+      "name": "Milkis",
       "active": true,
       "status": "pending",
       "ingredientsChecked": false,
@@ -483,6 +485,7 @@
         "sodiumMg"
       ],
       "container": null,
+      "referenceNote": null,
       "basis": null,
       "source": null,
       "pendingReason": "尚未找到台灣此口味與容量的進口標籤；原廠入口此次回應503，通路搜尋未取得相符飲料。",
@@ -497,6 +500,7 @@
       "allergensChecked": false,
       "missingNutrients": [],
       "container": "250 毫升",
+      "referenceNote": null,
       "basis": "每份 250 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -525,6 +529,7 @@
         "sodiumMg"
       ],
       "container": null,
+      "referenceNote": null,
       "basis": null,
       "source": null,
       "pendingReason": "查詢的vida.com.my為網域停放頁，沒有當作品牌資料；台灣通路搜尋也未取得此款標籤。",
@@ -548,6 +553,7 @@
         "sodiumMg"
       ],
       "container": "290 毫升",
+      "referenceNote": null,
       "basis": null,
       "source": {
         "type": "retailer-label",
@@ -575,6 +581,7 @@
         "sodiumMg"
       ],
       "container": "590 毫升",
+      "referenceNote": null,
       "basis": null,
       "source": {
         "type": "retailer-label",
@@ -593,6 +600,7 @@
       "allergensChecked": false,
       "missingNutrients": [],
       "container": "580 毫升",
+      "referenceNote": null,
       "basis": "每份 290 毫升，本包裝含 2 份",
       "source": {
         "type": "retailer-label",
@@ -612,6 +620,7 @@
       "allergensChecked": false,
       "missingNutrients": [],
       "container": "100 毫升",
+      "referenceNote": null,
       "basis": "每份 100 毫升，本包裝含 1 份",
       "source": {
         "type": "official",
@@ -640,6 +649,7 @@
         "sodiumMg"
       ],
       "container": null,
+      "referenceNote": null,
       "basis": null,
       "source": null,
       "pendingReason": "1000毫升通路文字成分有疑似誤植，尚無清楚標籤圖，未從450毫升或其他烏龍版本套入。",
@@ -659,6 +669,7 @@
         "sodiumMg"
       ],
       "container": "1,000 公克",
+      "referenceNote": null,
       "basis": "每 100 公克（日本官網標示）",
       "source": {
         "type": "official",
@@ -682,6 +693,7 @@
         "sodiumMg"
       ],
       "container": "1,000 公克",
+      "referenceNote": null,
       "basis": "每 100 公克（日本官網標示）",
       "source": {
         "type": "official",
@@ -695,27 +707,19 @@
       "id": "company-drink-33",
       "name": "愛之味純濃燕麥",
       "active": false,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
+      "missingNutrients": [],
       "container": "290 毫升",
-      "basis": null,
+      "referenceNote": null,
+      "basis": "每份 290 毫升，本包裝含 1 份",
       "source": {
-        "type": "retailer-label",
-        "label": "PChome 24h 商品規格與包裝標籤",
+        "type": "official",
+        "label": "愛之味生技官方購物網商品規格",
         "checkedAt": "2026-11-01",
-        "scope": "台灣通路 290 毫升品項已核對文字成分。頁面未提供此規格完整營養標籤，不混用葡萄糖胺或其他燕麥口味的圖。",
-        "url": "https://24h.pchome.com.tw/prod/DBAB7K-A900A4KCQ"
+        "scope": "依官方商城天然原味 290 毫升的成分及營養表核對，基本八項與愛健生命科學品牌商城一致。過敏原文字有疑似誤植，仍待清楚包裝標籤確認。未使用巧克力等其他口味。",
+        "url": "https://www.agv-aiken.com/product/product&product_id=29"
       }
     },
     {
@@ -727,6 +731,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "200 毫升",
+      "referenceNote": null,
       "basis": "每份 200 毫升，本包裝含 1 份",
       "source": {
         "type": "official",
@@ -746,6 +751,7 @@
       "allergensChecked": false,
       "missingNutrients": [],
       "container": "250 毫升",
+      "referenceNote": null,
       "basis": "每份 250 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -774,6 +780,7 @@
         "sodiumMg"
       ],
       "container": "300 毫升",
+      "referenceNote": null,
       "basis": null,
       "source": {
         "type": "retailer-label",
@@ -792,6 +799,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "535 毫升",
+      "referenceNote": null,
       "basis": "每份 267.5 毫升，本包裝含 2 份",
       "source": {
         "type": "retailer-label",
@@ -811,6 +819,7 @@
       "allergensChecked": false,
       "missingNutrients": [],
       "container": "250 毫升",
+      "referenceNote": null,
       "basis": "每份 250 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -830,6 +839,7 @@
       "allergensChecked": true,
       "missingNutrients": [],
       "container": "198 毫升",
+      "referenceNote": null,
       "basis": "每份 198 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
@@ -858,6 +868,7 @@
         "sodiumMg"
       ],
       "container": "300 毫升",
+      "referenceNote": null,
       "basis": null,
       "source": {
         "type": "retailer-label",

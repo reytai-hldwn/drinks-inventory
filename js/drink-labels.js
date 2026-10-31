@@ -1,4 +1,4 @@
-// Manually checked source labels. Values are transcribed, never inferred.
+// Source-checked labels; package conversions are explicitly marked with their source basis.
 export const CHECKED_DRINK_LABELS = [
   {
     "names": [
@@ -368,13 +368,37 @@ export const CHECKED_DRINK_LABELS = [
     "container": "290 毫升",
     "ingredients": "水、燕麥",
     "allergens": null,
-    "nutrition": null,
+    "nutrition": {
+      "basis": "每份 290 毫升，本包裝含 1 份",
+      "energyKcal": 131.3,
+      "proteinG": 4.1,
+      "fatG": 2.9,
+      "saturatedFatG": 0.6,
+      "transFatG": 0,
+      "carbohydrateG": 24.1,
+      "sugarG": 12.8,
+      "sodiumMg": 58,
+      "cholesterolMg": 0,
+      "dietaryFiberG": 3.8,
+      "ironMg": 0.3,
+      "potassiumMg": 89.9,
+      "per100": {
+        "energyKcal": 45.2,
+        "proteinG": 1.4,
+        "fatG": 1,
+        "saturatedFatG": 0.2,
+        "transFatG": 0,
+        "carbohydrateG": 8.3,
+        "sugarG": 4.4,
+        "sodiumMg": 20
+      }
+    },
     "source": {
-      "type": "retailer-label",
-      "label": "PChome 24h 商品規格與包裝標籤",
+      "type": "official",
+      "label": "愛之味生技官方購物網商品規格",
       "checkedAt": "2026-11-01",
-      "scope": "台灣通路 290 毫升品項已核對文字成分。頁面未提供此規格完整營養標籤，不混用葡萄糖胺或其他燕麥口味的圖。",
-      "url": "https://24h.pchome.com.tw/prod/DBAB7K-A900A4KCQ"
+      "scope": "依官方商城天然原味 290 毫升的成分及營養表核對，基本八項與愛健生命科學品牌商城一致。過敏原文字有疑似誤植，仍待清楚包裝標籤確認。未使用巧克力等其他口味。",
+      "url": "https://www.agv-aiken.com/product/product&product_id=29"
     }
   },
   {
@@ -768,6 +792,218 @@ export const CHECKED_DRINK_LABELS = [
       "scope": "依同款統一陽光無加糖豆奶 250 毫升原包裝標籤圖核對。網頁內容物欄雖寫「無」，圖上明列水及非基因改造黃豆，因此採用標籤圖；無加糖不等於糖為 0。",
       "url": "https://24h.pchome.com.tw/prod/DBAB08-A900BUH11",
       "labelUrl": "https://cs-a.ecimg.tw/items/DBAB08A900BUH11/i010007_1633487197.jpg"
+    }
+  },
+  {
+    "names": [
+      "一日蔬果100%蘋果柳橙蔬果汁",
+      "波蜜一日蔬果",
+      "波蜜一日蔬果100%蘋果柳橙蔬果汁"
+    ],
+    "packaging": "鋁箔包",
+    "container": "160 毫升罐裝（參考版本）",
+    "referenceNote": "依提供的連結採用 160 毫升罐裝參考標示；網站目前的鋁箔包容量及每包營養值仍待核對，以下不是鋁箔包的整包數值。",
+    "ingredients": "水、胡蘿蔔濃縮汁、蘋果濃縮汁、柳橙濃縮汁、鳳梨濃縮汁、甘蔗濃縮汁、葡萄濃縮汁、芹菜濃縮汁、綜合蔬果濃縮汁（白葡萄、蘋果、胡蘿蔔、甘蔗、百香果、鳳梨、檸檬、綠花椰菜、芹菜、蘆筍）、菠菜汁",
+    "allergens": null,
+    "nutrition": {
+      "basis": "參考罐裝：每份 160 毫升，本包裝含 1 份",
+      "energyKcal": 68.8,
+      "proteinG": 0,
+      "fatG": 0,
+      "saturatedFatG": 0,
+      "transFatG": 0,
+      "carbohydrateG": 17.3,
+      "sugarG": 15.7,
+      "sodiumMg": 40,
+      "per100": {
+        "energyKcal": 43,
+        "proteinG": 0,
+        "fatG": 0,
+        "saturatedFatG": 0,
+        "transFatG": 0,
+        "carbohydrateG": 10.8,
+        "sugarG": 9.8,
+        "sodiumMg": 25
+      },
+      "servingLabel": "參考罐裝 160 毫升"
+    },
+    "source": {
+      "type": "retailer-label",
+      "label": "崇德發素食購物網・使用者指定參考來源",
+      "checkedAt": "2026-11-01",
+      "scope": "使用者確認口味為「一日蔬果100%蘋果柳橙蔬果汁」，並指定此頁作營養參考。頁面同時有五種口味，僅採用蘋果柳橙段落的成分圖及 160 毫升營養圖，未套用葡萄或水蜜桃版本，也未換算為鋁箔包的單包營養。",
+      "url": "https://www.cdfe.com.tw/products/pmsgz160",
+      "labelUrl": "https://img2.momoshop.com.tw/expertimg/0012/152/127/0.jpg?t=1705628943446"
+    },
+    "facts": [
+      {
+        "label": "完整品名",
+        "value": "一日蔬果100%蘋果柳橙蔬果汁"
+      }
+    ]
+  },
+  {
+    "names": [
+      "零卡百事可樂",
+      "無糖百事可樂",
+      "百事無糖生可樂"
+    ],
+    "packaging": "鐵罐",
+    "container": "330 毫升",
+    "ingredients": "碳酸水、焦糖色素、香料、磷酸、檸檬酸鈉、阿斯巴甜（甜味劑，內含苯丙胺酸，苯酮尿症患者不宜使用）、咖啡因、醋磺內酯鉀（甜味劑）、己二烯酸鉀（防腐劑）、檸檬酸、蔗糖素（甜味劑）、苯甲酸鈉（防腐劑）、中鏈三酸甘油酯",
+    "allergens": null,
+    "nutrition": {
+      "basis": "每罐 330 毫升，本包裝含 1 份",
+      "servingLabel": "整罐 330 毫升",
+      "energyKcal": 0,
+      "proteinG": 0,
+      "fatG": 0,
+      "saturatedFatG": 0,
+      "transFatG": 0,
+      "carbohydrateG": 0,
+      "sugarG": 0,
+      "sodiumMg": 59
+    },
+    "facts": [
+      {
+        "label": "核對版本",
+        "value": "無糖生可樂（Nama），不是一般百事可樂或其他無糖配方。"
+      },
+      {
+        "label": "咖啡因標示",
+        "value": "20 毫克／100 毫升以下"
+      },
+      {
+        "label": "甜味劑提醒",
+        "value": "含阿斯巴甜及苯丙胺酸；苯酮尿症患者不宜使用。"
+      }
+    ],
+    "source": {
+      "type": "retailer-label",
+      "label": "Costco 好市多・使用者指定來源",
+      "checkedAt": "2026-11-01",
+      "scope": "採用指定的無糖生可樂 330 毫升商品成分與清楚營養標籤圖，每罐 1 份。未以一般無糖百事或其他容量配方取代。",
+      "url": "https://www.costco.com.tw/Warehouse-Only/Food-Beverages/Water-Beverages/Pepsi-Zero-Sugar-Nama-330-ml-X-24-Count/p/159778",
+      "labelUrl": "https://www.costco.com.tw/medias/sys_master/images/h9b/h81/436453418565662.jpg"
+    }
+  },
+  {
+    "names": [
+      "波利芭樂汁",
+      "波蜜芭樂汁",
+      "芭樂汁"
+    ],
+    "packaging": "鋁箔包",
+    "container": "300 毫升鋁箔包（換算參考）",
+    "referenceNote": "依指定的 580 毫升瓶裝標籤，每 100 毫升數值乘以 3，換算為每包 300 毫升參考值；不是鋁箔包的原始營養標籤。",
+    "ingredients": null,
+    "allergens": null,
+    "nutrition": {
+      "basis": "每包 300 毫升（依每 100 毫升標示 × 3 換算，僅供參考）",
+      "servingLabel": "每包 300 毫升（換算）",
+      "energyKcal": 132,
+      "proteinG": 0,
+      "fatG": 0,
+      "saturatedFatG": 0,
+      "transFatG": 0,
+      "carbohydrateG": 33,
+      "sugarG": 30,
+      "sodiumMg": 60,
+      "per100": {
+        "energyKcal": 44,
+        "proteinG": 0,
+        "fatG": 0,
+        "saturatedFatG": 0,
+        "transFatG": 0,
+        "carbohydrateG": 11,
+        "sugarG": 10,
+        "sodiumMg": 20
+      }
+    },
+    "source": {
+      "type": "retailer-label",
+      "label": "momo購物網・使用者指定的波蜜芭樂汁標籤",
+      "checkedAt": "2026-11-01",
+      "scope": "以指定頁面 580 毫升瓶裝相片的每 100 毫升欄換算 300 毫升鋁箔包參考值。原標籤每瓶 256 大卡、碳水化合物 64 公克、糖 58 公克、鈉 116 毫克；每 100 毫升欄已有四捨五入，因此換算值與整瓶欄可能略有差異。成分及過敏原仍待清楚標籤核對。",
+      "url": "https://www.momoshop.com.tw/TP/TP0009821/goodsDetail/TP00098210000006",
+      "labelUrl": "https://i8.momoshop.com.tw/1787311855/goodsimg/TP000/9821/0000/006/TP00098210000006_R1_m.jpg"
+    }
+  },
+  {
+    "names": [
+      "黑松沙士"
+    ],
+    "packaging": "小型鐵罐",
+    "container": "245 毫升",
+    "ingredients": "碳酸水、砂糖、焦糖糖漿、香料、檸檬酸",
+    "allergens": null,
+    "nutrition": {
+      "basis": "每罐 245 毫升，本包裝含 1 份",
+      "servingLabel": "整罐 245 毫升",
+      "energyKcal": 103,
+      "proteinG": 0,
+      "fatG": 0,
+      "saturatedFatG": 0,
+      "transFatG": 0,
+      "carbohydrateG": 24.5,
+      "sugarG": null,
+      "sodiumMg": 3.3
+    },
+    "source": {
+      "type": "retailer-label",
+      "label": "momo購物網・使用者指定的黑松沙士商品規格",
+      "checkedAt": "2026-11-01",
+      "scope": "採用指定的 245 毫升頁面文字營養表。該表沒有糖欄，糖維持待補；未把碳水化合物當成糖，也未與 330 毫升圖版混合。實際以手上包裝為準。",
+      "url": "https://www.momoshop.com.tw/product/4081572"
+    }
+  },
+  {
+    "names": [
+      "百事可樂"
+    ],
+    "packaging": "小型鐵罐",
+    "container": "250 毫升（換算參考）",
+    "referenceNote": "依台灣通路一般原味百事 330 毫升整罐資料，換算為 250 毫升參考值。來源規格及照片為 330 毫升／罐、本包裝 1 份，營養文字的份量單位卻寫「330公克」；此處依整罐規格換算，並非 250 毫升罐的原始標籤。",
+    "ingredients": "碳酸水、高果糖糖漿、焦糖色素、磷酸、咖啡因、香料",
+    "allergens": null,
+    "nutrition": {
+      "basis": "每罐 250 毫升（依原味 330 毫升整罐 × 250 ÷ 330 換算，僅供參考）",
+      "servingLabel": "每罐 250 毫升（換算）",
+      "energyKcal": 115.2,
+      "proteinG": 0.0,
+      "fatG": 0.0,
+      "saturatedFatG": 0.0,
+      "transFatG": 0.0,
+      "carbohydrateG": 28.8,
+      "sugarG": 28.5,
+      "sodiumMg": 9.8,
+      "per100": {
+        "energyKcal": 46.1,
+        "proteinG": 0.0,
+        "fatG": 0.0,
+        "saturatedFatG": 0.0,
+        "transFatG": 0.0,
+        "carbohydrateG": 11.5,
+        "sugarG": 11.4,
+        "sodiumMg": 3.9
+      }
+    },
+    "facts": [
+      {
+        "label": "換算方式",
+        "value": "250 毫升及每 100 毫升欄，各自由原始整罐數值換算至小數點後 1 位；不重複使用已四捨五入的數字計算。"
+      },
+      {
+        "label": "原始整罐參考值",
+        "value": "330 毫升原味罐裝：152 大卡、蛋白質 0 公克、脂肪 0 公克、飽和脂肪 0 公克、反式脂肪 0 公克、碳水化合物 38 公克、糖 37.6 公克、鈉 13 毫克。"
+      }
+    ],
+    "source": {
+      "type": "retailer-label",
+      "label": "全聯全電商・一般原味百事330毫升商品規格",
+      "checkedAt": "2026-11-01",
+      "scope": "依使用者指示，可參考一般百事可樂並換算 250 毫升。採用台灣原味 330 毫升罐裝的整包裝 1 份數值；來源的「330公克」份量單位與照片／商品規格「330ml/罐」不一致，已保留說明，不假稱取得 250 毫升原標籤。不同容量或改版配方可能有差異，實際以手上包裝為準。",
+      "url": "https://pxbox.es.pxmart.com.tw/product/11558"
     }
   }
 ];
