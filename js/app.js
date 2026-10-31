@@ -12,9 +12,12 @@ const categories = CATEGORIES_ORDER;
 const categoryNames = () => [...new Set([...categories, ...store.data.drinks.map((drink) => drink.category)])];
 const activeDrinks = () => store.data.drinks.filter((drink) => drink.active !== false);
 const packagingTypes = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
-const viewNames = { overview: '飲料冰箱', wishes: '飲料許願池', archive: '歷史品項', admin: '管理後台', products: '倉庫庫存', count: '快速盤點', restock: '到貨入庫', 'manage-wishes': '願望管理', history: '異動紀錄' };
+const viewNames = { overview: '飲料冰箱', wishes: '飲料許願池', 'snack-wishes': '點心許願池', archive: '歷史品項', admin: '管理後台', products: '倉庫庫存', count: '快速盤點', restock: '到貨入庫', 'manage-wishes': '願望管理', history: '異動紀錄' };
 const adminViews = new Set(['admin', 'products', 'count', 'restock', 'manage-wishes', 'history']);
 let view = 'overview';
+let managedWishKind = 'drink';
+const wishKind = (wish) => wish?.kind === 'snack' ? 'snack' : 'drink';
+const currentWishKind = () => view === 'snack-wishes' ? 'snack' : view === 'manage-wishes' ? managedWishKind : 'drink';
 let filter = 'all';
 let query = '';
 let category = '';
@@ -205,17 +208,20 @@ function updateRestockSummary() {
 
 const wishStatus = (status) => ({ pending: ['待評估', 'pill-low'], purchased: ['已採購', 'pill-ok'], declined: ['暫不採購', 'pill-muted'] })[status] || ['待評估', 'pill-low'];
 function renderWishes() {
-  const wishes = [...store.data.wishes].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-  main.innerHTML = heading('SOMETHING TO LOOK FORWARD TO', store.canEdit ? '整理大家的小願望' : '下一瓶，許個願', '留下一個新口味，讓下一次採購多一點期待。', button('♡ 新增願望', 'new-wish')) +
-    '<div class="info-box">看到喜歡的願望，按「我也想喝」一起支持。' + (store.mode === 'google' ? '贊同表單送出後，回來重新整理就能看到人數。' : '同一個瀏覽器對每個願望可贊同一次。') + '</div>' +
+  const kind = currentWishKind();
+  const label = kind === 'snack' ? '點心' : '飲料';
+  const wishes = store.data.wishes.filter((wish) => wishKind(wish) === kind).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const tabs = `<div class="wish-pool-tabs" role="group" aria-label="選擇許願池">${[['drink', '飲料許願池'], ['snack', '點心許願池']].map(([value, title]) => view === 'manage-wishes' ? `<button type="button" class="filter-tab${kind === value ? ' selected' : ''}" data-action="wish-pool" data-id="${value}" aria-pressed="${kind === value}">${title}</button>` : `<a href="#${value === 'snack' ? 'snack-wishes' : 'wishes'}"${kind === value ? ' aria-current="page"' : ''}>${title}</a>`).join('')}</div>`;
+  main.innerHTML = heading('SOMETHING TO LOOK FORWARD TO', `${label}許願池`, `留下想${kind === 'snack' ? '吃' : '喝'}的好選擇，讓下一次採購多一點期待。`, button('♡ 新增願望', 'new-wish')) + tabs +
+    '<div class="info-box">許願不用填姓名；按「我也喜歡」時請填寫姓名。' + (store.mode === 'google' ? '贊同表單送出後，回來重新整理就能看到人數。' : '同一個瀏覽器對每個願望可贊同一次。') + '</div>' +
     (wishes.length ? `<div class="wish-grid">${wishes.map((wish) => {
       const [label, style] = wishStatus(wish.status);
       const url = safeUrl(wish.url);
       const voted = store.mode === 'demo' && store.hasVoted(wish.id);
       const votes = Number.isSafeInteger(wish.votes) && wish.votes >= 0 ? wish.votes : 0;
-      const unavailable = store.mode === 'google' && !store.voteForm?.url;
-      return `<article class="panel wish-card" data-wish-id="${h(wish.id)}"><div class="wish-top"><span class="wish-icon" aria-hidden="true">♡</span><span class="pill ${style}">${label}</span></div><h2>${h(wish.name)}</h2><p>${h(wish.note || '一個值得試試的新選擇。')}</p>${url ? `<a href="${h(url)}" target="_blank" rel="noopener noreferrer" class="text-link">看看這款飲料 ↗</a>` : '<span class="subtle">尚未附上購買連結</span>'}<div class="wish-vote-row"><button class="wish-vote-button${voted ? ' is-voted' : ''}" data-action="vote-wish" data-id="${h(wish.id)}" aria-pressed="${voted}"${voted || unavailable ? ' disabled' : ''}${unavailable ? ' title="Google 贊同表單尚未啟用"' : ''}>${voted ? '♥ 已贊同' : '♡ 我也想喝'}</button><span class="wish-vote-count" aria-live="polite">${votes} 人想喝</span></div><div class="wish-bottom"><span class="wish-date">${formatDate(wish.createdAt)} 加入許願池</span>${store.canEdit ? `<button class="cell-action" data-action="edit-wish" data-id="${h(wish.id)}">管理願望 ↗</button>` : ''}</div></article>`;
-    }).join('')}</div>` : `<div class="panel">${empty('第一個願望，會是什麼？', '可附上購買連結和備註，採購時就不用再翻聊天紀錄。', button('♡ 新增願望', 'new-wish'))}</div>`);
+      const unavailable = store.mode === 'google' && (!store.voteForm?.url || !store.voteForm?.voterNameEntryId);
+      return `<article class="panel wish-card" data-wish-id="${h(wish.id)}"><div class="wish-top"><span class="wish-icon" aria-hidden="true">♡</span><span class="pill ${style}">${label}</span></div><h2>${h(wish.name)}</h2><p>${h(wish.note || '一個值得試試的新選擇。')}</p>${url ? `<a href="${h(url)}" target="_blank" rel="noopener noreferrer" class="text-link">看看這款${kind === 'snack' ? '點心' : '飲料'} ↗</a>` : '<span class="subtle">尚未附上購買連結</span>'}<div class="wish-vote-row"><button class="wish-vote-button${voted ? ' is-voted' : ''}" data-action="vote-wish" data-id="${h(wish.id)}" aria-pressed="${voted}"${voted || unavailable ? ' disabled' : ''}${unavailable ? ' title="請先更新 Google 贊同表單，加入必填姓名欄位"' : ''}>${voted ? '♥ 已贊同' : '♡ 我也喜歡'}</button><span class="wish-vote-count" aria-live="polite">${votes} 人喜歡</span></div><div class="wish-bottom"><span class="wish-date">${formatDate(wish.createdAt)} 加入許願池</span>${store.canEdit ? `<button class="cell-action" data-action="edit-wish" data-id="${h(wish.id)}">管理願望 ↗</button>` : ''}</div></article>`;
+    }).join('')}</div>` : `<div class="panel">${empty(`第一個${label}願望，會是什麼？`, '匿名許願，可附上購買連結和備註。', button('♡ 新增願望', 'new-wish'))}</div>`);
 }
 
 function renderHistory() {
@@ -236,7 +242,7 @@ function renderAdmin() {
       ['count', '☷', '快速盤點', '每三天或一週，輸入所有品項的實際剩餘數量。', '開始盤點'],
       ['restock', '↗', '到貨入庫', '收到飲料再登記，時間、數量與庫存一併保存。', '登記入庫'],
       ['products', '▦', '倉庫庫存與歷史品項', '查看實際庫存，確認哪些品項需要補貨。', '查看庫存'],
-      ['manage-wishes', '♡', '大家的願望', '看看同事想喝什麼，以及每款有多少人贊同。', '查看願望'],
+      ['manage-wishes', '♡', '大家的願望', '看看同事想喝的飲料、想吃的點心，以及大家的贊同。', '查看願望'],
       ['history', '◷', '異動紀錄', '查看實際盤點、入庫時間與數量，並匯出備份。', '查看紀錄'],
     ].map(([href, icon, title, description, cta]) => `<a href="#${href}" class="admin-card"><span class="admin-card-icon" aria-hidden="true">${icon}</span><h2>${title}</h2><p>${description}</p><span class="admin-card-cta">${cta} ↗</span></a>`).join('')}</div>`;
 }
@@ -250,7 +256,7 @@ function render() {
     return;
   }
   if (store.mode === 'google' && ['count', 'restock'].includes(view)) { renderGoogleEntry(); return; }
-  ({ overview: renderOverview, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, restock: renderRestock, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
+  ({ overview: renderOverview, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, restock: renderRestock, wishes: renderWishes, 'snack-wishes': renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
 }
 
 async function route() {
@@ -294,12 +300,20 @@ function openDrink(id) {
 }
 
 function openWish(id) {
+  const wish = store.data.wishes.find((item) => item.id === id);
+  const kind = wish ? wishKind(wish) : currentWishKind();
+  const label = kind === 'snack' ? '點心' : '飲料';
   if (store.mode === 'google') {
-    showModal('到 Google 表單許個願', '願望會存進共用試算表；送出後回到這裡重新整理，即可看到更新。', `<div class="form-actions">${renderGoogleLink(store.formUrls?.wish, '開啟飲料許願表單')}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
+    showModal(`到 Google 表單許個${label}願望`, '許願不需要填姓名。送出後回到這裡重新整理，即可看到更新。', `<div class="form-actions">${renderGoogleLink(store.getWishUrl(kind), `開啟${label}許願表單`)}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
     return;
   }
+  showModal(wish ? '管理這個小願望' : `下一次，想要什麼${label}？`, '匿名許願，附上產品連結，下一次採購就能輕鬆找到。', `<form id="wish-form" data-id="${h(id || '')}"><input type="hidden" name="kind" value="${kind}"><div class="form-grid"><label class="field full-width">${label}名稱<input name="name" required maxlength="80" value="${h(wish?.name || '')}" placeholder="${kind === 'snack' ? '例如：海鹽蘇打餅乾' : '例如：無糖氣泡水'}"></label><label class="field full-width">購買或產品連結（選填）<input name="url" type="url" maxlength="2000" placeholder="https://…" value="${h(wish?.url || '')}"></label><label class="field full-width">許願備註（選填）<textarea name="note" maxlength="500" placeholder="口味、偏好、想試試的原因…">${h(wish?.note || '')}</textarea></label>${wish ? `<label class="field full-width">採購狀態<select name="status">${[['pending', '待評估'], ['purchased', '已採購'], ['declined', '暫不採購']].map(([value, title]) => `<option value="${value}"${wish?.status === value ? ' selected' : ''}>${title}</option>`).join('')}</select></label>` : '<p class="subtle full-width">新願望會先列為「待評估」，由管理者更新進度。</p>'}</div><div class="form-actions">${wish ? button('刪除願望', 'delete-wish', `type="button" data-id="${h(id)}"`, 'button-danger') : ''}${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">儲存願望</button></div></form>`);
+}
+
+function openVote(id) {
   const wish = store.data.wishes.find((item) => item.id === id);
-  showModal(wish ? '管理這個小願望' : '下一瓶，想喝什麼？', '附上飲料連結，下一次採購就能輕鬆找到。', `<form id="wish-form" data-id="${h(id || '')}"><div class="form-grid"><label class="field full-width">飲料名稱<input name="name" required maxlength="80" value="${h(wish?.name || '')}" placeholder="例如：無糖氣泡水"></label><label class="field full-width">購買或產品連結（選填）<input name="url" type="url" maxlength="2000" placeholder="https://…" value="${h(wish?.url || '')}"></label><label class="field full-width">許願備註（選填）<textarea name="note" maxlength="500" placeholder="口味、甜度、為什麼想喝…">${h(wish?.note || '')}</textarea></label>${wish ? `<label class="field full-width">採購狀態<select name="status">${[['pending', '待評估'], ['purchased', '已採購'], ['declined', '暫不採購']].map(([value, label]) => `<option value="${value}"${wish?.status === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label>` : '<p class="subtle full-width">新願望會先列為「待評估」，由管理者更新進度。</p>'}</div><div class="form-actions">${wish ? button('刪除願望', 'delete-wish', `type="button" data-id="${h(id)}"`, 'button-danger') : ''}${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">儲存願望</button></div></form>`);
+  if (!wish) throw new Error('找不到這個願望，請重新整理後再試。');
+  showModal('這個，我也喜歡', `支持「${h(wish.name)}」前，請填寫姓名。姓名不會顯示在公開願望卡片。`, `<form id="vote-form" data-id="${h(id)}"><label class="field">姓名<input name="voterName" required maxlength="80" autocomplete="name" placeholder="請填寫姓名"></label><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">${store.mode === 'google' ? '繼續到贊同表單' : '送出贊同'}</button></div></form>`);
 }
 
 async function save(next, message, close = false) {
@@ -324,8 +338,23 @@ async function submitForm(form) {
     toast('登入成功，可以開始整理飲料架了。');
     return;
   }
+  if (form.id === 'vote-form') {
+    const voterName = String(values.get('voterName') || '').trim();
+    if (!voterName || voterName.length > 80) throw new Error('請填寫姓名，最多 80 字。');
+    if (store.mode === 'google') {
+      const url = store.getVoteUrl(form.dataset.id, voterName);
+      showModal('送出這份喜歡', '姓名已預填。請送出 Google 贊同表單，再回來重新整理查看人數；同一瀏覽器重複送出不會多加票。', `<div class="form-actions">${renderGoogleLink(url, '開啟贊同表單')}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
+    } else {
+      await store.voteWish(form.dataset.id, voterName);
+      modalDirty = false;
+      modal.close();
+      renderWishes();
+      toast('已記下你的贊同！');
+    }
+    return;
+  }
   if (form.id === 'wish-form' && !form.dataset.id) {
-    await store.submitWish({ name: values.get('name').trim(), url: values.get('url').trim(), note: values.get('note').trim() });
+    await store.submitWish({ kind: values.get('kind'), name: values.get('name').trim(), url: values.get('url').trim(), note: values.get('note').trim() });
     modalDirty = false;
     modal.close();
     render();
@@ -366,7 +395,9 @@ async function submitForm(form) {
     if (urlInput && !url) throw new Error('請填入有效的 http 或 https 連結，且不要包含帳號密碼。');
     const name = values.get('name').trim();
     if (!name) throw new Error('請填寫飲料名稱。');
-    const updates = { name, url, note: values.get('note').trim(), status: values.get('status') };
+    const kind = values.get('kind');
+    if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料或點心許願池。');
+    const updates = { kind, name, url, note: values.get('note').trim(), status: values.get('status') };
     const existing = next.wishes.find((wish) => wish.id === form.dataset.id);
     if (existing) Object.assign(existing, updates);
     else next.wishes.push({ id: uid(), ...updates, createdAt: now });
@@ -395,17 +426,8 @@ async function runAction(action, id) {
   }
   if (action === 'login') { openLogin(); return; }
   if (action === 'retry-route') { await route(); return; }
-  if (action === 'vote-wish') {
-    if (store.mode === 'google') {
-      const url = store.getVoteUrl(id);
-      showModal('這瓶，我也想喝', '送出預填的 Google 贊同表單後，回來重新整理就會更新人數。相同瀏覽器重複送出不會多加票。', `<div class="form-actions">${renderGoogleLink(url, '開啟贊同表單')}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
-    } else {
-      await store.voteWish(id);
-      renderWishes();
-      toast('已記下你的贊同！');
-    }
-    return;
-  }
+  if (action === 'wish-pool') { managedWishKind = id === 'snack' ? 'snack' : 'drink'; renderWishes(); return; }
+  if (action === 'vote-wish') { openVote(id); return; }
   if (action === 'view-drink') { openDrinkDetails(id); return; }
   if (action === 'copy-low') { if (!store.canManage && !store.canEdit) throw new Error('請從倉庫管理產生補貨清單。'); await copyLowStock(); return; }
   if (action === 'toggle-door') { fridgeOpen = !fridgeOpen; syncFridgeDoor($('.fridge'), fridgeOpen); return; }
@@ -468,7 +490,7 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   if (action) {
     event.preventDefault();
-    if (['close-modal', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'login', 'view-drink', 'toggle-door'].includes(action.dataset.action)) {
+    if (['close-modal', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'vote-wish', 'login', 'view-drink', 'toggle-door'].includes(action.dataset.action)) {
       if (!busy) runAction(action.dataset.action, action.dataset.id).catch((error) => toast(error.message, true));
     } else withBusy(() => runAction(action.dataset.action, action.dataset.id), action);
   }
@@ -542,7 +564,7 @@ window.addEventListener('beforeunload', (event) => {
 
 // Refresh public views only; never replace an editor's unfinished form.
 setInterval(async () => {
-  if (!ready || busy || dirty || modal.open || !['overview', 'wishes', 'history'].includes(view) || document.hidden) return;
+  if (!ready || busy || dirty || modal.open || !['overview', 'wishes', 'snack-wishes', 'history'].includes(view) || document.hidden) return;
   busy = true;
   try {
     const revision = store.revision;

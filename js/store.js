@@ -193,8 +193,10 @@ export class InventoryStore {
     return saved;
   }
 
-  async submitWish({ name, url = '', note = '' } = {}) {
-    if (typeof name !== 'string' || !name.trim()) throw new Error('請填寫飲料名稱。');
+  async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {
+    if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料或點心許願池。');
+    if (this.mode !== 'demo' && kind !== 'drink') throw new Error('此舊版共用介接尚未支援點心許願池，請改用 Google 共用模式。');
+    if (typeof name !== 'string' || !name.trim()) throw new Error('請填寫品項名稱。');
     if (typeof url !== 'string' || typeof note !== 'string') throw new Error('請填寫有效的連結與備註。');
     const wishName = name.trim();
     const wishNote = note.trim();
@@ -210,7 +212,7 @@ export class InventoryStore {
       const next = structuredClone(this.data);
       // Only these fields are accepted. Public callers cannot choose an ID,
       // approval status, timestamp, or replace stock through wish submission.
-      next.wishes.push({ id: uid(), name: wishName, url: wishUrl, note: wishNote, status: 'pending', createdAt: new Date().toISOString(), votes: 0, voterIds: [] });
+      next.wishes.push({ id: uid(), kind, name: wishName, url: wishUrl, note: wishNote, status: 'pending', createdAt: new Date().toISOString(), votes: 0, voterIds: [] });
       saved = this.saveLocal(next);
     } else {
       const result = await this.request('/rest/v1/rpc/submit_wish', {
@@ -235,10 +237,12 @@ export class InventoryStore {
     return Array.isArray(wish?.voterIds) && wish.voterIds.includes(voterId);
   }
 
-  async voteWish(wishId) {
+  async voteWish(wishId, voterName) {
     if (this.mode !== 'demo') throw new Error('目前連線尚未啟用贊同功能。');
     const wish = this.data.wishes.find((item) => item.id === wishId);
     if (!wish) throw new Error('找不到這個願望，請重新整理後再試。');
+    if (typeof voterName !== 'string' || !voterName.trim() || voterName.trim().length > 80) throw new Error('請填寫姓名，最多 80 字。');
+    const name = voterName.trim();
     const voterId = inventoryLocalWishVoterId(true);
     if (Array.isArray(wish.voterIds) && wish.voterIds.includes(voterId)) return this.data;
     const next = structuredClone(this.data);
@@ -249,6 +253,7 @@ export class InventoryStore {
     if (!Number.isSafeInteger(previousVotes + 1)) throw new Error('這個願望的贊同人數格式不正確。');
     voters.add(voterId);
     updatedWish.voterIds = [...voters];
+    updatedWish.voterNames = { ...(updatedWish.voterNames || {}), [voterId]: name };
     updatedWish.votes = previousVotes + 1;
     const saved = this.saveLocal(next);
     this.data = saved.payload;

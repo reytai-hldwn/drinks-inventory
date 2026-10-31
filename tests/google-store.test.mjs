@@ -33,7 +33,7 @@ function warehousePayload() {
 
 function addVoteForm(value = payload()) {
   value.formUrls.vote = VOTE_URL;
-  value.voteForm = { url: VOTE_URL, wishEntryId: '12345', voterEntryId: '67890' };
+  value.voteForm = { url: VOTE_URL, wishEntryId: '12345', voterEntryId: '67890', voterNameEntryId: '13579' };
   value.wishes[0].votes = 3;
   return value;
 }
@@ -140,7 +140,7 @@ test('normalization includes archives but discards warehouse numbers, histories,
   const raw = payload();
   Object.assign(raw.drinks[0], { stock: 42, lastCountAt: '2026-10-30T00:00:00Z', ownerEmail: 'private@example.com', active: false });
   Object.assign(raw, { events: [{ quantity: 99 }], isEditor: true, adminEmails: ['private@example.com'], user: { id: 'admin' } });
-  Object.assign(raw.wishes[0], { email: 'private@example.com', respondentEmail: 'private@example.com' });
+  Object.assign(raw.wishes[0], { email: 'private@example.com', respondentEmail: 'private@example.com', voterName: 'private-voter-name', voterNames: { secret: 'private-voter-name' } });
   const snapshot = structuredClone(raw);
   const result = normalizeGooglePublicData(raw);
   assert.equal(result.data.drinks[0].active, false);
@@ -149,7 +149,7 @@ test('normalization includes archives but discards warehouse numbers, histories,
   assert.equal(result.data.drinks[0].lastCountAt, null);
   assert.deepEqual(result.data.events, []);
   assert.equal(result.data.lastInventoryAt, null);
-  assert.doesNotMatch(JSON.stringify(result), /private@example|ownerEmail|adminEmails|respondentEmail/);
+  assert.doesNotMatch(JSON.stringify(result), /private@example|ownerEmail|adminEmails|respondentEmail|private-voter-name/);
   assert.deepEqual(raw, snapshot, 'normalization does not mutate the endpoint response');
 });
 
@@ -337,27 +337,72 @@ test('prefilled vote links reuse a browser token and never optimistically increm
   const store = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, options);
   await store.init();
   assert.equal(values.size, 0, 'plain reads do not access or create a voting identity');
+  for (const name of [undefined, null, '', '  ', 'x'.repeat(81)]) {
+    assert.throws(() => store.getVoteUrl('wish-01', name), /姓名/);
+  }
+  assert.equal(values.size, 0, 'invalid names do not create browser identities');
   const before = structuredClone(store.data);
-  const url = new URL(store.getVoteUrl('wish-01'));
+  const url = new URL(store.getVoteUrl('wish-01', ' 小王 '));
   assert.equal(url.origin, 'https://docs.google.com');
   assert.equal(url.searchParams.get('entry.12345'), 'wish-01');
   assert.equal(url.searchParams.get('entry.67890'), 'browser-token-123456789');
+  assert.equal(url.searchParams.get('entry.13579'), '小王');
   assert.equal(url.searchParams.get('usp'), 'pp_url');
-  assert.equal(store.getVoteUrl('wish-01'), url.href);
+  assert.equal(store.getVoteUrl('wish-01', ' 小王 '), url.href);
   const second = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, options);
   await second.init();
-  assert.equal(second.getVoteUrl('wish-01'), url.href);
+  assert.equal(second.getVoteUrl('wish-01', '小王'), url.href);
   assert.equal(created, 1);
   assert.deepEqual(store.data, before);
   assert.throws(() => store.getVoteUrl('unknown'), /找不到/);
   const old = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, { readPublicData: async () => payload() });
   await old.init();
-  assert.throws(() => old.getVoteUrl('wish-01'), /尚未啟用/);
+  assert.throws(() => old.getVoteUrl('wish-01', '小王'), /尚未啟用/);
   const blocked = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, {
     readPublicData: async () => addVoteForm(), voteStorage: { getItem() { throw new Error('blocked'); } },
   });
   await blocked.init();
-  assert.throws(() => blocked.getVoteUrl('wish-01'), /儲存瀏覽器資料/);
+  assert.throws(() => blocked.getVoteUrl('wish-01', '小王'), /儲存瀏覽器資料/);
+});
+
+test('separate wish kinds preserve legacy drinks and prefill anonymous drink or snack forms', async () => {
+  const raw = payload();
+  raw.wishes.push({ ...raw.wishes[0], id: 'wish-snack', kind: 'snack', name: '海苔餅乾' });
+  raw.wishForm = { url: WISH_URL, kindEntryId: '24680' };
+  const store = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, { readPublicData: async () => raw });
+  await store.init();
+  assert.deepEqual(store.data.wishes.map(wish => wish.kind), ['drink', 'snack']);
+  const before = structuredClone(store.data);
+  for (const [kind, label] of [['drink', '飲料'], ['snack', '點心']]) {
+    const url = new URL(store.getWishUrl(kind));
+    assert.equal(url.searchParams.get('entry.24680'), label);
+    assert.equal(url.searchParams.has('姓名'), false);
+    assert.equal(url.searchParams.size, 2);
+  }
+  assert.deepEqual(store.data, before);
+  assert.throws(() => store.getWishUrl('inventory'), /飲料或點心/);
+  const wrong = structuredClone(raw);
+  wrong.wishes[0].kind = 'unknown';
+  assert.throws(() => normalizeGooglePublicData(wrong), /願望分類/);
+  for (const kindEntryId of [1234, '', 'x&entry.123']) {
+    assert.throws(() => normalizeGooglePublicData({ ...raw, wishForm: { url: WISH_URL, kindEntryId } }), /分類欄位/);
+  }
+});
+
+test('legacy Google metadata cannot open an unclassified wish or unnamed vote form', async () => {
+  const old = addVoteForm();
+  delete old.voteForm.voterNameEntryId;
+  const store = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, { readPublicData: async () => old });
+  await store.init();
+  assert.equal(store.voteForm, null);
+  assert.equal(store.wishForm, null);
+  assert.throws(() => store.getVoteUrl('wish-01', '小王'), /更新 Google/);
+  assert.throws(() => store.getWishUrl('snack'), /更新 Google/);
+  for (const voterNameEntryId of ['12345', '67890', 123, 'not-an-entry']) {
+    const wrong = addVoteForm();
+    wrong.voteForm.voterNameEntryId = voterNameEntryId;
+    assert.throws(() => normalizeGooglePublicData(wrong), /姓名欄位/);
+  }
 });
 
 test('failed or malformed reads preserve the previous data and never create samples', async () => {

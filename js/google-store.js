@@ -107,7 +107,26 @@ function googleVoteForm(value) {
       value.wishEntryId === value.voterEntryId) {
     throw new Error('Google 贊同表單設定不正確。');
   }
-  return { url, wishEntryId: value.wishEntryId, voterEntryId: value.voterEntryId };
+  // Older deployments remain readable, but cannot accept unnamed new votes.
+  if (value.voterNameEntryId === undefined || value.voterNameEntryId === '') return null;
+  if (typeof value.voterNameEntryId !== 'string' || !/^\d{1,20}$/.test(value.voterNameEntryId) ||
+      [value.wishEntryId, value.voterEntryId].includes(value.voterNameEntryId)) {
+    throw new Error('Google 贊同表單姓名欄位設定不正確。');
+  }
+  return { url, wishEntryId: value.wishEntryId, voterEntryId: value.voterEntryId, voterNameEntryId: value.voterNameEntryId };
+}
+
+function googleWishForm(value) {
+  if (value === undefined || value === null) return null;
+  if (!value || typeof value !== 'object') throw new Error('Google 許願表單設定不正確。');
+  const url = googleLink(value.url, 'form');
+  const parsed = new URL(url);
+  if (parsed.hostname !== 'docs.google.com' ||
+      !/^\/forms\/(?:u\/\d+\/)?d\/(?:e\/)?[A-Za-z0-9_-]+\/viewform\/?$/.test(parsed.pathname) ||
+      typeof value.kindEntryId !== 'string' || !/^\d{1,20}$/.test(value.kindEntryId)) {
+    throw new Error('Google 許願表單分類欄位設定不正確。');
+  }
+  return { url, kindEntryId: value.kindEntryId };
 }
 
 /** Select display fields, including observed stock only for the warehouse view. */
@@ -157,8 +176,11 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     const id = textField(row.id, '願望代號', 160);
     if (wishIds.has(id)) throw new Error('Google 許願清單出現重複願望代號。');
     wishIds.add(id);
+    const kind = row.kind === undefined ? 'drink' : row.kind;
+    if (!['drink', 'snack'].includes(kind)) throw new Error('Google 願望分類格式不正確。');
     return {
       id,
+      kind,
       name: textField(row.name, '願望名稱', 80),
       url,
       note: row.note === undefined ? '' : textField(row.note, '願望備註', 500, false),
@@ -196,12 +218,14 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     vote: googleLink(forms.vote, 'form', false),
   };
   const voteForm = googleVoteForm(payload.voteForm);
+  const wishForm = googleWishForm(payload.wishForm);
   const adminUrl = googleLink(payload.adminUrl || payload.warehouseUrl, 'sheet');
   const updatedAt = typeof payload.updatedAt === 'string' && Number.isFinite(Date.parse(payload.updatedAt)) ? payload.updatedAt : null;
   return {
     data: { drinks, events, wishes, lastInventoryAt: warehouse ? googleDateField(payload.lastInventoryAt, '最近完整盤點', true) : null },
     formUrls,
     voteForm,
+    wishForm,
     adminUrl,
     updatedAt,
   };
@@ -218,6 +242,7 @@ export class GoogleInventoryStore {
     this.data = blankData();
     this.formUrls = { wish: '', stocktake: '', arrival: '', vote: '' };
     this.voteForm = null;
+    this.wishForm = null;
     this.forms = this.formUrls;
     this.adminUrl = '';
     this.warehouseUrl = '';
@@ -261,17 +286,28 @@ export class GoogleInventoryStore {
     this.formUrls = result.formUrls;
     this.forms = this.formUrls;
     this.voteForm = result.voteForm;
+    this.wishForm = result.wishForm;
     this.inWarehouse = warehouse;
     this.adminUrl = result.adminUrl;
     this.warehouseUrl = this.adminUrl;
     this.updatedAt = result.updatedAt;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, adminUrl: result.adminUrl });
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl });
     return this.data;
   }
 
-  getVoteUrl(wishId) {
+  getWishUrl(kind = 'drink') {
+    if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料或點心許願池。');
+    if (!this.wishForm) throw new Error('許願表單分類尚未啟用，請更新 Google 設定並重新部署。');
+    const url = new URL(this.wishForm.url);
+    url.searchParams.set('usp', 'pp_url');
+    url.searchParams.set(`entry.${this.wishForm.kindEntryId}`, kind === 'snack' ? '點心' : '飲料');
+    return url.href;
+  }
+
+  getVoteUrl(wishId, voterName) {
     if (!this.data.wishes.some((wish) => wish.id === wishId)) throw new Error('找不到這個願望，請重新整理後再試。');
-    if (!this.voteForm) throw new Error('贊同表單尚未啟用，請先更新 Google 設定。');
+    if (!this.voteForm) throw new Error('贊同表單姓名欄位尚未啟用，請更新 Google 設定並重新部署。');
+    if (typeof voterName !== 'string' || !voterName.trim() || voterName.trim().length > 80) throw new Error('請填寫姓名，最多 80 字。');
     let voterId;
     try {
       const storage = this.voteStorage || globalThis.localStorage;
@@ -288,11 +324,12 @@ export class GoogleInventoryStore {
     url.searchParams.set('usp', 'pp_url');
     url.searchParams.set(`entry.${this.voteForm.wishEntryId}`, wishId);
     url.searchParams.set(`entry.${this.voteForm.voterEntryId}`, voterId);
+    url.searchParams.set(`entry.${this.voteForm.voterNameEntryId}`, voterName.trim());
     return url.href;
   }
 
   async login() { throw new Error('管理入口不用登入，請直接開啟倉庫或使用盤點、入庫 Google 表單。'); }
   async logout() { /* Google owns the account session; no credentials are stored here. */ }
   async save() { throw new Error('請使用 Google 表單登記庫存，並填寫登記人。'); }
-  async submitWish() { throw new Error('請使用飲料許願 Google 表單送出願望。'); }
+  async submitWish() { throw new Error('請使用許願 Google 表單送出願望。'); }
 }

@@ -11,7 +11,7 @@ let html = await read('index.html');
 const [styles, themes, fridge, theme, domain, catalog, productPhotosModule, fridgeModule, googleStore, store, app, mark, productImages] = await Promise.all([
   read('styles.css'), read('themes.css'), read('fridge.css'), read('theme.js'), read('js/domain.js'), read('js/catalog.js'), read('js/product-photos.js'), read('js/fridge.js'), read('js/google-store.js'), read('js/store.js'), read('js/app.js'), readFile(new URL('assets/holdwin-mark.png', root)),
   Promise.all(PRODUCT_PHOTOS.filter((photo) => photo.enabled !== false).map(async ({ src }) => {
-    const mime = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' }[extname(src).toLowerCase()];
+    const mime = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.avif': 'image/avif' }[extname(src).toLowerCase()];
     if (!mime || !/^\.\/assets\/[A-Za-z0-9_./-]+$/.test(src) || src.split('/').includes('..')) throw new Error(`Unsupported local product image: ${src}`);
     const bytes = await readFile(new URL(src, root));
     return { src, dataUrl: `data:${mime};base64,${bytes.toString('base64')}` };

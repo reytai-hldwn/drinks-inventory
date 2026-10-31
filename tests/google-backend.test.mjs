@@ -69,7 +69,7 @@ test('public fridge omits stocks while anonymous warehouse exposes only accepted
     Catalog: memorySheet([['id', 'name', 'category', 'packaging', 'unit', 'perCase', 'threshold', 'active'], ['tea', '茶', '茶飲', '鋁箔包', '包', '', 10, true],
       ...COMPANY_CATALOG.filter(drink => drink.active === false).map(drink => [drink.id, drink.name, drink.category, drink.packaging, drink.unit, '', 10, false])]),
     WishReview: memorySheet([['id', 'name', 'url', 'note', 'status', 'createdAt'], ['wish-one', '新飲料', 'https://example.com', '', 'pending', '2026-10-01T00:00:00Z']]),
-    WishVotes: memorySheet([['id', 'wish', 'voter', 'date', 'status'], ['vote1', 'wish-one', 'browser-1234567890123456', '2026-10-02T00:00:00Z', '採計']]),
+    WishVotes: memorySheet([['id', 'wish', 'voter', 'date', 'status', 'name'], ['vote1', 'wish-one', 'browser-1234567890123456', '2026-10-02T00:00:00Z', '採計', 'private-voter-name']]),
     History: memorySheet([['id', 'time', 'type', 'drink', 'name', 'quantity', 'note', 'recorder', 'status'],
       ['c1', '2026-10-02T00:00:00Z', 'count', 'tea', '茶', 10, '實盤', 'private@example.com', '採計'],
       ['a1', '2026-10-03T00:00:00Z', 'restock', 'tea', '茶', 2, '實收', '小王', '採計'],
@@ -79,13 +79,16 @@ test('public fridge omits stocks while anonymous warehouse exposes only accepted
   const ss = { getSheetByName: name => sheets[name], getUrl: () => 'https://docs.google.com/spreadsheets/d/privateSheet/edit' };
   ctx.requiredSpreadsheet_ = () => ss;
   ctx.forms_ = () => Object.fromEntries(['wish', 'stocktake', 'arrival', 'vote'].map(kind => [kind, { getPublishedUrl: () => `https://docs.google.com/forms/d/e/${kind}/viewform` }]));
-  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ voteWishEntry: '123', voteVoterEntry: '456' }));
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ voteWishEntry: '123', voteVoterEntry: '456', voteNameEntry: '789', wishKindEntry: '987' }));
   const front = ctx.publicData_();
   assert.equal(front.wishes[0].votes, 1);
+  assert.equal(front.wishes[0].kind, 'drink');
   assert.equal(front.drinks[0].stock, undefined);
   assert.equal(front.events, undefined);
   assert.deepEqual(plain(front.drinks.filter(drink => !drink.active).map(drink => drink.name)), expectedArchiveNames);
   assert.equal(JSON.stringify(front).includes('browser-1234567890123456'), false);
+  assert.equal(JSON.stringify(front).includes('private-voter-name'), false);
+  assert.deepEqual(plain(front.wishForm), { url: 'https://docs.google.com/forms/d/e/wish/viewform', kindEntryId: '987' });
   const warehouse = ctx.warehouseData_();
   assert.equal(warehouse.drinks[0].stock, 12);
   assert.equal(warehouse.drinks[0].lastCountAt, '2026-10-02T00:00:00.000Z');
@@ -94,7 +97,7 @@ test('public fridge omits stocks while anonymous warehouse exposes only accepted
   assert.equal(warehouse.lastInventoryAt, '2026-10-02T00:00:00.000Z');
   assert.equal(JSON.stringify(warehouse).includes('private@example.com'), false);
   assert.equal(warehouse.events[0].email, undefined);
-  assert.deepEqual(plain(front.voteForm), { url: 'https://docs.google.com/forms/d/e/vote/viewform', wishEntryId: '123', voterEntryId: '456' });
+  assert.deepEqual(plain(front.voteForm), { url: 'https://docs.google.com/forms/d/e/vote/viewform', wishEntryId: '123', voterEntryId: '456', voterNameEntryId: '789' });
   ctx.ContentService = { MimeType: { JSON: 'json', JAVASCRIPT: 'js' }, createTextOutput: body => ({ body, setMimeType(type) { this.type = type; return this; } }) };
   assert.equal(JSON.parse(ctx.doGet({ parameter: { action: 'warehouse' } }).body).drinks[0].stock, 12);
   assert.deepEqual(JSON.parse(ctx.doGet({ parameter: { action: 'write' } }).body), { ok: false, error: 'unsupported_action' });
@@ -110,10 +113,10 @@ test('wish votes deduplicate browser/wish pairs and reject invalid references wi
   const ss = { getSheetByName: name => sheets[name] };
   const beforeWish = structuredClone(wishSheet.rows);
   const voters = ['browser-1234567890123456', 'browser-9876543210987654'];
-  const answers = (wish, voter) => ({ 11: wish, 12: voter });
+  const answers = (wish, voter, name = '小王') => ({ 11: wish, 12: voter, 13: name });
   const responses = [response('v1', answers('wish-one', voters[0])), response('v2', answers('wish-one', voters[0])), response('v3', answers('wish-one', voters[1])), response('v4', answers('wish-unknown', voters[1])), response('v5', answers('wish-one', 'short'))];
   props.set('HOLDWIN_VOTE_FORM_ID', 'vote');
-  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ voteWish: '11', voteVoter: '12' }));
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ voteWish: '11', voteVoter: '12', voteName: '13' }));
   ctx.FormApp = { openById: () => ({ getResponses: () => responses }) };
   ctx.syncVotes_(ss);
   assert.equal(voteSheet.rows.length, 6);
@@ -127,6 +130,55 @@ test('wish votes deduplicate browser/wish pairs and reject invalid references wi
   // Counting also ignores duplicate ledger pairs if a row was accidentally copied.
   voteSheet.rows.push([...voteSheet.rows[1]]);
   assert.equal(ctx.voteCounts_(ss)['wish-one'], 2);
+});
+
+test('new votes need a valid name while prior accepted anonymous votes remain counted', async () => {
+  const { ctx, props } = await backend();
+  const original = ['old-vote', 'wish-one', 'legacy-browser-12345678', '2026-10-01T00:00:00Z', '採計'];
+  const voteSheet = memorySheet([['id', 'wish', 'voter', 'date', 'status'], [...original]]);
+  const wishSheet = memorySheet([['id', 'name', 'url', 'note', 'status', 'createdAt'], ['wish-one', '餅乾', '', '', 'pending', '2026-10-01T00:00:00Z', 'snack']]);
+  const ss = { getSheetByName: name => ({ WishReview: wishSheet, WishVotes: voteSheet })[name] };
+  props.set('HOLDWIN_VOTE_FORM_ID', 'vote');
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ voteWish: '11', voteVoter: '12', voteName: '13' }));
+  const answers = (voter, name) => ({ 11: 'wish-one', 12: voter, 13: name });
+  const responses = [
+    response('missing', answers('browser-missing-12345678', '')),
+    response('spaces', answers('browser-spaces-12345678', '   ')),
+    response('long', answers('browser-long-1234567890', 'x'.repeat(81))),
+    response('valid', answers('browser-valid-12345678', ' 小王 ')),
+    response('duplicate', answers('browser-valid-12345678', '小李')),
+  ];
+  ctx.FormApp = { openById: () => ({ getResponses: () => responses }) };
+  ctx.syncVotes_(ss);
+  assert.deepEqual(voteSheet.rows[1], original);
+  assert.equal(ctx.voteCounts_(ss)['wish-one'], 2);
+  assert.equal(voteSheet.rows.find(row => row[0] === 'valid')[5], '小王');
+  assert.ok(voteSheet.rows.filter(row => ['missing', 'spaces', 'long'].includes(row[0])).every(row => row[4] === '未採計：請填有效姓名'));
+  assert.equal(voteSheet.rows.find(row => row[0] === 'duplicate')[4], '未採計：重複贊同');
+  const before = structuredClone(voteSheet.rows);
+  ctx.syncVotes_(ss);
+  assert.deepEqual(voteSheet.rows, before);
+});
+
+test('anonymous wishes append a separate kind and keep old wishes and response IDs intact', async () => {
+  const { ctx, props } = await backend();
+  const old = ['wish-old', '原本飲料', '', '', 'purchased', '2026-10-01T00:00:00Z'];
+  const wishSheet = memorySheet([['id', 'name', 'url', 'note', 'status', 'createdAt'], [...old]]);
+  const ss = { getSheetByName: () => wishSheet };
+  props.set('HOLDWIN_WISH_FORM_ID', 'wish');
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ wishName: '1', wishUrl: '2', wishNote: '3', wishKind: '4' }));
+  const responses = [response('snack', { 1: '海苔餅乾', 3: '鹹口味', 4: '點心' }), response('drink', { 1: '無糖茶', 4: '飲料' }), response('legacy', { 1: '舊版飲料回應' }), response('bad', { 1: '無效分類', 4: 'admin' })];
+  ctx.FormApp = { openById: () => ({ getResponses: () => responses }) };
+  ctx.SpreadsheetApp = { newDataValidation: () => ({ requireValueInList() { return this; }, setAllowInvalid() { return this; }, build() { return {}; } }) };
+  ctx.syncWishes_(ss);
+  assert.deepEqual(wishSheet.rows[1], old);
+  const wishes = plain(ctx.wishRows_(ss));
+  assert.deepEqual(wishes.map(wish => wish.kind), ['drink', 'snack', 'drink', 'drink']);
+  assert.equal(wishes.find(wish => wish.id === 'wish-snack').name, '海苔餅乾');
+  assert.ok(wishes.every(wish => !('recorder' in wish) && !('voterName' in wish)));
+  const before = structuredClone(wishSheet.rows);
+  ctx.syncWishes_(ss);
+  assert.deepEqual(wishSheet.rows, before);
 });
 
 test('Google catalog initialization appends missing products without overwriting existing rows', async () => {
@@ -231,6 +283,8 @@ test('form setup removes account checks, requires recorders and exports real pre
     return result;
   }
   const forms = Object.fromEntries(['stocktake', 'arrival', 'wish', 'vote'].map(kind => [kind, form(kind)]));
+  const legacyWishName = forms.wish.addTextItem().setTitle('想喝的飲料');
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ wishName: String(legacyWishName.getId()) }));
   for (const [kind, property] of Object.entries({ stocktake: 'HOLDWIN_COUNT_FORM_ID', arrival: 'HOLDWIN_ARRIVAL_FORM_ID', wish: 'HOLDWIN_WISH_FORM_ID', vote: 'HOLDWIN_VOTE_FORM_ID' })) props.set(property, kind);
   props.set('HOLDWIN_PRIVATE_FORMS_READY', 'false');
   const validation = () => { const builder = new Proxy({ build: () => ({}) }, { get: (target, key) => key in target ? target[key] : () => builder }); return builder; };
@@ -238,6 +292,8 @@ test('form setup removes account checks, requires recorders and exports real pre
   ctx.catalog_ = () => COMPANY_CATALOG;
   ctx.configureForms_({});
   const fields = JSON.parse(props.get('HOLDWIN_FORM_FIELDS'));
+  assert.equal(fields.wishName, String(legacyWishName.getId()));
+  assert.equal(legacyWishName.title, '品項名稱');
   assert.ok(Object.values(forms).every(form => form.collectEmail === false && form.limitOnce === false && form.accepting === true));
   assert.equal(forms.stocktake.items.find(item => item.title === '登記人').required, true);
   assert.equal(forms.arrival.items.find(item => item.title === '登記人').required, true);
@@ -246,6 +302,11 @@ test('form setup removes account checks, requires recorders and exports real pre
   const arrivalChoices = forms.arrival.items.find(item => item.title === '飲料品項').choices;
   assert.equal(arrivalChoices.length, 32);
   assert.ok(COMPANY_CATALOG.filter(drink => drink.active === false).every(drink => !arrivalChoices.some(choice => choice.startsWith(drink.id + '｜'))));
+  assert.equal(forms.vote.items.find(item => item.title === '姓名').required, true);
+  assert.equal(forms.wish.items.some(item => item.title === '姓名'), false);
+  assert.deepEqual(plain(forms.wish.items.find(item => item.title === '許願分類').choices), ['飲料', '點心']);
+  assert.equal(fields.voteNameEntry, String(Number(fields.voteName) + 90000));
+  assert.equal(fields.wishKindEntry, String(Number(fields.wishKind) + 90000));
   assert.equal(fields.voteWishEntry, String(Number(fields.voteWish) + 90000));
   assert.equal(fields.voteVoterEntry, String(Number(fields.voteVoter) + 90000));
   assert.notEqual(fields.voteWishEntry, fields.voteWish);

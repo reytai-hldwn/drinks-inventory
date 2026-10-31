@@ -1,0 +1,463 @@
+{
+  "source": "使用者提供：飲料圖片.zip",
+  "photos": [
+    {
+      "file": "sun-moon-black-tea.png",
+      "original": "生活日月潭紅茶.png",
+      "crop": [
+        258,
+        133,
+        484,
+        736
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "barley-tea.png",
+      "original": "御茶園麥萃.png",
+      "crop": [
+        375,
+        92,
+        232,
+        758
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "asahi-sixteen-tea.png",
+      "original": "Asahi十六茶.png",
+      "crop": [
+        188,
+        31,
+        279,
+        568
+      ],
+      "originalSize": [
+        640,
+        640
+      ]
+    },
+    {
+      "file": "bomy-guava.jpg",
+      "original": "波蜜芭樂汁.jpg",
+      "crop": [
+        216,
+        59,
+        526,
+        889
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "coke-zero.avif",
+      "original": "零卡可口可樂.avif",
+      "crop": [
+        153,
+        0,
+        417,
+        720
+      ],
+      "originalSize": [
+        720,
+        720
+      ]
+    },
+    {
+      "file": "coke-original.jpg",
+      "original": "可口可樂.jpg",
+      "crop": [
+        137,
+        41,
+        254,
+        441
+      ],
+      "originalSize": [
+        500,
+        500
+      ]
+    },
+    {
+      "file": "pepsi-original.jpg",
+      "original": "百事可樂.jpg",
+      "crop": [
+        217,
+        169,
+        206,
+        305
+      ],
+      "originalSize": [
+        640,
+        640
+      ]
+    },
+    {
+      "file": "heysong-sarsaparilla.jpg",
+      "original": "黑松沙士.jpg",
+      "crop": [
+        172,
+        102,
+        458,
+        598
+      ],
+      "originalSize": [
+        800,
+        800
+      ]
+    },
+    {
+      "file": "taisun-congee.avif",
+      "original": "泰山低糖八寶粥.avif",
+      "crop": [
+        188,
+        30,
+        362,
+        682
+      ],
+      "originalSize": [
+        740,
+        740
+      ]
+    },
+    {
+      "file": "pepsi-zero.jpg",
+      "original": "百事無糖生可樂.jpg",
+      "crop": [
+        269,
+        72,
+        459,
+        855
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "fin.jpg",
+      "original": "FIN補給飲料.jpg",
+      "crop": [
+        206,
+        41,
+        394,
+        734
+      ],
+      "originalSize": [
+        800,
+        800
+      ]
+    },
+    {
+      "file": "redbull.png",
+      "original": "Red Bull能量飲料.png",
+      "crop": [
+        204,
+        61,
+        192,
+        478
+      ],
+      "originalSize": [
+        600,
+        600
+      ]
+    },
+    {
+      "file": "original-green-tea.webp",
+      "original": "原萃日式綠茶.webp",
+      "crop": [
+        230,
+        338,
+        1248,
+        4786
+      ],
+      "originalSize": [
+        1772,
+        5538
+      ]
+    },
+    {
+      "file": "cold-brew-jinxuan.jpg",
+      "original": "冷萃金萱烏龍.jpg",
+      "crop": [
+        179,
+        92,
+        138,
+        387
+      ],
+      "originalSize": [
+        500,
+        500
+      ]
+    },
+    {
+      "file": "moriyama-black-tea.jpeg",
+      "original": "moriyama紅茶.jpeg",
+      "crop": [
+        194,
+        2,
+        205,
+        592
+      ],
+      "originalSize": [
+        600,
+        600
+      ]
+    },
+    {
+      "file": "moriyama-milk-tea.jpg",
+      "original": "moriyama奶茶.jpg",
+      "crop": [
+        333,
+        1,
+        335,
+        998
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "shih-chuan-vinegar.avif",
+      "original": "十全果醋.avif",
+      "crop": [
+        260,
+        151,
+        463,
+        808
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "lychee-sparkling.png",
+      "original": "荔枝氣泡飲.png",
+      "crop": [
+        211,
+        156,
+        184,
+        318
+      ],
+      "originalSize": [
+        600,
+        600
+      ]
+    },
+    {
+      "file": "agv-honey-oat.jpg",
+      "original": "愛之味蜂蜜燕麥.jpg",
+      "crop": [
+        300,
+        143,
+        200,
+        514
+      ],
+      "originalSize": [
+        800,
+        800
+      ]
+    },
+    {
+      "file": "agv-original-oat.webp",
+      "original": "愛之味純濃燕麥.webp",
+      "crop": [
+        311,
+        17,
+        375,
+        973
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "kuang-chuan-oat-milk.webp",
+      "original": "光泉燕麥奶.webp",
+      "crop": [
+        187,
+        15,
+        259,
+        612
+      ],
+      "originalSize": [
+        640,
+        640
+      ]
+    },
+    {
+      "file": "sprite.jpg",
+      "original": "雪碧.jpg",
+      "crop": [
+        303,
+        264,
+        466,
+        618
+      ],
+      "originalSize": [
+        1080,
+        1080
+      ]
+    },
+    {
+      "file": "rico-honey-milk-tea.jpg",
+      "original": "紅牌蜂蜜奶茶.jpg",
+      "crop": [
+        188,
+        25,
+        617,
+        965
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "lipton-honey-black-tea.jpg",
+      "original": "立頓蜂蜜紅茶.jpg",
+      "crop": [
+        342,
+        0,
+        317,
+        1000
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "apple-sidra.png",
+      "original": "蘋果西打.png",
+      "crop": [
+        227,
+        57,
+        149,
+        214
+      ],
+      "originalSize": [
+        600,
+        337
+      ]
+    },
+    {
+      "file": "klim-strawberry-yogurt.webp",
+      "original": "克寧草莓優酪乳.webp",
+      "crop": [
+        132,
+        152,
+        336,
+        698
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "agv-barley-drink.jpeg",
+      "original": "愛之味麥仔茶.jpeg",
+      "crop": [
+        227,
+        121,
+        466,
+        768
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "lipton-original.png",
+      "original": "立頓奶茶.png",
+      "crop": [
+        230,
+        27,
+        571,
+        933
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "kuang-chuan-milk.png",
+      "original": "光泉牛乳.png",
+      "crop": [
+        240,
+        40,
+        121,
+        267
+      ],
+      "originalSize": [
+        600,
+        337
+      ]
+    },
+    {
+      "file": "kuang-chuan-chocolate.png",
+      "original": "光泉巧克力牛乳.png",
+      "crop": [
+        293,
+        163,
+        217,
+        486
+      ],
+      "originalSize": [
+        800,
+        800
+      ]
+    },
+    {
+      "file": "uni-soy.png",
+      "original": "光泉無糖豆漿.png",
+      "crop": [
+        66,
+        17,
+        274,
+        357
+      ],
+      "originalSize": [
+        400,
+        400
+      ]
+    },
+    {
+      "file": "milkis-peach.png",
+      "original": "Milkis水蜜桃.png",
+      "crop": [
+        31,
+        42,
+        262,
+        627
+      ],
+      "originalSize": [
+        330,
+        684
+      ]
+    }
+  ],
+  "pending": [
+    "立頓巧克力奶茶",
+    "立頓沁香奶綠",
+    "Tree Top 蘋果汁",
+    "Vida 氣泡飲",
+    "光泉薏仁糙米漿",
+    "光泉柳橙汁",
+    "波蜜一日蔬果"
+  ],
+  "note": "原圖檔案未修改，僅在網站用 CSS 顯示單品範圍；光泉無糖豆漿.png 實為統一陽光無加糖豆奶。"
+}

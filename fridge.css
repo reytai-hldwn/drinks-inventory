@@ -137,6 +137,7 @@
 .pack-label .pack-name-lines{display:block;width:100%;flex-shrink:0;letter-spacing:0}
 .pack-name-line{display:block;white-space:nowrap;overflow-wrap:normal;letter-spacing:0;line-height:1.4;font-size:min(1em,calc(100cqi / var(--pack-line-units)))}
 .drink-product-photo{display:block;flex-shrink:0;width:84px;height:132px;object-fit:contain;object-position:center bottom}.drink-product-photo-carton{height:113px}
+.drink-photo-viewport{position:relative;display:block;flex-shrink:0;overflow:hidden;mix-blend-mode:multiply}.drink-product-photo-original{position:absolute;max-width:none;max-height:none;object-fit:fill}
 .drink-pack-can:not(.drink-pack-can-small):not(.drink-pack-can-tall) .pack-label{padding-top:4px;padding-bottom:4px;gap:3px}
 .drink-pack-bottle-large .pack-label{padding-top:4px;padding-bottom:4px;bottom:13px}
 

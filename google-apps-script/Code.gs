@@ -319,8 +319,11 @@ function setupOnce() {
     initializeCatalog_(ss);
     ensureSheet_(ss, SHEETS.history, ['事件 ID', 'Google 收件時間', '類型', '品項 ID', '飲料名稱', '數量', '備註', '登記人', '採計狀態']);
     ss.getSheetByName(SHEETS.history).getRange(1, 8).setValue('登記人');
-    ensureSheet_(ss, SHEETS.wishes, ['願望 ID', '飲料名稱', '購買連結', '備註', '狀態', 'Google 收件時間']);
-    ensureSheet_(ss, SHEETS.votes, ['回應 ID', '願望 ID', '匿名識別碼', 'Google 收件時間', '採計狀態']);
+    var wishes = ensureSheet_(ss, SHEETS.wishes, ['願望 ID', '品項名稱', '購買連結', '備註', '狀態', 'Google 收件時間', '許願分類']);
+    wishes.getRange(1, 2).setValue('品項名稱');
+    wishes.getRange(1, 7).setValue('許願分類');
+    var votes = ensureSheet_(ss, SHEETS.votes, ['回應 ID', '願望 ID', '匿名識別碼', 'Google 收件時間', '採計狀態', '姓名']);
+    votes.getRange(1, 6).setValue('姓名');
     ensureSheet_(ss, SHEETS.warehouse);
     ensureSheet_(ss, SHEETS.archive);
     ensureSheet_(ss, SHEETS.setup);
@@ -435,9 +438,15 @@ function doGet(e) {
 function wishRows_(ss) {
   var sheet = ss.getSheetByName(SHEETS.wishes);
   if (!sheet || sheet.getLastRow() < 2) return [];
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues().map(function (row) {
-    return { id: String(row[0]), name: text_(row[1], 80), url: safeUrl_(row[2]), note: text_(row[3], 500), status: ['pending', 'purchased', 'declined'].indexOf(row[4]) >= 0 ? row[4] : 'pending', createdAt: iso_(row[5]) };
-  }).filter(function (wish) { return wish.id && wish.name && wish.createdAt; });
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues().map(function (row) {
+    return { id: String(row[0]), name: text_(row[1], 80), url: safeUrl_(row[2]), note: text_(row[3], 500), status: ['pending', 'purchased', 'declined'].indexOf(row[4]) >= 0 ? row[4] : 'pending', createdAt: iso_(row[5]), kind: wishKind_(row[6]) };
+  }).filter(function (wish) { return wish.id && wish.name && wish.createdAt && wish.kind; });
+}
+
+function wishKind_(value) {
+  var kind = String(value || '').trim();
+  if (!kind || kind === 'drink' || kind === '飲料') return 'drink';
+  return kind === 'snack' || kind === '點心' ? 'snack' : null;
 }
 
 function publicData_() {
@@ -453,7 +462,8 @@ function publicData_() {
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = { wish: forms.wish.getPublishedUrl(), stocktake: forms.stocktake.getPublishedUrl(), arrival: forms.arrival.getPublishedUrl(), vote: forms.vote.getPublishedUrl() };
   return { ok: true, provider: 'google', drinks: drinks, wishes: wishes, formUrls: formUrls,
-    voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '' },
+    wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
+    voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),
     updatedAt: props.getProperty('HOLDWIN_PUBLIC_UPDATED_AT') || null };
 }
@@ -619,14 +629,14 @@ function configureForms_(ss) {
   var catalog = catalog_(ss);
   var stocktake = ensureForm_('HOLDWIN_COUNT_FORM_ID', '宏穩茶水間｜完整盤點', ss);
   var arrival = ensureForm_('HOLDWIN_ARRIVAL_FORM_ID', '宏穩茶水間｜到貨入庫', ss);
-  var wish = ensureForm_('HOLDWIN_WISH_FORM_ID', '宏穩茶水間｜飲料許願', ss);
-  var vote = ensureForm_('HOLDWIN_VOTE_FORM_ID', '宏穩茶水間｜我也想喝', ss);
+  var wish = ensureForm_('HOLDWIN_WISH_FORM_ID', '宏穩茶水間｜飲料與點心許願', ss);
+  var vote = ensureForm_('HOLDWIN_VOTE_FORM_ID', '宏穩茶水間｜我也喜歡', ss);
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   fields.count = fields.count || {};
   stocktake.setTitle('宏穩茶水間｜完整盤點').setDescription('不用登入，請填寫登記人。啟用品項全部填寫實際單包／瓶／罐數量，沒有就是 0。Google 自動記錄收到表單的時間。').setCollectEmail(false);
   arrival.setTitle('宏穩茶水間｜到貨入庫').setDescription('不用登入，請填寫登記人。實際收到飲料才登記，以單包／瓶／罐計數；分批收到就分次填寫。Google 自動記錄時間。').setCollectEmail(false);
-  wish.setDescription('留下你想喝的飲料，可附購買連結與備註。請勿填入個人資料或公司機密。').setCollectEmail(false);
-  vote.setDescription('我也想喝這款飲料！請保留網站預填的願望代號與匿名識別碼，直接送出。同一瀏覽器的同一個願望只計一票。').setCollectEmail(false);
+  wish.setTitle('宏穩茶水間｜飲料與點心許願').setDescription('匿名留下想喝的飲料或想吃的點心，不用填姓名，可附購買連結與備註。請確認許願分類，勿填入個人資料或公司機密。').setCollectEmail(false);
+  vote.setTitle('宏穩茶水間｜我也喜歡').setDescription('請填姓名，再送出贊同。保留網站預填的願望代號與匿名識別碼；同一瀏覽器的同一個願望只計一票。姓名保留在私人試算表，不顯示在公開願望卡。').setCollectEmail(false);
   [stocktake, arrival, wish, vote].forEach(function (form) { form.setLimitOneResponsePerUser(false).setShowLinkToRespondAgain(false).setAllowResponseEdits(false); });
   var recorderValidator = FormApp.createTextValidation().requireTextLengthLessThanOrEqualTo(80).setHelpText('請填寫姓名或大家認得的暱稱，最多 80 字。').build();
   var countRecorder = findItem_(stocktake, '登記人', 'text').setRequired(true).setValidation(recorderValidator);
@@ -654,17 +664,23 @@ function configureForms_(ss) {
   arrivalDrink.setRequired(true);
   var arrivalQuantity = findItem_(arrival, '實際到貨數量（單包／瓶／罐）', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[1-9][0-9]{0,5}$').setHelpText('請填 1 到 999999 的整數，不是箱數。').build());
   var arrivalNote = findItem_(arrival, '備註（選填）', 'paragraph').setRequired(false);
-  var wishName = findItem_(wish, '想喝的飲料', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextLengthLessThanOrEqualTo(80).build());
+  // Rename the original question in place so existing responses retain their ID.
+  var oldWishName = wish.getItems().filter(function (item) { return String(item.getId()) === fields.wishName || item.getTitle() === '想喝的飲料' || item.getTitle() === '品項名稱'; })[0];
+  var wishName = (oldWishName ? oldWishName.asTextItem() : wish.addTextItem()).setTitle('品項名稱').setRequired(true).setValidation(FormApp.createTextValidation().requireTextLengthLessThanOrEqualTo(80).build());
+  var wishKind = findItem_(wish, '許願分類', 'list').setChoiceValues(['飲料', '點心']).setRequired(true);
   var wishUrl = findItem_(wish, '購買或產品連結（選填）', 'text').setRequired(false).setValidation(FormApp.createTextValidation().requireTextIsUrl().build());
   var wishNote = findItem_(wish, '許願備註（選填）', 'paragraph').setRequired(false).setValidation(FormApp.createParagraphTextValidation().requireTextLengthLessThanOrEqualTo(500).build());
   var voteWish = findItem_(vote, '願望代號（網站預填，請勿修改）', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^wish-[A-Za-z0-9_-]{1,155}$').build());
   var voteVoter = findItem_(vote, '匿名識別碼（網站預填，請勿修改）', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[A-Za-z0-9_-]{16,160}$').build());
+  var voteName = findItem_(vote, '姓名', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[\\s\\S]*\\S[\\s\\S]*$').requireTextLengthLessThanOrEqualTo(80).setHelpText('請填寫姓名，最多 80 字。').build());
   fields.countRecorder = String(countRecorder.getId()); fields.arrivalRecorder = String(arrivalRecorder.getId());
   fields.arrivalDrink = String(arrivalDrink.getId()); fields.arrivalQuantity = String(arrivalQuantity.getId()); fields.arrivalNote = String(arrivalNote.getId());
   fields.wishName = String(wishName.getId()); fields.wishUrl = String(wishUrl.getId()); fields.wishNote = String(wishNote.getId());
-  fields.voteWish = String(voteWish.getId()); fields.voteVoter = String(voteVoter.getId());
+  fields.wishKind = String(wishKind.getId()); fields.wishKindEntry = formEntryId_(wish, wishKind, '飲料');
+  fields.voteWish = String(voteWish.getId()); fields.voteVoter = String(voteVoter.getId()); fields.voteName = String(voteName.getId());
   fields.voteWishEntry = formEntryId_(vote, voteWish, 'wish-sample');
   fields.voteVoterEntry = formEntryId_(vote, voteVoter, 'anonymous-sample-12345678');
+  fields.voteNameEntry = formEntryId_(vote, voteName, '姓名範例');
   props.setProperty('HOLDWIN_FORM_FIELDS', JSON.stringify(fields));
   [stocktake, arrival, wish, vote].forEach(function (form) { form.setAcceptingResponses(true); });
 }
@@ -673,7 +689,7 @@ function formEntryId_(form, item, sample) {
   // Form item IDs and the public entry IDs are not interchangeable.
   var url = form.createResponse().withItemResponse(item.createResponse(sample)).toPrefilledUrl();
   var match = String(url).match(/[?&]entry\.(\d+)=/);
-  if (!match) throw new Error('無法建立贊同表單預填欄位，請重新執行 setupOnce。');
+  if (!match) throw new Error('無法建立表單預填欄位，請重新執行 setupOnce。');
   return match[1];
 }
 
@@ -690,11 +706,12 @@ function syncWishes_(ss) {
     var answers = {};
     response.getItemResponses().forEach(function (item) { answers[String(item.getItem().getId())] = item.getResponse(); });
     var name = text_(answers[fields.wishName], 80);
-    if (!name) return;
-    rows.push([id, sheetText_(name), sheetText_(safeUrl_(answers[fields.wishUrl])), sheetText_(text_(answers[fields.wishNote], 500)), 'pending', response.getTimestamp().toISOString()]);
+    var kind = wishKind_(answers[fields.wishKind]);
+    if (!name || !kind) return;
+    rows.push([id, sheetText_(name), sheetText_(safeUrl_(answers[fields.wishUrl])), sheetText_(text_(answers[fields.wishNote], 500)), 'pending', response.getTimestamp().toISOString(), kind]);
   });
   if (rows.length) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 6).setNumberFormat('@').setValues(rows);
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 7).setNumberFormat('@').setValues(rows);
     props.setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
   }
   if (sheet.getLastRow() > 1) sheet.getRange(2, 5, sheet.getLastRow() - 1, 1).setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['pending', 'purchased', 'declined'], true).setAllowInvalid(false).build());
@@ -717,7 +734,7 @@ function voteCounts_(ss) {
 }
 
 function syncVotes_(ss) {
-  var sheet = ensureSheet_(ss, SHEETS.votes, ['回應 ID', '願望 ID', '匿名識別碼', 'Google 收件時間', '採計狀態']);
+  var sheet = ensureSheet_(ss, SHEETS.votes, ['回應 ID', '願望 ID', '匿名識別碼', 'Google 收件時間', '採計狀態', '姓名']);
   var props = PropertiesService.getScriptProperties();
   var formId = props.getProperty('HOLDWIN_VOTE_FORM_ID');
   if (!formId) return;
@@ -739,15 +756,17 @@ function syncVotes_(ss) {
     response.getItemResponses().forEach(function (item) { answers[String(item.getItem().getId())] = item.getResponse(); });
     var wishId = String(answers[fields.voteWish] || '').trim();
     var voterId = String(answers[fields.voteVoter] || '').trim();
+    var voterName = String(answers[fields.voteName] || '').trim();
     var stamp = iso_(response.getTimestamp());
     var pair = wishId + ':' + voterId;
+    var validName = !!voterName && voterName.length <= 80;
     var valid = !!stamp && wishes[wishId] && /^wish-[A-Za-z0-9_-]{1,155}$/.test(wishId) && /^[A-Za-z0-9_-]{16,160}$/.test(voterId);
-    var status = !valid ? '未採計：無效願望或識別碼' : pairs[pair] ? '未採計：重複贊同' : '採計';
+    var status = !validName ? '未採計：請填有效姓名' : !valid ? '未採計：無效願望或識別碼' : pairs[pair] ? '未採計：重複贊同' : '採計';
     if (status === '採計') pairs[pair] = true;
-    rows.push([sheetText_(responseId), sheetText_(text_(wishId, 160)), sheetText_(text_(voterId, 160)), stamp || '', status]);
+    rows.push([sheetText_(responseId), sheetText_(text_(wishId, 160)), sheetText_(text_(voterId, 160)), stamp || '', status, sheetText_(text_(voterName, 80))]);
   });
   if (rows.length) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 5).setNumberFormat('@').setValues(rows);
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 6).setNumberFormat('@').setValues(rows);
     props.setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
   }
 }
@@ -817,7 +836,7 @@ function writeSetup_(ss) {
       ['完整盤點表單（免登入、必填登記人）', forms.stocktake.getPublishedUrl()],
       ['到貨入庫表單（免登入、必填登記人）', forms.arrival.getPublishedUrl()],
       ['同事許願表單（公開）', forms.wish.getPublishedUrl()],
-      ['我也想喝贊同表單（由網站預填）', forms.vote.getPublishedUrl()],
+      ['我也喜歡贊同表單（必填姓名、網站預填）', forms.vote.getPublishedUrl()],
       ['公開資料網址', '完成「部署 → 網頁應用程式」後，將 /exec 網址填入網站 googleScriptUrl。']
     ]);
     styleHeader_(sheet, 1, 2); sheet.setColumnWidth(1, 260); sheet.setColumnWidth(2, 520);

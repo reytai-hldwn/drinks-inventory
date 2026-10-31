@@ -49,6 +49,15 @@ function fridgeIconFor(category) {
 /** Packaging is visual: a drawing never represents a number of containers. */
 export function drinkPack(drink) {
   const photo = findProductPhoto(drink.name);
+  if (photo?.crop && photo.originalSize) {
+    const [x, y, width, height] = photo.crop;
+    const [originalWidth, originalHeight] = photo.originalSize;
+    const scale = Math.min(84 / width, photo.height / height);
+    const px = (value) => `${(value * scale).toFixed(3)}px`;
+    // Keep the supplied image intact. A CSS viewport shows the single product,
+    // excluding store badges or neighbouring cartons without repainting labels.
+    return `<div class="drink-pack-group drink-pack-group-photo"><span class="drink-photo-viewport" style="width:${px(width)};height:${px(height)}"><img class="drink-product-photo drink-product-photo-original" style="width:${px(originalWidth)};height:${px(originalHeight)};left:-${px(x)};top:-${px(y)}" src="${h(photo.src)}" alt="" aria-hidden="true" width="${originalWidth}" height="${originalHeight}" loading="lazy" decoding="async"></span><span class="pack-shadow"></span></div>`;
+  }
   if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo${photo.height === 113 ? ' drink-product-photo-carton' : ''}" src="${h(photo.src)}" alt="" aria-hidden="true" width="84" height="${photo.height}" loading="lazy" decoding="async"><span class="pack-shadow"></span></div>`;
   let colors = ['#749b75', '#f2eedb', '#35513c'];
   if (/紅茶|蜜茶|烏龍/.test(drink.name)) colors = ['#a96740', '#f1e1bb', '#6b382c'];
