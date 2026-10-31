@@ -1,18 +1,5 @@
 import { escapeHtml as h, safeUrl } from './domain.js';
-
-// These are transcriptions of the supplied package fronts, not inferred recipes
-// or a substitute for a complete current nutrition label. Unknowns stay null.
-const packageFrontInformation = [
-  { names: ['立頓原味奶茶'], container: '300 毫升', basis: '每份（包裝正面標示；每份容量待核對）', energyKcal: 131.4 },
-  { names: ['立頓巧克力奶茶'], container: '300 毫升', basis: '每份（包裝正面標示；每份容量待核對）', energyKcal: 134.1 },
-  { names: ['立頓沁香奶綠'], container: '300 毫升', basis: '每份（包裝正面標示；每份容量待核對）', energyKcal: 118.5 },
-  { names: ['Fin', 'FIN'], container: '300 毫升', basis: '每份 300 毫升（包裝正面標示）', energyKcal: 52.5 },
-].map((row) => Object.freeze({
-  names: Object.freeze(row.names), packaging: '鋁箔包', container: row.container,
-  ingredients: null, allergens: null,
-  nutrition: Object.freeze({ basis: row.basis, energyKcal: row.energyKcal, proteinG: null, fatG: null, saturatedFatG: null, transFatG: null, carbohydrateG: null, sugarG: null, sodiumMg: null }),
-  source: Object.freeze({ type: 'provided-package', label: '所提供的商品包裝正面', checkedAt: '2026-10-31', scope: '僅確認正面的容量與每份熱量；成分與完整營養表尚待核對。' }),
-}));
+import { CHECKED_DRINK_LABELS } from './drink-labels.js';
 
 const productionLine = '該產線亦生產含芒果、花生、芝麻、牛奶、蛋、堅果類、含麩質之穀物及大豆製品。';
 const officialInformation = [
@@ -51,7 +38,16 @@ const officialInformation = [
   });
 });
 
-export const DRINK_INFORMATION = Object.freeze([...packageFrontInformation, ...officialInformation]);
+const checkedInformation = CHECKED_DRINK_LABELS.map((row) => Object.freeze({
+  ...row, names: Object.freeze(row.names), source: Object.freeze(row.source),
+  nutrition: row.nutrition ? Object.freeze({
+    proteinG: null, fatG: null, saturatedFatG: null, transFatG: null,
+    carbohydrateG: null, sugarG: null, sodiumMg: null, ...row.nutrition,
+  }) : null,
+}));
+export const DRINK_INFORMATION = Object.freeze([
+  ...officialInformation, ...checkedInformation,
+]);
 
 const drinkInformationByName = new Map(DRINK_INFORMATION.flatMap((row) => row.names.map((name) => [name, row])));
 
@@ -70,12 +66,17 @@ export function renderDrinkInformation(drink) {
   const info = findDrinkInformation(drink);
   const pending = '<p class="subtle">尚待核對完整包裝標示。</p>';
   const nutrition = info?.nutrition;
-  const extraRows = [['calciumMg', '鈣', '毫克'], ['cholesterolMg', '膽固醇', '毫克'], ['dietaryFiberG', '膳食纖維', '公克'], ['betaGlucanG', 'β-聚葡萄糖', '公克'], ['lactoseG', '乳糖', '公克'], ['ironMg', '鐵', '毫克'], ['potassiumMg', '鉀', '毫克']].filter(([key]) => nutrition?.[key] !== undefined);
-  const nutrientValue = (value, unit) => typeof value === 'number' && Number.isFinite(value) ? `${value} ${unit}` : '<span class="subtle">待補</span>';
-  const table = nutrition ? `<p class="nutrition-basis">${h(nutrition.basis)}</p><div class="nutrition-table-wrap"><table class="nutrition-table">${nutrition.per100 ? '<thead><tr><th scope="col">營養素</th><th scope="col">每份</th><th scope="col">每 100 毫升</th></tr></thead>' : ''}<tbody>${[...NUTRIENT_ROWS, ...extraRows].map(([key, label, unit]) => `<tr><th scope="row">${label}</th><td>${nutrientValue(nutrition[key], unit)}</td>${nutrition.per100 ? `<td>${extraRows.some(([extra]) => extra === key) ? '—' : nutrientValue(nutrition.per100[key], unit)}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : pending;
+  const extraRows = [['calciumMg', '鈣', '毫克'], ['cholesterolMg', '膽固醇', '毫克'], ['dietaryFiberG', '膳食纖維', '公克'], ['betaGlucanG', 'β-聚葡萄糖', '公克'], ['lactoseG', '乳糖', '公克'], ['ironMg', '鐵', '毫克'], ['potassiumMg', '鉀', '毫克'], ['saltEquivalentG', '食鹽相當量', '公克']].filter(([key]) => nutrition?.[key] !== undefined);
+  const nutrientValue = (value, unit) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return `${value} ${unit}`;
+    if (value && Number.isFinite(value.min) && Number.isFinite(value.max) && value.min >= 0 && value.max >= value.min) return `${value.min}～${value.max} ${unit}`;
+    return '<span class="subtle">待補</span>';
+  };
+  const table = nutrition ? `<p class="nutrition-basis">${h(nutrition.basis)}</p><div class="nutrition-table-wrap"><table class="nutrition-table">${nutrition.per100 ? `<thead><tr><th scope="col">營養素</th><th scope="col">每份</th><th scope="col">${h(nutrition.per100Basis || '每 100 毫升')}</th></tr></thead>` : ''}<tbody>${[...NUTRIENT_ROWS, ...extraRows].map(([key, label, unit]) => `<tr><th scope="row">${label}</th><td>${nutrientValue(nutrition[key], unit)}</td>${nutrition.per100 ? `<td>${extraRows.some(([extra]) => extra === key) ? '—' : nutrientValue(nutrition.per100[key], unit)}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : pending;
   const source = info?.source;
   const sourceUrl = source?.url ? safeUrl(source.url) : '';
   const labelUrl = source?.labelUrl ? safeUrl(source.labelUrl) : '';
-  const reference = !source ? '' : `<section class="drink-information-source"><h3>資料來源</h3><p>${h(source.label)} · 核對日期 ${h(source.checkedAt)}</p><p>${h(source.scope)}</p>${labelUrl ? `<a href="${h(labelUrl)}" target="_blank" rel="noopener noreferrer">查看官方營養標籤 ↗</a> · ` : ''}${source.type === 'provided-package' ? `<button type="button" class="cell-action" data-action="view-drink-label" data-id="${h(drink.id)}">查看包裝原圖 ↗</button>` : sourceUrl ? `<a href="${h(sourceUrl)}" target="_blank" rel="noopener noreferrer">查看來源 ↗</a>` : ''}</section>`;
-  return `<div class="drink-information">${info?.container ? `<p class="nutrition-basis">本圖包裝容量：${h(info.container)}</p>` : ''}<section><h3>成分</h3>${info?.ingredients ? `<p>${h(info.ingredients)}</p>` : pending}</section><section><h3>過敏原標示</h3>${info?.allergens ? `<p>${h(info.allergens)}</p>` : pending}</section><section><h3>營養標示</h3>${table}</section>${reference}<p class="nutrition-note">尚未確認的欄位不視為 0；實際成分與營養數值請以手上包裝為準。</p></div>`;
+  const reference = !source ? '' : `<section class="drink-information-source"><h3>資料來源</h3><p>${h(source.label)} · 核對日期 ${h(source.checkedAt)}</p><p>${h(source.scope)}</p>${labelUrl ? `<a href="${h(labelUrl)}" target="_blank" rel="noopener noreferrer">${source.type === 'official' ? '查看官方營養標籤' : '查看營養標籤原圖'} ↗</a> · ` : ''}${source.type === 'provided-package' ? `<button type="button" class="cell-action" data-action="view-drink-label" data-id="${h(drink.id)}">查看包裝原圖 ↗</button>` : sourceUrl ? `<a href="${h(sourceUrl)}" target="_blank" rel="noopener noreferrer">查看來源 ↗</a>` : ''}</section>`;
+  const facts = info?.facts?.length ? `<section><h3>其他包裝標示</h3><dl class="drink-facts">${info.facts.map((fact) => `<div><dt>${h(fact.label)}</dt><dd>${h(fact.value)}</dd></div>`).join('')}</dl></section>` : '';
+  return `<div class="drink-information">${info?.container ? `<p class="nutrition-basis">本次核對包裝容量：${h(info.container)}</p>` : ''}<section><h3>成分</h3>${info?.ingredients ? `<p>${h(info.ingredients)}</p>` : pending}</section><section><h3>過敏原標示</h3>${info?.allergens ? `<p>${h(info.allergens)}</p>` : pending}</section><section><h3>營養標示</h3>${table}</section>${facts}${reference}<p class="nutrition-note">尚未確認的欄位不視為 0；實際成分與營養數值請以手上包裝為準。</p></div>`;
 }

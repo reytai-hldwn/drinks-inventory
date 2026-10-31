@@ -133,7 +133,7 @@ function renderInventoryTable() {
 function renderArchive() {
   const archived = store.data.drinks.filter((drink) => drink.active === false);
   main.innerHTML = heading('ONCE IN OUR PANTRY', '那些曾經喝過的', '曾經買過、目前暫停供應的飲料。想再喝到，可以到許願池留個願望。', '<a href="#wishes" class="button button-outline">♡ 我想許願</a>') +
-    `<div class="archive-grid">${archived.length ? archived.map((drink) => `<article class="panel archive-card">${drinkPack(drink)}<h2>${h(drink.name)}</h2><p>${h(drink.category)} · ${h(drink.packaging || drink.unit)}</p><span class="pill pill-muted">歷史品項</span></article>`).join('') : `<div class="panel">${empty('每一款喜歡，都值得被記得', '品項停買後會收進這裡，不會刪掉以前的紀錄。')}</div>`}</div>`;
+    `<div class="archive-grid">${archived.length ? archived.map((drink) => `<article class="panel archive-card">${drinkPack(drink)}<h2>${h(drink.name)}</h2><p>${h(drink.category)} · ${h(drink.packaging || drink.unit)}</p><span class="pill pill-muted">歷史品項</span><div class="form-actions">${button('查看飲料資訊', 'view-drink', `type="button" data-id="${h(drink.id)}"`, 'button-small button-outline')}</div></article>`).join('') : `<div class="panel">${empty('每一款喜歡，都值得被記得', '品項停買後會收進這裡，不會刪掉以前的紀錄。')}</div>`}</div>`;
 }
 
 function renderGoogleLink(url, label) {

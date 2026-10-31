@@ -1,0 +1,871 @@
+{
+  "checkedAt": "2026-11-01",
+  "note": "完整狀態只表示基本八項數值齊全，成分與過敏原是否已核對分別列示；不代表所有欄位均完整。",
+  "summary": {
+    "total": 40,
+    "basicNutritionComplete": 22,
+    "partial": 9,
+    "pending": 9
+  },
+  "products": [
+    {
+      "id": "company-drink-01",
+      "name": "光泉牛乳",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "200 毫升",
+      "basis": "每份 200 毫升，本包裝含 1 份",
+      "source": {
+        "type": "official",
+        "label": "光泉官方商城商品規格及營養標籤",
+        "url": "https://www.kuangchuan.com/KCGO/Item/202411412032",
+        "labelUrl": "https://www.kuangchuan.com/Content/Images/product/Long-Life-Milk/ingr/02032.jpg",
+        "checkedAt": "2026-10-31",
+        "scope": "已核對官網現行 200 毫升常溫版的成分、過敏原與營養標示；不同容量或舊版配方可能不同。"
+      }
+    },
+    {
+      "id": "company-drink-02",
+      "name": "光泉巧克力牛乳",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "200 毫升",
+      "basis": "每份 200 毫升，本包裝含 1 份",
+      "source": {
+        "type": "official",
+        "label": "光泉官方商城商品規格及營養標籤",
+        "url": "https://www.kuangchuan.com/KCGO/Item/202411112034",
+        "labelUrl": "https://www.kuangchuan.com/Content/Images/product/Long-Life-FlavoredMilk/ingr/02034.jpg",
+        "checkedAt": "2026-10-31",
+        "scope": "已核對官網現行 200 毫升常溫版的成分、過敏原與營養標示；不同容量或舊版配方可能不同。"
+      }
+    },
+    {
+      "id": "company-drink-03",
+      "name": "光泉薏仁糙米漿",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "200 毫升",
+      "basis": "每份 200 毫升，本包裝含 1 份",
+      "source": {
+        "type": "official",
+        "label": "光泉官方商城商品規格及營養標籤",
+        "url": "https://www.kuangchuan.com/KCGO/Item/202411422134",
+        "labelUrl": "https://www.kuangchuan.com/Content/Images/product/RiceMilk/ingr/02134.jpg",
+        "checkedAt": "2026-10-31",
+        "scope": "已核對官網現行 200 毫升常溫版的成分、過敏原與營養標示；不同容量或舊版配方可能不同。"
+      }
+    },
+    {
+      "id": "company-drink-04",
+      "name": "tree top瓶果汁",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "200 毫升",
+      "basis": "每份 200 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAJ9Q-A900II6P3",
+        "labelUrl": "https://img.pchome.com.tw/cs/items/DBAJ9QA900II6P3/i010003_1743132249.jpg"
+      }
+    },
+    {
+      "id": "company-drink-05",
+      "name": "光泉柳橙汁",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "200 毫升",
+      "basis": "每份 200 毫升，本包裝含 1 份",
+      "source": {
+        "type": "official",
+        "label": "光泉官方商城商品規格及營養標籤",
+        "url": "https://www.kuangchuan.com/KCGO/Item/202411822137",
+        "labelUrl": "https://www.kuangchuan.com/Content/Images/product/JuiceTime/ingr/02137.jpg",
+        "checkedAt": "2026-10-31",
+        "scope": "已核對官網現行 200 毫升常溫版的成分、過敏原與營養標示；不同容量或舊版配方可能不同。"
+      }
+    },
+    {
+      "id": "company-drink-06",
+      "name": "統一豆漿",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "250 毫升",
+      "basis": "每份 250 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依同款統一陽光無加糖豆奶 250 毫升原包裝標籤圖核對。網頁內容物欄雖寫「無」，圖上明列水及非基因改造黃豆，因此採用標籤圖；無加糖不等於糖為 0。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB08-A900BUH11",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB08A900BUH11/i010007_1633487197.jpg"
+      }
+    },
+    {
+      "id": "company-drink-07",
+      "name": "波利芭樂汁",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "同款通路文字成分有疑似誤植，未取得清楚完整原標籤，未自行改寫配方。",
+      "attemptedSource": "https://24h.pchome.com.tw/prod/DBAB7L-A9007SKYN"
+    },
+    {
+      "id": "company-drink-08",
+      "name": "立頓原味奶茶",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "300 毫升",
+      "basis": "每份 300 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB6V-A900DF7NI",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB6VA900DF7NI/i010004_1751525732.jpg"
+      }
+    },
+    {
+      "id": "company-drink-09",
+      "name": "立頓巧克力奶茶",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "300 毫升",
+      "basis": "每份 300 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB6V-A900DF7JW",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB6VA900DF7JW/i010004_1751527893.jpg"
+      }
+    },
+    {
+      "id": "company-drink-10",
+      "name": "立頓沁香奶綠",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "300 毫升",
+      "basis": "每份 300 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB6V-A900HK2R4",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB6VA900HK2R4/i010004_1751525600.jpg"
+      }
+    },
+    {
+      "id": "company-drink-11",
+      "name": "日月潭紅茶",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "300 毫升",
+      "basis": "每份 300 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路生活日月潭無糖紅茶 300 毫升標籤圖核對。原圖每 100 毫升脂肪欄的單位有誤，本頁僅採用每份欄，未自行修正或換算。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB8K-A900HL2XP",
+        "labelUrl": "https://img.pchome.com.tw/cs/items/DBAB8KA900HL2XP/i010002_1774245318.jpg"
+      }
+    },
+    {
+      "id": "company-drink-12",
+      "name": "十六茶",
+      "active": true,
+      "status": "partial",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "330 毫升",
+      "basis": null,
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "台灣通路「新十六茶 回甘升級」330 毫升鋁箔包文字成分；舊版包裝配方可能不同。未使用日本瓶裝十六茶的成分或營養值。",
+        "url": "https://24h.pchome.com.tw/prod/DBABC3-A900BLE5P"
+      }
+    },
+    {
+      "id": "company-drink-13",
+      "name": "Fin",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "300 毫升",
+      "basis": "每份 300 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBABGH-A900DF1C8",
+        "labelUrl": "https://img.pchome.com.tw/cs/items/DBABGHA900DF1C8/i010003_1752029843.jpg"
+      }
+    },
+    {
+      "id": "company-drink-14",
+      "name": "波蜜一日蔬果",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "查得的一日蔬果資料主要為160毫升罐裝，未套用至目前鋁箔包版本。",
+      "attemptedSource": "https://www.bomy.com.tw/%e5%93%81%e7%89%8c%e4%b8%80%e8%a6%bd/%e8%87%aa%e6%9c%89%e5%93%81%e7%89%8c/%e4%b8%80%e6%97%a5%e8%94%ac%e6%9e%9c%e7%b3%bb%e5%88%97/"
+    },
+    {
+      "id": "company-drink-15",
+      "name": "荔枝氣泡水",
+      "active": true,
+      "status": "partial",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "330 毫升",
+      "basis": null,
+      "source": {
+        "type": "provided-package",
+        "label": "所提供的商品包裝正面",
+        "checkedAt": "2026-11-01",
+        "scope": "僅依使用者提供的原圖核對容量與果汁含量；圖片文字為荔枝風味氣泡飲，3% 指果汁含量，未取得完整成分與營養表。"
+      }
+    },
+    {
+      "id": "company-drink-16",
+      "name": "零卡可口可樂",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "330 毫升",
+      "basis": "每份 330 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB12-A47622311",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB12A47622311/i010010_1683716761.jpg"
+      }
+    },
+    {
+      "id": "company-drink-17",
+      "name": "零卡百事可樂",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "一般無糖與生可樂為不同版本；生可樂頁面標題330毫升、文字容量300毫升互有衝突，未取得相符完整標籤。",
+      "attemptedSource": "https://24h.pchome.com.tw/prod/DBABJF-A900JLS12"
+    },
+    {
+      "id": "company-drink-18",
+      "name": "八寶粥",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "360 公克",
+      "basis": "每份 360 公克（來源為 24 入整箱標示）",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "台灣通路泰山低糖八寶粥 360 公克規格圖；來源圖的「24份」為整箱，這裡保留每份 360 公克與每 100 公克數值，不將公克當成毫升，也不寫成單罐含 24 份。",
+        "url": "https://24h.pchome.com.tw/prod/DBABLA-A900IHGPL",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBABLAA900IHGPL/i010003_1742547073.jpg"
+      }
+    },
+    {
+      "id": "company-drink-19",
+      "name": "可口可樂",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "250 毫升",
+      "basis": "每份 250 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB12-A46597285",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB12A46597285/i010016_1691078973.jpg"
+      }
+    },
+    {
+      "id": "company-drink-20",
+      "name": "百事可樂",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "250毫升通路頁只有文字成分及品牌圖，部分文字疑似誤植，沒有可確認的完整營養標籤。",
+      "attemptedSource": "https://24h.pchome.com.tw/prod/DBAB0G-A900BBSRH"
+    },
+    {
+      "id": "company-drink-21",
+      "name": "黑松沙士",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "245毫升商品頁的營養圖為330毫升，未自行換算或混用不同容量。",
+      "attemptedSource": "https://24h.pchome.com.tw/prod/DBABGF-A900DF634"
+    },
+    {
+      "id": "company-drink-22",
+      "name": "Milkiis水蜜桃",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "尚未找到台灣此口味與容量的進口標籤；原廠入口此次回應503，通路搜尋未取得相符飲料。",
+      "attemptedSource": null
+    },
+    {
+      "id": "company-drink-23",
+      "name": "Miilkis",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "尚未找到台灣此口味與容量的進口標籤；原廠入口此次回應503，通路搜尋未取得相符飲料。",
+      "attemptedSource": null
+    },
+    {
+      "id": "company-drink-24",
+      "name": "Redbull能量飲",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "250 毫升",
+      "basis": "每份 250 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "採用台灣通路提供的 250 毫升成分及營養標籤圖；未用品牌宣傳中四捨五入的 27 公克糖取代標籤上的 26.8 公克。",
+        "url": "https://24h.pchome.com.tw/prod/DBABGW-A900C2JED",
+        "labelUrl": "https://img.pchome.com.tw/cs/items/DBABGWA900C2JED/l000002_1765246421.jpg"
+      }
+    },
+    {
+      "id": "company-drink-25",
+      "name": "Vida氣泡飲",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "查詢的vida.com.my為網域停放頁，沒有當作品牌資料；台灣通路搜尋也未取得此款標籤。",
+      "attemptedSource": null
+    },
+    {
+      "id": "company-drink-26",
+      "name": "蜂蜜燕麥",
+      "active": true,
+      "status": "partial",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "290 毫升",
+      "basis": null,
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "台灣通路 290 毫升品項已核對文字成分。完整營養與過敏原標示仍待核對，未從商品宣傳推測數值。",
+        "url": "https://24h.pchome.com.tw/prod/DBABGL-A900JJETK"
+      }
+    },
+    {
+      "id": "company-drink-27",
+      "name": "麥萃麥茶",
+      "active": true,
+      "status": "partial",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "590 毫升",
+      "basis": null,
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "已核對台灣通路麥萃無糖麥茶 590 毫升文字成分。尚未取得完整營養標籤，不從 0 糖宣傳推定其餘營養值。",
+        "url": "https://24h.pchome.com.tw/prod/DBABB8-A900GL6IQ"
+      }
+    },
+    {
+      "id": "company-drink-28",
+      "name": "原萃綠茶",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "580 毫升",
+      "basis": "每份 290 毫升，本包裝含 2 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB12-A9005ZWWU",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB12A9005ZWWU/i010015_1720438135.jpg"
+      }
+    },
+    {
+      "id": "company-drink-29",
+      "name": "十全果醋",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "100 毫升",
+      "basis": "每份 100 毫升，本包裝含 1 份",
+      "source": {
+        "type": "official",
+        "label": "原廠官網商品規格及標示",
+        "checkedAt": "2026-11-01",
+        "scope": "依十全官方蜜桃果醋 100 毫升規格圖轉錄，未混用其他口味或 140 毫升版本。",
+        "url": "https://shih-chuan.com.tw/zh/products/product/peach-vinegar-drink-100ml",
+        "labelUrl": "https://d19diwjmgrydmk.cloudfront.net/products/82e31a7e-db0e-4173-807e-d4335f7a880f-100-_.jpg"
+      }
+    },
+    {
+      "id": "company-drink-30",
+      "name": "冷萃金萱烏龍",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": null,
+      "basis": null,
+      "source": null,
+      "pendingReason": "1000毫升通路文字成分有疑似誤植，尚無清楚標籤圖，未從450毫升或其他烏龍版本套入。",
+      "attemptedSource": "https://24h.pchome.com.tw/prod/DBAB09-A900J0EXG"
+    },
+    {
+      "id": "company-drink-31",
+      "name": "Moriyama紅茶",
+      "active": true,
+      "status": "partial",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [
+        "saturatedFatG",
+        "transFatG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "1,000 公克",
+      "basis": "每 100 公克（日本官網標示）",
+      "source": {
+        "type": "official",
+        "label": "原廠官網商品規格及標示",
+        "checkedAt": "2026-11-01",
+        "scope": "日本原廠現行「喫茶店の味 オーガニック紅茶」1,000 公克版本；保留原廠已列數值。食鹽相當量不當成鈉，未將公克當成毫升，未推算糖、飽和脂肪或反式脂肪。",
+        "url": "https://www.fujimilk.co.jp/kissatennoaji/organictea.html"
+      }
+    },
+    {
+      "id": "company-drink-32",
+      "name": "Moriyama奶茶",
+      "active": true,
+      "status": "partial",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [
+        "saturatedFatG",
+        "transFatG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "1,000 公克",
+      "basis": "每 100 公克（日本官網標示）",
+      "source": {
+        "type": "official",
+        "label": "原廠官網商品規格及標示",
+        "checkedAt": "2026-11-01",
+        "scope": "日本原廠現行「喫茶店の味 ロイヤルミルクティー」1,000 公克版本；保留原廠已列數值。食鹽相當量不當成鈉，未將公克當成毫升；原廠未列的台灣八項欄位維持待補。",
+        "url": "https://www.fujimilk.co.jp/kissatennoaji/royalmilktea.html"
+      }
+    },
+    {
+      "id": "company-drink-33",
+      "name": "愛之味純濃燕麥",
+      "active": false,
+      "status": "partial",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "290 毫升",
+      "basis": null,
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "台灣通路 290 毫升品項已核對文字成分。頁面未提供此規格完整營養標籤，不混用葡萄糖胺或其他燕麥口味的圖。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB7K-A900A4KCQ"
+      }
+    },
+    {
+      "id": "company-drink-34",
+      "name": "光泉燕麥奶",
+      "active": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "200 毫升",
+      "basis": "每份 200 毫升，本包裝含 1 份",
+      "source": {
+        "type": "official",
+        "label": "光泉官方商城商品規格及營養標籤",
+        "url": "https://www.kuangchuan.com/KCGO/Item/202411532128",
+        "labelUrl": "https://www.kuangchuan.com/Content/Images/product/OATMilk/ingr/02128.jpg",
+        "checkedAt": "2026-10-31",
+        "scope": "已核對官網現行 200 毫升常溫版的成分、過敏原與營養標示；不同容量或舊版配方可能不同。"
+      }
+    },
+    {
+      "id": "company-drink-35",
+      "name": "雪碧",
+      "active": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "250 毫升",
+      "basis": "每份 250 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "依台灣通路同口味、同容量的包裝標籤圖核對；網頁文字與圖片版本可能不同，這裡採用標籤圖版本，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB12-A46597258",
+        "labelUrl": "https://img.pchome.com.tw/cs/items/DBAB12A46597258/i010004_1780369324.jpg"
+      }
+    },
+    {
+      "id": "company-drink-36",
+      "name": "紅牌蜂蜜奶茶",
+      "active": false,
+      "status": "partial",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "300 毫升",
+      "basis": null,
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "僅核對台灣通路同款 300 毫升商品文字成分；完整營養與過敏原標籤仍待確認。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB4C-A90094MR9"
+      }
+    },
+    {
+      "id": "company-drink-37",
+      "name": "立頓蜂蜜紅茶",
+      "active": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "535 毫升",
+      "basis": "每份 267.5 毫升，本包裝含 2 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "採用台灣通路 535 毫升包裝標籤圖，每瓶 2 份；不套用其他容量，實際以手上包裝為準。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB6V-A900ILT8C",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB6VA900ILT8C/i010004_1751524353.jpg"
+      }
+    },
+    {
+      "id": "company-drink-38",
+      "name": "蘋果西打",
+      "active": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "250 毫升",
+      "basis": "每份 250 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "已核對 250 毫升罐身背面的營養表。成分字體較小且網頁文字版本不同，成分與過敏原維持待補，不混入其他版本配方。",
+        "url": "https://24h.pchome.com.tw/prod/DBABMA-A900JYSY9",
+        "labelUrl": "https://img.pchome.com.tw/cs/items/DBABMAA900JYSY9/i010002_1777536746.jpg"
+      }
+    },
+    {
+      "id": "company-drink-39",
+      "name": "克寧草莓優酪乳",
+      "active": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "198 毫升",
+      "basis": "每份 198 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "台灣通路 198 毫升規格文字列出成分與過敏原；同頁營養標籤圖列出每份數值。此為該頁圖版，舊版與改版包裝可能不同。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB1Q-A900A7IOX",
+        "labelUrl": "https://img.pchome.com.tw/cs/items/DBAB1QA900A7IOX/i010006_1650456118.jpg"
+      }
+    },
+    {
+      "id": "company-drink-40",
+      "name": "愛之味麥仔茶",
+      "active": false,
+      "status": "partial",
+      "ingredientsChecked": true,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "300 毫升",
+      "basis": null,
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h 商品規格與包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "僅核對台灣通路麥仔茶 300 毫升文字成分；未使用 Oligo 或無糖麥茶版本，完整營養與過敏原標籤仍待確認。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB7K-A66008372"
+      }
+    }
+  ]
+}
