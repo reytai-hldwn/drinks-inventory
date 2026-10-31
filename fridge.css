@@ -101,8 +101,8 @@
 .fridge-door:active:not(:disabled){transform:rotateY(-2deg)}
 .fridge-door:focus-visible{outline:3px solid #9e7e4e;outline-offset:-6px}
 .fridge-door-glass{position:absolute;inset:0;z-index:0;pointer-events:none;backdrop-filter:blur(1.7px);background:linear-gradient(112deg,transparent 9%,#ffffff29 9.1%,#ffffff69 20%,transparent 20.1%,transparent 60%,#ffffff3b 60.1%,#ffffff0a 76%,transparent 76.1%);box-shadow:inset 0 0 36px #ffffff38}
-.fridge-door-invitation{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:13px;max-width:100%;min-width:240px;padding:27px 27px 24px;border:1px solid #d7c5a6;border-radius:13px;background:#fffaf0f2;box-shadow:0 7px 28px #6c61421a,inset 0 1px 0 #ffffef;color:#8d7048;pointer-events:none}
-.fridge-door-logo{display:block;width:48px;height:48px;object-fit:contain;mix-blend-mode:multiply}
+.fridge-door-invitation{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:13px;max-width:100%;min-width:240px;padding:27px 27px 24px;border:1px solid #d7c5a6;border-radius:13px;background:#fff;box-shadow:0 7px 28px #6c61421a,inset 0 1px 0 #ffffef;color:#8d7048;pointer-events:none}
+.fridge-door-logo{display:block;width:48px;height:48px;object-fit:contain;mix-blend-mode:normal}
 .fridge-door-wordmark{font-size:8px;letter-spacing:2px;color:#b19b79}
 .fridge-door-invitation>strong{font-family:"Noto Serif TC","Songti TC","PMingLiU",serif;font-size:22px;font-weight:500;line-height:1.6;letter-spacing:1.4px}
 .fridge-door-subtitle{font-size:11px;color:#a8967b;line-height:1.8}
@@ -145,6 +145,7 @@
 .fridge-door-leaf{display:none}
 @container(min-width:680px){
   .fridge-window:after{content:"";position:absolute;z-index:4;top:0;bottom:0;left:calc(50% - 3px);width:6px;pointer-events:none;background:linear-gradient(90deg,#9f8d6d,#ead9b9 45%,#f9edd5 60%,#a89573);box-shadow:2px 0 5px #6f755121}
+  .fridge.is-open .fridge-window:after{display:none}
   .fridge-window .fridge-products{grid-template-columns:repeat(6,minmax(0,1fr))}
   .fridge-door,.fridge-door:hover{border:0;padding:0;background:transparent;box-shadow:none;overflow:visible;perspective:1600px;transform:none;transition:none}
   .fridge-door:active:not(:disabled){transform:none}
@@ -154,9 +155,9 @@
   .fridge-door-leaf-right{right:0;transform-origin:right center;border-left-width:5px}
   .fridge-door-leaf-left .fridge-door-handle{right:11px}
   .fridge-door-leaf-right .fridge-door-handle{left:11px;right:auto}
-  .fridge-door>.fridge-door-invitation{position:absolute;left:25%;top:50%;transform:translate(-50%,-50%);min-width:0;width:calc(50% - 72px);max-width:280px;padding:24px 14px;transition:opacity 180ms ease}
+  .fridge-door>.fridge-door-invitation{position:absolute;left:25%;top:50%;transform:translate(-50%,-50%);min-width:0;width:calc(50% - 72px);max-width:280px;min-height:260px;justify-content:center;padding:24px 14px;transition:opacity 180ms ease}
   .fridge-door-invitation>strong{font-size:20px;letter-spacing:1px}
-  .fridge-door-copy{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;color:#8d7048;text-shadow:0 1px #fff8;transition:opacity 180ms ease}
+  .fridge-door-copy{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:calc(100% - 56px);max-width:280px;min-height:260px;padding:24px 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;border:1px solid #d7c5a6;border-radius:13px;background:#fff;box-shadow:0 7px 28px #6c61421a,inset 0 1px 0 #fff;color:#8d7048;transition:opacity 180ms ease}
   .fridge-door-copy>span{font:500 17px/1.8 "Noto Serif TC","Songti TC","PMingLiU",serif;letter-spacing:2px}
   .fridge-door-copy>small{font-size:8px;letter-spacing:2px;color:#a48d69}
   .fridge.is-open .fridge-door{transform:none;opacity:1}

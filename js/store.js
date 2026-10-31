@@ -214,8 +214,8 @@ export class InventoryStore {
   }
 
   async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {
-    if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料或點心許願池。');
-    if (this.mode !== 'demo' && kind !== 'drink') throw new Error('此舊版共用介接尚未支援點心許願池，請改用 Google 共用模式。');
+    if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料許願或零食許願。');
+    if (this.mode !== 'demo' && kind !== 'drink') throw new Error('此舊版共用介接尚未支援零食許願，請改用 Google 共用模式。');
     if (typeof name !== 'string' || !name.trim()) throw new Error('請填寫品項名稱。');
     if (typeof url !== 'string' || typeof note !== 'string') throw new Error('請填寫有效的連結與備註。');
     const wishName = name.trim();

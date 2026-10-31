@@ -592,7 +592,7 @@ test('drink and snack wishes remain separate and anonymous while legacy wishes s
   assert.deepEqual(store.data.drinks, before.drinks);
   assert.deepEqual(store.data.events, before.events);
   const saved = localStorage.getItem(DATA_KEY);
-  await assert.rejects(store.submitWish({ name: '無效分類', kind: 'other' }), /許願池/);
+  await assert.rejects(store.submitWish({ name: '無效分類', kind: 'other' }), /飲料許願或零食許願/);
   assert.equal(localStorage.getItem(DATA_KEY), saved);
 });
 

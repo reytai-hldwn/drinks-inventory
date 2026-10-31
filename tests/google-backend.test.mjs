@@ -175,14 +175,15 @@ test('anonymous wishes append a separate kind and keep old wishes and response I
   const ss = { getSheetByName: () => wishSheet };
   props.set('HOLDWIN_WISH_FORM_ID', 'wish');
   props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ wishName: '1', wishUrl: '2', wishNote: '3', wishKind: '4' }));
-  const responses = [response('snack', { 1: '海苔餅乾', 3: '鹹口味', 4: '點心' }), response('drink', { 1: '無糖茶', 4: '飲料' }), response('legacy', { 1: '舊版飲料回應' }), response('bad', { 1: '無效分類', 4: 'admin' })];
+  const responses = [response('snack', { 1: '海苔餅乾', 3: '鹹口味', 4: '點心' }), response('snack-new-label', { 1: '海鹽蘇打餅乾', 4: '零食' }), response('drink', { 1: '無糖茶', 4: '飲料' }), response('legacy', { 1: '舊版飲料回應' }), response('bad', { 1: '無效分類', 4: 'admin' })];
   ctx.FormApp = { openById: () => ({ getResponses: () => responses }) };
   ctx.SpreadsheetApp = { newDataValidation: () => ({ requireValueInList() { return this; }, setAllowInvalid() { return this; }, build() { return {}; } }) };
   ctx.syncWishes_(ss);
   assert.deepEqual(wishSheet.rows[1], old);
   const wishes = plain(ctx.wishRows_(ss));
-  assert.deepEqual(wishes.map(wish => wish.kind), ['drink', 'snack', 'drink', 'drink']);
+  assert.deepEqual(wishes.map(wish => wish.kind), ['drink', 'snack', 'snack', 'drink', 'drink']);
   assert.equal(wishes.find(wish => wish.id === 'wish-snack').name, '海苔餅乾');
+  assert.equal(wishes.find(wish => wish.id === 'wish-snack-new-label').kind, 'snack');
   assert.ok(wishes.every(wish => !('recorder' in wish) && !('voterName' in wish)));
   const before = structuredClone(wishSheet.rows);
   ctx.syncWishes_(ss);
@@ -312,7 +313,7 @@ test('form setup removes account checks, requires recorders and exports real pre
   assert.ok(COMPANY_CATALOG.filter(drink => drink.active === false).every(drink => !arrivalChoices.some(choice => choice.startsWith(drink.id + '｜'))));
   assert.equal(forms.vote.items.find(item => item.title === '姓名').required, true);
   assert.equal(forms.wish.items.some(item => item.title === '姓名'), false);
-  assert.deepEqual(plain(forms.wish.items.find(item => item.title === '許願分類').choices), ['飲料', '點心']);
+  assert.deepEqual(plain(forms.wish.items.find(item => item.title === '許願分類').choices), ['飲料', '零食']);
   assert.equal(fields.voteNameEntry, String(Number(fields.voteName) + 90000));
   assert.equal(fields.wishKindEntry, String(Number(fields.wishKind) + 90000));
   assert.equal(fields.voteWishEntry, String(Number(fields.voteWish) + 90000));

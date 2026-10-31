@@ -373,14 +373,14 @@ test('separate wish kinds preserve legacy drinks and prefill anonymous drink or 
   await store.init();
   assert.deepEqual(store.data.wishes.map(wish => wish.kind), ['drink', 'snack']);
   const before = structuredClone(store.data);
-  for (const [kind, label] of [['drink', '飲料'], ['snack', '點心']]) {
+  for (const [kind, label] of [['drink', '飲料'], ['snack', '零食']]) {
     const url = new URL(store.getWishUrl(kind));
     assert.equal(url.searchParams.get('entry.24680'), label);
     assert.equal(url.searchParams.has('姓名'), false);
     assert.equal(url.searchParams.size, 2);
   }
   assert.deepEqual(store.data, before);
-  assert.throws(() => store.getWishUrl('inventory'), /飲料或點心/);
+  assert.throws(() => store.getWishUrl('inventory'), /飲料許願或零食許願/);
   const wrong = structuredClone(raw);
   wrong.wishes[0].kind = 'unknown';
   assert.throws(() => normalizeGooglePublicData(wrong), /願望分類/);

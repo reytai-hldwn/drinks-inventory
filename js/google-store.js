@@ -305,11 +305,11 @@ export class GoogleInventoryStore {
   }
 
   getWishUrl(kind = 'drink') {
-    if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料或點心許願池。');
+    if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料許願或零食許願。');
     if (!this.wishForm) throw new Error('許願表單分類尚未啟用，請更新 Google 設定並重新部署。');
     const url = new URL(this.wishForm.url);
     url.searchParams.set('usp', 'pp_url');
-    url.searchParams.set(`entry.${this.wishForm.kindEntryId}`, kind === 'snack' ? '點心' : '飲料');
+    url.searchParams.set(`entry.${this.wishForm.kindEntryId}`, kind === 'snack' ? '零食' : '飲料');
     return url.href;
   }
 

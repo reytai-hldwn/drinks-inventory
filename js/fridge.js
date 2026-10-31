@@ -49,17 +49,18 @@ function fridgeIconFor(category) {
 /** Packaging is visual: a drawing never represents a number of containers. */
 export function drinkPack(drink) {
   const photo = findProductPhoto(drink.name);
+  const photoScale = drink.packaging === '小型鐵罐' ? 0.8 : 1;
   if (photo?.crop && photo.originalSize) {
     const [x, y, width, height] = photo.crop;
     const [originalWidth, originalHeight] = photo.originalSize;
-    const scale = Math.min(84 / width, photo.height / height);
+    const scale = Math.min(84 / width, photo.height / height) * photoScale;
     const px = (value) => `${(value * scale).toFixed(3)}px`;
     const clip = photo.outline ? `;clip-path:polygon(${photo.outline.map(([pointX, pointY]) => `${((pointX - x) / width * 100).toFixed(4)}% ${((pointY - y) / height * 100).toFixed(4)}%`).join(',')})` : '';
     // The silhouette removes the background while the original pixels retain
     // white labels, silver cans and every printed detail inside the product.
     return `<div class="drink-pack-group drink-pack-group-photo"><span class="drink-photo-viewport" style="width:${px(width)};height:${px(height)}${clip}"><img class="drink-product-photo drink-product-photo-original" style="width:${px(originalWidth)};height:${px(originalHeight)};left:-${px(x)};top:-${px(y)}" src="${h(photo.src)}" alt="" aria-hidden="true" width="${originalWidth}" height="${originalHeight}" loading="lazy" decoding="async"></span></div>`;
   }
-  if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo${photo.height === 113 ? ' drink-product-photo-carton' : ''}" src="${h(photo.src)}" alt="" aria-hidden="true" width="84" height="${photo.height}" loading="lazy" decoding="async"></div>`;
+  if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo${photo.height === 113 ? ' drink-product-photo-carton' : ''}" style="width:${84 * photoScale}px;height:${photo.height * photoScale}px" src="${h(photo.src)}" alt="" aria-hidden="true" width="${Math.round(84 * photoScale)}" height="${Math.round(photo.height * photoScale)}" loading="lazy" decoding="async"></div>`;
   let colors = ['#749b75', '#f2eedb', '#35513c'];
   if (/紅茶|蜜茶|烏龍/.test(drink.name)) colors = ['#a96740', '#f1e1bb', '#6b382c'];
   if (/奶|乳|豆|米漿/.test(drink.name)) colors = ['#dfc79e', '#fff6dc', '#7f5d3e'];

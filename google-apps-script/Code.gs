@@ -450,7 +450,7 @@ function wishRows_(ss) {
 function wishKind_(value) {
   var kind = String(value || '').trim();
   if (!kind || kind === 'drink' || kind === '飲料') return 'drink';
-  return kind === 'snack' || kind === '點心' ? 'snack' : null;
+  return kind === 'snack' || kind === '零食' || kind === '點心' ? 'snack' : null;
 }
 
 function publicData_() {
@@ -697,14 +697,14 @@ function configureForms_(ss) {
   var catalog = catalog_(ss);
   var stocktake = ensureForm_('HOLDWIN_COUNT_FORM_ID', '宏穩茶水間｜完整盤點', ss);
   var arrival = ensureForm_('HOLDWIN_ARRIVAL_FORM_ID', '宏穩茶水間｜到貨入庫', ss);
-  var wish = ensureForm_('HOLDWIN_WISH_FORM_ID', '宏穩茶水間｜飲料與點心許願', ss);
+  var wish = ensureForm_('HOLDWIN_WISH_FORM_ID', '宏穩茶水間｜採買許願池', ss);
   var vote = ensureForm_('HOLDWIN_VOTE_FORM_ID', '宏穩茶水間｜我也喜歡', ss);
   var product = ensureForm_('HOLDWIN_PRODUCT_FORM_ID', '宏穩茶水間｜快速新增飲料', ss);
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   fields.count = fields.count || {};
   stocktake.setTitle('宏穩茶水間｜完整盤點').setDescription('不用登入，請填寫登記人。啟用品項全部填寫實際單包／瓶／罐數量，沒有就是 0。Google 自動記錄收到表單的時間。').setCollectEmail(false);
   arrival.setTitle('宏穩茶水間｜到貨入庫').setDescription('不用登入，請填寫登記人。實際收到飲料才登記，以單包／瓶／罐計數；分批收到就分次填寫。Google 自動記錄時間。').setCollectEmail(false);
-  wish.setTitle('宏穩茶水間｜飲料與點心許願').setDescription('匿名留下想喝的飲料或想吃的點心，不用填姓名，可附購買連結與備註。請確認許願分類，勿填入個人資料或公司機密。').setCollectEmail(false);
+  wish.setTitle('宏穩茶水間｜採買許願池').setDescription('先選擇飲料許願或零食許願，再留下想買的品項、連結與備註。許願不用填姓名。').setCollectEmail(false);
   vote.setTitle('宏穩茶水間｜我也喜歡').setDescription('請填姓名，再送出贊同。保留網站預填的願望代號與匿名識別碼；同一瀏覽器的同一個願望只計一票。姓名保留在私人試算表，不顯示在公開願望卡。').setCollectEmail(false);
   product.setTitle('宏穩茶水間｜快速新增飲料').setDescription('填品名、分類、包裝與登記人即可新增。圖片可以之後再補，先以包裝示意圖上架；數量仍須另外實際盤點或入庫，不會自動填入。已有品項請沿用原品項，避免重複。').setCollectEmail(false);
   [stocktake, arrival, wish, vote, product].forEach(function (form) { form.setLimitOneResponsePerUser(false).setShowLinkToRespondAgain(false).setAllowResponseEdits(false); });
@@ -737,7 +737,7 @@ function configureForms_(ss) {
   // Rename the original question in place so existing responses retain their ID.
   var oldWishName = wish.getItems().filter(function (item) { return String(item.getId()) === fields.wishName || item.getTitle() === '想喝的飲料' || item.getTitle() === '品項名稱'; })[0];
   var wishName = (oldWishName ? oldWishName.asTextItem() : wish.addTextItem()).setTitle('品項名稱').setRequired(true).setValidation(FormApp.createTextValidation().requireTextLengthLessThanOrEqualTo(80).build());
-  var wishKind = findItem_(wish, '許願分類', 'list').setChoiceValues(['飲料', '點心']).setRequired(true);
+  var wishKind = findItem_(wish, '許願分類', 'list').setChoiceValues(['飲料', '零食']).setRequired(true);
   var wishUrl = findItem_(wish, '購買或產品連結（選填）', 'text').setRequired(false).setValidation(FormApp.createTextValidation().requireTextIsUrl().build());
   var wishNote = findItem_(wish, '許願備註（選填）', 'paragraph').setRequired(false).setValidation(FormApp.createParagraphTextValidation().requireTextLengthLessThanOrEqualTo(500).build());
   var voteWish = findItem_(vote, '願望代號（網站預填，請勿修改）', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^wish-[A-Za-z0-9_-]{1,155}$').build());
