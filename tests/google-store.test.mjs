@@ -153,6 +153,21 @@ test('normalization includes archives but discards warehouse numbers, histories,
   assert.deepEqual(raw, snapshot, 'normalization does not mutate the endpoint response');
 });
 
+test('public supporter names are accepted without exposing raw identities and malformed lists are rejected', () => {
+  const raw = payload();
+  Object.assign(raw.wishes[0], { votes: 3, supporters: [' 小王 ', '小李'], voterIds: ['private-browser'], voterNames: { secret: 'private-name-map' } });
+  const result = normalizeGooglePublicData(raw);
+  assert.deepEqual(result.data.wishes[0].supporters, ['小王', '小李']);
+  assert.equal(result.data.wishes[0].votes, 3);
+  assert.doesNotMatch(JSON.stringify(result), /private-browser|private-name-map/);
+  assert.deepEqual(normalizeGooglePublicData(payload()).data.wishes[0].supporters, []);
+  for (const supporters of [null, '小王', [''], ['x'.repeat(81)], [123], ['一', '二', '三', '四']]) {
+    const wrong = structuredClone(raw);
+    wrong.wishes[0].supporters = supporters;
+    assert.throws(() => normalizeGooglePublicData(wrong), /贊同名單|贊同姓名/);
+  }
+});
+
 test('public links are limited to HTTPS Google Forms and private Google Sheets', () => {
   const valid = payload();
   valid.formUrls.wish = 'https://forms.gle/SHORT_ID';

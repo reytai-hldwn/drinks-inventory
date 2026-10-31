@@ -456,8 +456,8 @@ function wishKind_(value) {
 function publicData_() {
   var ss = requiredSpreadsheet_();
   var props = PropertiesService.getScriptProperties();
-  var counts = voteCounts_(ss);
-  var wishes = wishRows_(ss).map(function (wish) { wish.votes = counts[wish.id] || 0; return wish; });
+  var support = voteSummary_(ss);
+  var wishes = wishRows_(ss).map(function (wish) { wish.votes = support.counts[wish.id] || 0; wish.supporters = support.names[wish.id] || []; return wish; });
   // Fridge responses never carry warehouse quantities or registration histories.
   var drinks = catalog_(ss).map(function (drink) {
     return { id: drink.id, name: drink.name, category: drink.category, packaging: drink.packaging, unit: drink.unit, perCase: drink.perCase, threshold: drink.threshold, active: drink.active };
@@ -705,7 +705,7 @@ function configureForms_(ss) {
   stocktake.setTitle('宏穩茶水間｜完整盤點').setDescription('不用登入，請填寫登記人。啟用品項全部填寫實際單包／瓶／罐數量，沒有就是 0。Google 自動記錄收到表單的時間。').setCollectEmail(false);
   arrival.setTitle('宏穩茶水間｜到貨入庫').setDescription('不用登入，請填寫登記人。實際收到飲料才登記，以單包／瓶／罐計數；分批收到就分次填寫。Google 自動記錄時間。').setCollectEmail(false);
   wish.setTitle('宏穩茶水間｜採買許願池').setDescription('先選擇飲料許願或零食許願，再留下想買的品項、連結與備註。許願不用填姓名。').setCollectEmail(false);
-  vote.setTitle('宏穩茶水間｜我也喜歡').setDescription('請填姓名，再送出贊同。保留網站預填的願望代號與匿名識別碼；同一瀏覽器的同一個願望只計一票。姓名保留在私人試算表，不顯示在公開願望卡。').setCollectEmail(false);
+  vote.setTitle('宏穩茶水間｜我也喜歡').setDescription('請填姓名，再送出贊同。姓名會顯示在網站的贊同名單。保留網站預填的願望代號與匿名識別碼；同一瀏覽器的同一個願望只計一票。').setCollectEmail(false);
   product.setTitle('宏穩茶水間｜快速新增飲料').setDescription('填品名、分類、包裝與登記人即可新增。圖片可以之後再補，先以包裝示意圖上架；數量仍須另外實際盤點或入庫，不會自動填入。已有品項請沿用原品項，避免重複。').setCollectEmail(false);
   [stocktake, arrival, wish, vote, product].forEach(function (form) { form.setLimitOneResponsePerUser(false).setShowLinkToRespondAgain(false).setAllowResponseEdits(false); });
   var recorderValidator = FormApp.createTextValidation().requireTextLengthLessThanOrEqualTo(80).setHelpText('請填寫姓名或大家認得的暱稱，最多 80 字。').build();
@@ -794,19 +794,27 @@ function syncWishes_(ss) {
 }
 
 function voteCounts_(ss) {
+  return voteSummary_(ss).counts;
+}
+
+function voteSummary_(ss) {
   var sheet = ss.getSheetByName(SHEETS.votes);
-  var counts = {};
-  var pairs = {};
-  if (!sheet || sheet.getLastRow() < 2) return counts;
-  sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues().forEach(function (row) {
+  var counts = Object.create(null), names = Object.create(null), pairs = Object.create(null);
+  if (!sheet || sheet.getLastRow() < 2) return { counts: counts, names: names };
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, 6).getValues().forEach(function (row) {
     var wishId = String(row[1]);
     var voterId = String(row[2]);
     var pair = wishId + ':' + voterId;
     if (row[4] !== '採計' || !/^wish-[A-Za-z0-9_-]{1,155}$/.test(wishId) || !/^[A-Za-z0-9_-]{16,160}$/.test(voterId) || pairs[pair]) return;
     pairs[pair] = true;
     counts[wishId] = (counts[wishId] || 0) + 1;
+    var name = String(row[5] || '').trim();
+    if (name && name.length <= 80) {
+      if (!names[wishId]) names[wishId] = [];
+      names[wishId].push(name);
+    }
   });
-  return counts;
+  return { counts: counts, names: names };
 }
 
 function syncVotes_(ss) {

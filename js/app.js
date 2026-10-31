@@ -3,6 +3,9 @@ import { InventoryStore } from './store.js';
 import { CATEGORIES_ORDER } from './catalog.js';
 import { drinkPack, renderFridge, syncFridgeDoor } from './fridge.js';
 import { GoogleInventoryStore } from './google-store.js';
+import { wishSupportDetails, wishSupportPreview } from './wish-support.js';
+import { renderDrinkInformation } from './drink-information.js';
+import { findProductPhoto } from './product-photos.js';
 
 const store = window.DRINKS_CONFIG?.provider === 'google' ? new GoogleInventoryStore(window.DRINKS_CONFIG) : new InventoryStore(window.DRINKS_CONFIG);
 const $ = (selector) => document.querySelector(selector);
@@ -148,12 +151,12 @@ function openDrinkDetails(id) {
   const drink = drinkById(id);
   if (!drink) return;
   if (!store.canEdit) {
-    showModal(h(drink.name), '公司的飲料小補給。想喝其他口味，也可以到許願池告訴我們。', `<div class="drink-detail-hero">${drinkPack(drink)}<div><span class="category-label">${h(drink.category)}</span><p class="subtle">${h(drink.packaging || drink.unit)}</p></div></div><div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
+    showModal(h(drink.name), '資料依所提供的包裝核對，尚未確認的欄位會標為待補。', `<div class="drink-detail-hero">${drinkPack(drink)}<div><span class="category-label">${h(drink.category)}</span><p class="subtle">${h(drink.packaging || drink.unit)}</p></div></div>${renderDrinkInformation(drink)}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
     return;
   }
   const arrival = store.data.events.filter((event) => event.type === 'restock' && event.drinkId === id)
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
-  showModal(h(drink.name), '庫存以最近一次盤點與後續入庫為準，日常取用尚未扣除。', `<div class="drink-detail-hero">${drinkPack(drink)}<div><span class="subtle">目前紀錄庫存</span><div class="stat-number">${drink.lastCountAt ? drink.stock : '待盤點'}<small>${h(drink.unit)}</small></div>${stockPill(drink)}</div></div><dl class="drink-facts"><div><dt>最近實際盤點</dt><dd>${formatDate(drink.lastCountAt, true)}</dd></div><div><dt>最近到貨入庫</dt><dd>${arrival ? `${formatDate(arrival.createdAt, true)} · ＋${arrival.quantity} ${h(drink.unit)}` : '尚無紀錄'}</dd></div><div><dt>包裝換算</dt><dd>每箱 ${drink.perCase} ${h(drink.unit)}</dd></div><div><dt>補貨提醒</dt><dd>低於 ${drink.threshold} ${h(drink.unit)}</dd></div><div><dt>消耗與補貨估算</dt><dd>${forecast(drink)}</dd></div></dl><div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}${store.canEdit ? button('編輯品項', 'edit-drink', `data-id="${h(drink.id)}" type="button"`) : ''}</div>`);
+  showModal(h(drink.name), '庫存以最近一次盤點與後續入庫為準，日常取用尚未扣除。', `<div class="drink-detail-hero">${drinkPack(drink)}<div><span class="subtle">目前紀錄庫存</span><div class="stat-number">${drink.lastCountAt ? drink.stock : '待盤點'}<small>${h(drink.unit)}</small></div>${stockPill(drink)}</div></div><dl class="drink-facts"><div><dt>最近實際盤點</dt><dd>${formatDate(drink.lastCountAt, true)}</dd></div><div><dt>最近到貨入庫</dt><dd>${arrival ? `${formatDate(arrival.createdAt, true)} · ＋${arrival.quantity} ${h(drink.unit)}` : '尚無紀錄'}</dd></div><div><dt>包裝換算</dt><dd>每箱 ${drink.perCase} ${h(drink.unit)}</dd></div><div><dt>補貨提醒</dt><dd>低於 ${drink.threshold} ${h(drink.unit)}</dd></div><div><dt>消耗與補貨估算</dt><dd>${forecast(drink)}</dd></div></dl>${renderDrinkInformation(drink)}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}${store.canEdit ? button('編輯品項', 'edit-drink', `data-id="${h(drink.id)}" type="button"`) : ''}</div>`);
 }
 
 async function copyLowStock() {
@@ -220,7 +223,7 @@ function renderWishes() {
       const voted = store.mode === 'demo' && store.hasVoted(wish.id);
       const votes = Number.isSafeInteger(wish.votes) && wish.votes >= 0 ? wish.votes : 0;
       const unavailable = store.mode === 'google' && (!store.voteForm?.url || !store.voteForm?.voterNameEntryId);
-      return `<article class="panel wish-card" data-wish-id="${h(wish.id)}"><div class="wish-top"><div class="wish-type"><span class="wish-icon" aria-hidden="true">♡</span><span class="category-label">${kindLabel}</span></div><span class="pill ${style}">${label}</span></div><h2>${h(wish.name)}</h2><p>${h(wish.note || '一個值得試試的新選擇。')}</p>${url ? `<a href="${h(url)}" target="_blank" rel="noopener noreferrer" class="text-link">看看這款${kindLabel} ↗</a>` : '<span class="subtle">尚未附上購買連結</span>'}<div class="wish-vote-row"><button class="wish-vote-button${voted ? ' is-voted' : ''}" data-action="vote-wish" data-id="${h(wish.id)}" aria-pressed="${voted}"${voted || unavailable ? ' disabled' : ''}${unavailable ? ' title="請先更新 Google 贊同表單，加入必填姓名欄位"' : ''}>${voted ? '♥ 已贊同' : '♡ 我也喜歡'}</button><span class="wish-vote-count" aria-live="polite">${votes} 人喜歡</span></div><div class="wish-bottom"><span class="wish-date">${formatDate(wish.createdAt)} 加入許願池</span>${store.canEdit ? `<button class="cell-action" data-action="edit-wish" data-id="${h(wish.id)}">管理願望 ↗</button>` : ''}</div></article>`;
+      return `<article class="panel wish-card" data-wish-id="${h(wish.id)}"><div class="wish-top"><div class="wish-type"><span class="wish-icon" aria-hidden="true">♡</span><span class="category-label">${kindLabel}</span></div><span class="pill ${style}">${label}</span></div><h2>${h(wish.name)}</h2><p>${h(wish.note || '一個值得試試的新選擇。')}</p>${url ? `<a href="${h(url)}" target="_blank" rel="noopener noreferrer" class="text-link">看看這款${kindLabel} ↗</a>` : '<span class="subtle">尚未附上購買連結</span>'}<div class="wish-vote-row"><button class="wish-vote-button${voted ? ' is-voted' : ''}" data-action="vote-wish" data-id="${h(wish.id)}" aria-pressed="${voted}"${voted || unavailable ? ' disabled' : ''}${unavailable ? ' title="請先更新 Google 贊同表單，加入必填姓名欄位"' : ''}>${voted ? '♥ 已贊同' : '♡ 我也喜歡'}</button><button type="button" class="wish-vote-count" data-action="view-wish-supporters" data-id="${h(wish.id)}" title="${h(wishSupportPreview(wish))}" aria-label="${votes} 人喜歡，查看贊同名單" aria-haspopup="dialog" aria-live="polite">${votes} 人喜歡</button></div><div class="wish-bottom"><span class="wish-date">${formatDate(wish.createdAt)} 加入許願池</span>${store.canEdit ? `<button class="cell-action" data-action="edit-wish" data-id="${h(wish.id)}">管理願望 ↗</button>` : ''}</div></article>`;
     }).join('')}</div>` : `<div class="panel">${empty('第一個採買願望，會是什麼？', '選擇飲料或零食，附上想買的品項與連結。', button('♡ 新增願望', 'new-wish'))}</div>`);
 }
 
@@ -332,7 +335,21 @@ function openWish(id) {
 function openVote(id) {
   const wish = store.data.wishes.find((item) => item.id === id);
   if (!wish) throw new Error('找不到這個願望，請重新整理後再試。');
-  showModal('這個，我也喜歡', `支持「${h(wish.name)}」前，請填寫姓名。姓名不會顯示在公開願望卡片。`, `<form id="vote-form" data-id="${h(id)}"><label class="field">姓名<input name="voterName" required maxlength="80" autocomplete="name" placeholder="請填寫姓名"></label><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">${store.mode === 'google' ? '繼續到贊同表單' : '送出贊同'}</button></div></form>`);
+  showModal('這個，我也喜歡', `支持「${h(wish.name)}」前，請填寫姓名；送出後會顯示在贊同名單。`, `<form id="vote-form" data-id="${h(id)}"><label class="field">姓名<input name="voterName" required maxlength="80" autocomplete="name" placeholder="請填寫姓名"></label><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">${store.mode === 'google' ? '繼續到贊同表單' : '送出贊同'}</button></div></form>`);
+}
+
+function openWishSupporters(id) {
+  const wish = store.data.wishes.find((item) => item.id === id);
+  if (!wish) throw new Error('找不到這個願望，請重新整理後再試。');
+  const { votes, names, unnamed } = wishSupportDetails(wish);
+  showModal('贊同名單', `「${h(wish.name)}」共有 ${votes} 人喜歡。`, `${names.length ? `<ul class="wish-supporter-list">${names.map((name) => `<li>${h(name)}</li>`).join('')}</ul>` : !votes ? '<p class="subtle">還沒有人贊同這個提案。</p>' : ''}${unnamed ? `<p class="subtle">另有 ${unnamed} 位未提供姓名資料。</p>` : ''}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
+}
+
+function openDrinkLabel(id) {
+  const drink = drinkById(id);
+  const photo = drink && findProductPhoto(drink.name);
+  if (!photo) throw new Error('這個品項還沒有可核對的包裝原圖。');
+  showModal(`${h(drink.name)}｜包裝原圖`, '放大查看所提供的包裝版本；只有清楚可辨識的標示才會填入資料。', `<img class="drink-label-source" src="${h(photo.src)}" alt="${h(drink.name)}包裝原圖"><div class="form-actions">${button('查看飲料資訊', 'view-drink', `type="button" data-id="${h(id)}"`, 'button-outline')}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
 }
 
 async function save(next, message, close = false) {
@@ -482,6 +499,8 @@ async function runAction(action, id) {
   if (action === 'retry-route') { await route(); return; }
   if (action === 'wish-pool') { wishFilter = ['drink', 'snack'].includes(id) ? id : 'all'; renderWishes(); return; }
   if (action === 'vote-wish') { openVote(id); return; }
+  if (action === 'view-wish-supporters') { openWishSupporters(id); return; }
+  if (action === 'view-drink-label') { openDrinkLabel(id); return; }
   if (action === 'view-drink') { openDrinkDetails(id); return; }
   if (action === 'copy-low') { if (!store.canManage && !store.canEdit) throw new Error('請從倉庫管理產生補貨清單。'); await copyLowStock(); return; }
   if (action === 'toggle-door') { fridgeOpen = !fridgeOpen; syncFridgeDoor($('.fridge'), fridgeOpen); return; }
@@ -544,7 +563,7 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   if (action) {
     event.preventDefault();
-    if (['close-modal', 'quick-add-drink', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'vote-wish', 'login', 'view-drink', 'toggle-door'].includes(action.dataset.action)) {
+    if (['close-modal', 'quick-add-drink', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door'].includes(action.dataset.action)) {
       if (!busy) runAction(action.dataset.action, action.dataset.id).catch((error) => toast(error.message, true));
     } else withBusy(() => runAction(action.dataset.action, action.dataset.id), action);
   }

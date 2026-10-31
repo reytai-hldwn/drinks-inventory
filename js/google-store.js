@@ -186,6 +186,9 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     wishIds.add(id);
     const kind = row.kind === undefined ? 'drink' : row.kind;
     if (!['drink', 'snack'].includes(kind)) throw new Error('Google 願望分類格式不正確。');
+    const votes = row.votes === undefined ? 0 : googleQuantityField(row.votes, '贊同人數');
+    const supporters = row.supporters === undefined ? [] : row.supporters;
+    if (!Array.isArray(supporters) || supporters.length > 5000 || supporters.length > votes) throw new Error('Google 贊同名單格式不正確。');
     return {
       id,
       kind,
@@ -194,7 +197,8 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
       note: row.note === undefined ? '' : textField(row.note, '願望備註', 500, false),
       status: row.status,
       createdAt: row.createdAt,
-      votes: row.votes === undefined ? 0 : googleQuantityField(row.votes, '贊同人數'),
+      votes,
+      supporters: supporters.map((name) => textField(name, '贊同姓名', 80)),
     };
   });
   const eventIds = new Set();

@@ -6,8 +6,8 @@
   "description": "Office pantry inventory, stocktaking and restock planning",
   "scripts": {
     "build": "node scripts/build-demo.mjs",
-    "test": "node tests/domain.test.mjs && node tests/catalog.test.mjs && node tests/store.test.mjs && node tests/google-store.test.mjs && node tests/build-site.test.mjs && node tests/google-backend.test.mjs && node tests/google-import.test.mjs",
-    "check": "node --check js/app.js && node --check js/store.js && node --check js/domain.js && node --check js/catalog.js && node --check js/fridge.js && node --check js/google-store.js && node --check scripts/build-site.mjs",
+    "test": "node tests/domain.test.mjs && node tests/information-support.test.mjs && node tests/catalog.test.mjs && node tests/store.test.mjs && node tests/google-store.test.mjs && node tests/build-site.test.mjs && node tests/google-backend.test.mjs && node tests/google-import.test.mjs",
+    "check": "node --check js/app.js && node --check js/store.js && node --check js/domain.js && node --check js/catalog.js && node --check js/fridge.js && node --check js/wish-support.js && node --check js/drink-information.js && node --check js/google-store.js && node --check scripts/build-site.mjs",
     "dev": "python3 -m http.server 8000 --bind 0.0.0.0",
     "build:site": "node scripts/build-site.mjs"
   }

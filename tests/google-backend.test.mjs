@@ -92,7 +92,7 @@ test('public fridge omits stocks while anonymous warehouse exposes only accepted
   assert.equal(front.events, undefined);
   assert.deepEqual(plain(front.drinks.filter(drink => !drink.active).map(drink => drink.name)), expectedArchiveNames);
   assert.equal(JSON.stringify(front).includes('browser-1234567890123456'), false);
-  assert.equal(JSON.stringify(front).includes('private-voter-name'), false);
+  assert.deepEqual(plain(front.wishes[0].supporters), ['private-voter-name']);
   assert.equal(JSON.stringify(front).includes('private-product-recorder'), false);
   assert.equal(JSON.stringify(front).includes('private-response-id'), false);
   assert.equal(front.formUrls.product, 'https://docs.google.com/forms/d/e/product/viewform');
@@ -166,6 +166,23 @@ test('new votes need a valid name while prior accepted anonymous votes remain co
   const before = structuredClone(voteSheet.rows);
   ctx.syncVotes_(ss);
   assert.deepEqual(voteSheet.rows, before);
+});
+
+test('public vote summaries show accepted names once per browser pair while keeping unnamed old votes', async () => {
+  const { ctx } = await backend();
+  const sheet = memorySheet([
+    ['id', 'wish', 'voter', 'date', 'status', 'name'],
+    ['one', 'wish-one', 'browser-1234567890123456', '2026-10-02T00:00:00Z', '採計', ' 小王 '],
+    ['copied', 'wish-one', 'browser-1234567890123456', '2026-10-02T00:00:00Z', '採計', '重複列不可顯示'],
+    ['legacy', 'wish-one', 'browser-9876543210987654', '2026-10-02T00:00:00Z', '採計', ''],
+    ['rejected', 'wish-one', 'browser-rejected-123456', '2026-10-02T00:00:00Z', '未採計', '不可顯示'],
+    ['other', 'wish-other', 'browser-1234567890123456', '2026-10-02T00:00:00Z', '採計', '小王'],
+  ]);
+  const before = structuredClone(sheet.rows);
+  const result = plain(ctx.voteSummary_({ getSheetByName: () => sheet }));
+  assert.deepEqual(result, { counts: { 'wish-one': 2, 'wish-other': 1 }, names: { 'wish-one': ['小王'], 'wish-other': ['小王'] } });
+  assert.doesNotMatch(JSON.stringify(result), /browser-|rejected|重複列/);
+  assert.deepEqual(sheet.rows, before);
 });
 
 test('anonymous wishes append a separate kind and keep old wishes and response IDs intact', async () => {

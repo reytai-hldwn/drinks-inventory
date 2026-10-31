@@ -596,7 +596,7 @@ test('drink and snack wishes remain separate and anonymous while legacy wishes s
   assert.equal(localStorage.getItem(DATA_KEY), saved);
 });
 
-test('vote names are required before writing or creating a browser token and are retained privately', async (t) => {
+test('vote names are required before writing or creating a browser token and are retained for the support list', async (t) => {
   setup(t);
   const store = new InventoryStore();
   await store.init();
