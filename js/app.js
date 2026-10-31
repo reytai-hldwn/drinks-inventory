@@ -105,7 +105,7 @@ function renderOverview() {
 
 function renderWarehouse() {
   const low = activeDrinks().filter((drink) => stockStatus(drink) === 'low').length;
-  main.innerHTML = heading('WAREHOUSE INVENTORY', '倉庫庫存，補貨有依據', '數量來自實際盤點與後續入庫；10 包／瓶／罐以內標紅，未盤點的品項不當作缺貨。', `${button('↓ 匯出庫存', 'export', '', 'button-outline')}${store.canEdit ? button('＋ 新增品項', 'new-drink') : ''}`) +
+  main.innerHTML = heading('WAREHOUSE INVENTORY', '倉庫庫存，補貨有依據', '數量來自實際盤點與後續入庫；10 包／瓶／罐以內標紅，未盤點的品項不當作缺貨。', `${button('↓ 匯出庫存', 'export', '', 'button-outline')}${store.canManage || store.canEdit ? button('＋ 快速新增飲料', 'quick-add-drink') : ''}`) +
     `<div class="admin-summary"><span>${activeDrinks().length} 種供應中</span><span class="warehouse-alert">${low} 種需要確認補貨</span><span>最近完整盤點 ${formatDate(store.data.lastInventoryAt)}</span></div><div class="inventory-panel">${inventoryToolbar(true)}<div id="inventory-table"></div></div>`;
   renderInventoryTable();
 }
@@ -237,7 +237,7 @@ function renderHistory() {
 function renderAdmin() {
   const low = activeDrinks().filter((drink) => stockStatus(drink) === 'low').length;
   const pending = store.data.wishes.filter((wish) => wish.status === 'pending').length;
-  main.innerHTML = heading('PANTRY MANAGEMENT', '把補給的小事，整理好', '免登入管理。每次盤點或登記到貨，請填寫登記人，方便之後核對。') +
+  main.innerHTML = heading('PANTRY MANAGEMENT', '把補給的小事，整理好', '免登入管理。每次盤點或登記到貨，請填寫登記人，方便之後核對。', button('＋ 快速新增飲料', 'quick-add-drink')) +
     `<div class="admin-summary"><span>目前 ${store.data.drinks.length} 種飲料</span><span>${low} 種在 10 以內</span><span>${pending} 個願望待評估</span></div><div class="admin-grid">${[
       ['count', '☷', '快速盤點', '每三天或一週，輸入所有品項的實際剩餘數量。', '開始盤點'],
       ['restock', '↗', '到貨入庫', '收到飲料再登記，時間、數量與庫存一併保存。', '登記入庫'],
@@ -284,6 +284,8 @@ async function route() {
 }
 
 function showModal(title, description, content) {
+  modal.classList.remove('modal-product-entry');
+  delete modal.dataset.productIds;
   modalDirty = false;
   $('#modal-content').innerHTML = `<div class="modal-heading"><div><h2 id="modal-title">${title}</h2><p>${description}</p></div><button class="close-button" data-action="close-modal" aria-label="關閉視窗">×</button></div>${content}<div id="modal-error" class="modal-error" role="alert" hidden></div>`;
   modal.showModal();
@@ -292,6 +294,18 @@ function showModal(title, description, content) {
 function openLogin() {
   if (store.mode === 'demo') { location.hash = 'admin'; if (view === 'admin') render(); return; }
   showModal('歡迎回到茶水間', '使用獲授權的管理者帳號登入。帳號由公司管理者建立，不開放自行註冊。', `<form id="login-form"><div class="form-grid"><label class="field full-width">電子郵件<input type="email" name="email" required autocomplete="username" maxlength="254"></label><label class="field full-width">密碼<input type="password" name="password" required autocomplete="current-password"></label></div><div class="form-actions"><button class="button" type="submit">登入編輯</button></div></form>`);
+}
+
+function openQuickDrink() {
+  if (!adminViews.has(view) || (!store.canManage && !store.canEdit)) throw new Error('請從管理入口新增飲料。');
+  if (store.mode === 'google') {
+    const url = store.getProductFormUrl();
+    showModal('快速新增飲料', '直接在下方填寫品名、分類、包裝與登記人。沒有圖片也能上架，之後可再補圖。', `<iframe class="product-entry-frame" title="快速新增飲料表單" src="${h(url)}" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="subtle">表單送出後，按下方按鈕讀取新飲料；同步完成前不會顯示為已上架。新增品項的實際數量仍需盤點或登記到貨。</p><div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}${button('已送出，更新飲料架', 'refresh-new-drinks', 'type="button"')}</div>`);
+    modal.classList.add('modal-product-entry');
+    modal.dataset.productIds = JSON.stringify(store.data.drinks.map((drink) => drink.id));
+    return;
+  }
+  showModal('快速新增飲料', '沒有圖片也能先上架，之後補圖會沿用這個品項與紀錄。', `<form id="quick-drink-form"><div class="form-grid"><label class="field full-width">飲料名稱<input name="name" required maxlength="80" placeholder="輸入新飲料的名稱"></label><label class="field">飲料分類<select name="category">${categories.map((name) => `<option value="${h(name)}">${h(name)}</option>`).join('')}</select></label><label class="field">包裝外觀<select name="packaging">${packagingTypes.map((type) => `<option value="${h(type)}">${h(type)}</option>`).join('')}</select></label><label class="field full-width">登記人<input name="recorder" required maxlength="80" autocomplete="name" placeholder="請填姓名或大家認得的稱呼"></label><p class="subtle full-width">先使用包裝示意圖。實際數量請在上架後盤點或登記到貨，每箱數量可稍後設定。</p></div><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">新增並上架</button></div></form>`);
 }
 
 function openDrink(id) {
@@ -336,6 +350,15 @@ async function submitForm(form) {
     if (!adminViews.has(view)) { location.hash = 'admin'; }
     else render();
     toast('登入成功，可以開始整理飲料架了。');
+    return;
+  }
+  if (form.id === 'quick-drink-form') {
+    await store.addDrink({ name: values.get('name'), category: values.get('category'), packaging: values.get('packaging'), recorder: values.get('recorder') });
+    modalDirty = false;
+    modal.close();
+    filter = 'all'; query = ''; category = ''; fridgeOpen = true;
+    location.hash = 'overview';
+    toast('新飲料已上架，先使用包裝示意圖；記得補登實際數量。');
     return;
   }
   if (form.id === 'vote-form') {
@@ -424,6 +447,23 @@ async function runAction(action, id) {
     modal.close();
     return;
   }
+  if (action === 'quick-add-drink') { openQuickDrink(); return; }
+  if (action === 'refresh-new-drinks') {
+    if (store.mode !== 'google' || !adminViews.has(view)) throw new Error('請從管理入口更新飲料架。');
+    const previous = new Set(JSON.parse(modal.dataset.productIds || '[]'));
+    await store.read();
+    const added = store.data.drinks.filter((drink) => !previous.has(drink.id));
+    if (!added.length) {
+      toast('尚未讀到新飲料；請確認表單已送出，稍後再更新。同名品項不會重複上架，可先查看倉庫或歷史品項。');
+      return;
+    }
+    modalDirty = false;
+    modal.close();
+    filter = 'all'; query = ''; category = ''; fridgeOpen = true;
+    location.hash = 'overview';
+    toast(`已同步 ${added.length} 款新飲料，飲料架已更新。`);
+    return;
+  }
   if (action === 'login') { openLogin(); return; }
   if (action === 'retry-route') { await route(); return; }
   if (action === 'wish-pool') { managedWishKind = id === 'snack' ? 'snack' : 'drink'; renderWishes(); return; }
@@ -490,7 +530,7 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   if (action) {
     event.preventDefault();
-    if (['close-modal', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'vote-wish', 'login', 'view-drink', 'toggle-door'].includes(action.dataset.action)) {
+    if (['close-modal', 'quick-add-drink', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'vote-wish', 'login', 'view-drink', 'toggle-door'].includes(action.dataset.action)) {
       if (!busy) runAction(action.dataset.action, action.dataset.id).catch((error) => toast(error.message, true));
     } else withBusy(() => runAction(action.dataset.action, action.dataset.id), action);
   }

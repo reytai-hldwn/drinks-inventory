@@ -437,3 +437,25 @@ test('polling timestamps alone do not replace the fridge view, but catalog chang
   await store.read();
   assert.notEqual(store.revision, revision);
 });
+
+test('quick product forms embed only a published Google form and older deployments remain readable', async () => {
+  const value = payload();
+  value.formUrls.product = 'https://docs.google.com/forms/d/e/PRODUCT_FORM/viewform?embedded=false';
+  const store = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, { readPublicData: async () => value });
+  await store.init();
+  const before = structuredClone(store.data);
+  const url = new URL(store.getProductFormUrl());
+  assert.equal(url.hostname, 'docs.google.com');
+  assert.equal(url.pathname, '/forms/d/e/PRODUCT_FORM/viewform');
+  assert.equal(url.searchParams.get('embedded'), 'true');
+  assert.deepEqual(store.data, before, 'Opening the form never invents a saved product');
+  assert.equal(store.canEdit, false, 'New product entry does not grant other edit permissions');
+  const old = new GoogleInventoryStore({ googleScriptUrl: ENDPOINT }, { readPublicData: async () => payload() });
+  await old.init();
+  assert.equal(old.formUrls.product, '');
+  assert.throws(() => old.getProductFormUrl(), /更新 Google 設定/);
+  for (const invalid of ['https://forms.gle/SHORT', 'https://docs.google.com/forms/d/PRIVATE/edit', 'https://evil.example/viewform', 'javascript:alert(1)', 'http://docs.google.com/forms/d/e/PRODUCT_FORM/viewform']) {
+    const wrong = payload(); wrong.formUrls.product = invalid;
+    assert.throws(() => normalizeGooglePublicData(wrong));
+  }
+});

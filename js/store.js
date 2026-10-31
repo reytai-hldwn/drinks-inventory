@@ -1,9 +1,10 @@
 import { blankData, safeUrl, uid } from './domain.js';
-import { createCompanyData, prepareCompanyCatalog } from './catalog.js';
+import { CATEGORIES_ORDER, createCompanyData, prepareCompanyCatalog } from './catalog.js';
 
 const DATA_KEY = 'office-pantry-demo-v1';
 const SESSION_KEY = 'office-pantry-session-v1';
 const INV_LOCAL_WISH_VOTER_KEY = 'holdwin-wish-voter-v1';
+const QUICK_DRINK_PACKAGING = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
 
 function inventoryLocalWishVoterId(create = false) {
   try {
@@ -191,6 +192,25 @@ export class InventoryStore {
     const saved = { payload: data, revision: this.revision + 1, updated_at: new Date().toISOString() };
     localStorage.setItem(DATA_KEY, JSON.stringify({ data, revision: saved.revision, updatedAt: saved.updated_at }));
     return saved;
+  }
+
+  async addDrink({ name, category, packaging, recorder } = {}) {
+    if (!this.canEdit) throw new Error('請從管理入口新增飲料。');
+    if (typeof name !== 'string' || !name.trim() || name.trim().length > 80) throw new Error('請填寫飲料名稱，最多 80 字。');
+    if (typeof recorder !== 'string' || !recorder.trim() || recorder.trim().length > 80) throw new Error('請填寫登記人，最多 80 字。');
+    if (!CATEGORIES_ORDER.includes(category) || !QUICK_DRINK_PACKAGING.includes(packaging)) throw new Error('請選擇有效的飲料分類與包裝。');
+    const normalizedName = name.trim().normalize('NFKC').toLowerCase();
+    if (this.data.drinks.some((drink) => drink.name.trim().normalize('NFKC').toLowerCase() === normalizedName)) throw new Error('已經有同名的飲料品項了，請先查看倉庫或歷史品項。');
+    const drink = {
+      id: `custom-drink-${uid()}`, name: name.trim(), category, packaging,
+      unit: ['寶特瓶', '大瓶裝'].includes(packaging) ? '瓶' : packaging.includes('鐵罐') ? '罐' : '包',
+      active: true, perCase: null, threshold: 10, target: null, stock: 0, lastCountAt: null,
+      createdAt: new Date().toISOString(), createdBy: recorder.trim(),
+    };
+    const next = structuredClone(this.data);
+    next.drinks.push(drink);
+    await this.save(next);
+    return drink;
   }
 
   async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {

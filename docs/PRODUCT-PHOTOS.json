@@ -1,5 +1,5 @@
 {
-  "source": "使用者提供：飲料圖片.zip",
+  "source": "使用者提供：飲料圖片.zip、飲料圖片補.zip",
   "photos": [
     {
       "file": "sun-moon-black-tea.png",
@@ -448,16 +448,113 @@
         330,
         684
       ]
+    },
+    {
+      "file": "lipton-chocolate.jpg",
+      "original": "立頓巧克力奶茶.jpg",
+      "source": "飲料圖片補.zip",
+      "crop": [
+        218,
+        7,
+        568,
+        974
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "lipton-green.jpg",
+      "original": "Tree Top 蘋果汁.jpg",
+      "source": "飲料圖片補.zip",
+      "crop": [
+        576,
+        244,
+        314,
+        568
+      ],
+      "originalSize": [
+        1000,
+        1000
+      ]
+    },
+    {
+      "file": "tree-top-apple.webp",
+      "original": "Tree Top 蘋果汁.webp",
+      "source": "飲料圖片補.zip",
+      "crop": [
+        190,
+        29,
+        260,
+        588
+      ],
+      "originalSize": [
+        640,
+        640
+      ]
+    },
+    {
+      "file": "vida-sparkling.jpeg",
+      "original": "Vida 氣泡飲.jpeg",
+      "source": "飲料圖片補.zip",
+      "crop": [
+        157,
+        100,
+        139,
+        322
+      ],
+      "originalSize": [
+        447,
+        447
+      ]
+    },
+    {
+      "file": "kuang-chuan-rice.jpeg",
+      "original": "光泉薏仁糙米漿.jpeg",
+      "source": "飲料圖片補.zip",
+      "crop": [
+        126,
+        17,
+        154,
+        375
+      ],
+      "originalSize": [
+        405,
+        405
+      ]
+    },
+    {
+      "file": "kuang-chuan-orange.png",
+      "original": "光泉柳橙汁.png",
+      "source": "飲料圖片補.zip",
+      "crop": [
+        139,
+        12,
+        224,
+        478
+      ],
+      "originalSize": [
+        500,
+        500
+      ]
+    },
+    {
+      "file": "bomy-vegetable.avif",
+      "original": "波蜜一日蔬果.avif",
+      "source": "飲料圖片補.zip",
+      "crop": [
+        130,
+        9,
+        328,
+        584
+      ],
+      "originalSize": [
+        600,
+        600
+      ]
     }
   ],
-  "pending": [
-    "立頓巧克力奶茶",
-    "立頓沁香奶綠",
-    "Tree Top 蘋果汁",
-    "Vida 氣泡飲",
-    "光泉薏仁糙米漿",
-    "光泉柳橙汁",
-    "波蜜一日蔬果"
-  ],
-  "note": "原圖檔案未修改，僅在網站用 CSS 顯示單品範圍；光泉無糖豆漿.png 實為統一陽光無加糖豆奶。"
+  "pending": [],
+  "note": "原圖檔案未修改，僅在網站用 CSS 顯示單品範圍；光泉無糖豆漿.png 實為統一陽光無加糖豆奶。 飲料圖片補.zip 內 Tree Top 蘋果汁.jpg 實為立頓沁香奶綠宣傳圖，取右側奶綠單包；Tree Top 蘋果汁.webp 才是蘋果汁。"
 }

@@ -618,3 +618,60 @@ test('vote names are required before writing or creating a browser token and are
   assert.equal(store.data.wishes[0].votes, 1);
   assert.deepEqual(store.data.wishes[0].voterNames, { [token]: '小陳' });
 });
+
+test('quick drink creation uses a stable new identity and leaves stock history and wishes unchanged', async (t) => {
+  setup(t);
+  const store = new InventoryStore();
+  await store.init();
+  await store.submitWish({ name: '想吃的點心', kind: 'snack' });
+  const before = structuredClone(store.data);
+  const started = Date.now();
+  const drink = await store.addDrink({ name: ' 新口味無糖茶 ', category: '茶飲', packaging: '寶特瓶', recorder: ' 小王 ', id: 'injected', stock: 99, lastCountAt: TIMESTAMP, active: false, perCase: 24 });
+  assert.match(drink.id, /^custom-drink-/);
+  assert.notEqual(drink.id, 'injected');
+  assert.equal(drink.name, '新口味無糖茶');
+  assert.equal(drink.createdBy, '小王');
+  assert.ok(Date.parse(drink.createdAt) >= started && Date.parse(drink.createdAt) <= Date.now());
+  assert.deepEqual({ unit: drink.unit, active: drink.active, stock: drink.stock, perCase: drink.perCase, threshold: drink.threshold, target: drink.target, lastCountAt: drink.lastCountAt }, { unit: '瓶', active: true, stock: 0, perCase: null, threshold: 10, target: null, lastCountAt: null });
+  assert.deepEqual(store.data.drinks.slice(0, -1), before.drinks);
+  assert.deepEqual(store.data.events, before.events);
+  assert.deepEqual(store.data.wishes, before.wishes);
+  assert.equal(store.data.lastInventoryAt, before.lastInventoryAt);
+  const reopened = new InventoryStore();
+  await reopened.init();
+  assert.deepEqual(reopened.data.drinks.at(-1), drink);
+  for (const [packaging, unit] of [['鐵罐', '罐'], ['長鐵罐', '罐'], ['大瓶裝', '瓶'], ['窄瓶鋁箔包', '包'], ['其他', '包']]) {
+    assert.equal((await reopened.addDrink({ name: `新增${packaging}`, category: '其他', packaging, recorder: '小王' })).unit, unit);
+  }
+});
+
+test('quick drink validation blocks duplicates, invalid fields, and public writes before changing storage', async (t) => {
+  setup(t);
+  const store = new InventoryStore();
+  await store.init();
+  const value = { name: '新飲料', category: '茶飲', packaging: '鋁箔包', recorder: '小王' };
+  await store.addDrink({ ...value, name: 'ＴＥＡ' });
+  const before = localStorage.getItem(DATA_KEY);
+  const revision = store.revision;
+  for (const invalid of [
+    { name: '' }, { name: ' ' }, { name: 'a'.repeat(81) }, { recorder: '' }, { recorder: ' ' }, { recorder: 'a'.repeat(81) },
+    { category: 'admin' }, { packaging: 'free-form' }, { name: ' tea ' }, { name: '光泉牛乳' }, { name: '愛之味純濃燕麥' },
+  ]) await assert.rejects(store.addDrink({ ...value, ...invalid }));
+  assert.equal(localStorage.getItem(DATA_KEY), before);
+  assert.equal(store.revision, revision);
+  store.preview = true;
+  await assert.rejects(store.addDrink(value), /管理入口/);
+  assert.equal(localStorage.getItem(DATA_KEY), before);
+});
+
+test('quick drink creation cannot overwrite a concurrent product or older inventory changes', async (t) => {
+  setup(t);
+  const first = new InventoryStore(); await first.init();
+  const stale = new InventoryStore(); await stale.init();
+  const value = { category: '茶飲', packaging: '鋁箔包', recorder: '小王' };
+  await first.addDrink({ ...value, name: '先新增的茶' });
+  const before = localStorage.getItem(DATA_KEY);
+  await assert.rejects(stale.addDrink({ ...value, name: '過期分頁的茶' }), /另一個分頁/);
+  assert.equal(localStorage.getItem(DATA_KEY), before);
+  assert.equal(stale.data.drinks.length, 40);
+});

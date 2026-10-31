@@ -295,7 +295,10 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
     "active": false
   }
 ] /* GENERATED_CATALOG_END */;
-var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', setup: 'Setup' };
+var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup' };
+var PRODUCT_CATEGORIES = ['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料'];
+var PRODUCT_PACKAGING = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
+var PRODUCT_INTAKE_HEADERS = ['回應 ID', 'Google 收件時間', '品項 ID', '飲料名稱', '分類', '包裝', '登記人', '採計狀態'];
 
 function setupConfig() {
   var emails = ADMIN_EMAILS.map(function (email) { return String(email).trim().toLowerCase(); });
@@ -324,6 +327,7 @@ function setupOnce() {
     wishes.getRange(1, 7).setValue('許願分類');
     var votes = ensureSheet_(ss, SHEETS.votes, ['回應 ID', '願望 ID', '匿名識別碼', 'Google 收件時間', '採計狀態', '姓名']);
     votes.getRange(1, 6).setValue('姓名');
+    ensureSheet_(ss, SHEETS.products, PRODUCT_INTAKE_HEADERS);
     ensureSheet_(ss, SHEETS.warehouse);
     ensureSheet_(ss, SHEETS.archive);
     ensureSheet_(ss, SHEETS.setup);
@@ -333,7 +337,7 @@ function setupOnce() {
     refreshWarehouse_();
     if (!props.getProperty('HOLDWIN_PUBLIC_UPDATED_AT')) props.setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
     console.log('私人倉庫已建立：' + ss.getUrl());
-    console.log('盤點、入庫、許願及贊同表單已開放收件；請在 Google 表單發布設定允許任何人填寫。');
+    console.log('盤點、入庫、許願、贊同及新增飲料五張表單已開放收件；請在 Google 表單發布設定允許任何人填寫。');
     return ss.getUrl();
   });
 }
@@ -460,7 +464,7 @@ function publicData_() {
   });
   var forms = forms_();
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
-  var formUrls = { wish: forms.wish.getPublishedUrl(), stocktake: forms.stocktake.getPublishedUrl(), arrival: forms.arrival.getPublishedUrl(), vote: forms.vote.getPublishedUrl() };
+  var formUrls = { wish: forms.wish.getPublishedUrl(), stocktake: forms.stocktake.getPublishedUrl(), arrival: forms.arrival.getPublishedUrl(), vote: forms.vote.getPublishedUrl(), product: forms.product ? forms.product.getPublishedUrl() : '' };
   return { ok: true, provider: 'google', drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
@@ -495,6 +499,14 @@ function publicRecorder_(value) {
 
 function refreshWarehouse_() {
   var ss = requiredSpreadsheet_();
+  // Add actual submitted products before reading stock responses, then update
+  // form choices in the same locked refresh. No count or arrival is invented.
+  var added = syncNewProducts_(ss);
+  var props = PropertiesService.getScriptProperties();
+  if (added || props.getProperty('HOLDWIN_CATALOG_FORMS_DIRTY') === 'true') {
+    configureForms_(ss);
+    props.setProperty('HOLDWIN_CATALOG_FORMS_DIRTY', 'false');
+  }
   var catalog = catalog_(ss);
   var recorded = historyEvents_(ss);
   var seenResponses = {};
@@ -624,6 +636,62 @@ function catalog_(ss) {
   });
 }
 
+function productNameKey_(value) {
+  return String(value || '').trim().normalize('NFKC').toLowerCase();
+}
+
+function productResponseId_(responseId) {
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(responseId), Utilities.Charset.UTF_8);
+  return 'custom-drink-' + digest.map(function (byte) { return ('0' + ((byte + 256) % 256).toString(16)).slice(-2); }).join('');
+}
+
+function syncNewProducts_(ss) {
+  var props = PropertiesService.getScriptProperties();
+  var formId = props.getProperty('HOLDWIN_PRODUCT_FORM_ID');
+  if (!formId) return 0; // Older deployments keep their existing read paths.
+  var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
+  var sheet = ensureSheet_(ss, SHEETS.products, PRODUCT_INTAKE_HEADERS);
+  var catalogSheet = ss.getSheetByName(SHEETS.catalog);
+  var catalog = catalog_(ss);
+  var knownResponses = Object.create(null), knownIds = Object.create(null), names = Object.create(null);
+  catalog.forEach(function (drink) { knownIds[drink.id] = drink; names[productNameKey_(drink.name)] = drink.id; });
+  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().forEach(function (row) { knownResponses[String(row[0])] = true; });
+  var additions = [], intake = [];
+  FormApp.openById(formId).getResponses().forEach(function (response) {
+    var responseId = String(response.getId() || '');
+    if (!responseId || knownResponses[responseId]) return;
+    knownResponses[responseId] = true;
+    var answers = {};
+    response.getItemResponses().forEach(function (item) { answers[String(item.getItem().getId())] = item.getResponse(); });
+    var name = String(answers[fields.productName] || '').trim();
+    var category = String(answers[fields.productCategory] || '').trim();
+    var packaging = String(answers[fields.productPackaging] || '').trim();
+    var recorder = String(answers[fields.productRecorder] || '').trim();
+    var stamp = iso_(response.getTimestamp());
+    var id = productResponseId_(responseId);
+    var key = productNameKey_(name);
+    var status = !stamp || !name || name.length > 80 || !recorder || recorder.length > 80 ? '未採計：請填有效品名與登記人'
+      : PRODUCT_CATEGORIES.indexOf(category) < 0 || PRODUCT_PACKAGING.indexOf(packaging) < 0 ? '未採計：分類或包裝無效'
+      : names[key] && names[key] !== id ? '未採計：品項已存在，請沿用原品項'
+      : !knownIds[id] && catalog.length + additions.length >= 1000 ? '未採計：品項數量已達上限' : '採計';
+    if (status === '採計' && !knownIds[id]) {
+      var unit = ['寶特瓶', '大瓶裝'].indexOf(packaging) >= 0 ? '瓶' : packaging.indexOf('鐵罐') >= 0 ? '罐' : '包';
+      additions.push([id, sheetText_(name), category, packaging, unit, '', 10, true]);
+      knownIds[id] = { id: id }; names[key] = id;
+    }
+    intake.push([sheetText_(responseId), stamp || '', status === '採計' ? id : '', sheetText_(text_(name, 80)), sheetText_(text_(category, 30)), sheetText_(text_(packaging, 30)), sheetText_(text_(recorder, 80)), status]);
+  });
+  // Catalog first makes a partial-write retry safe: stable response-derived IDs
+  // never add the same product twice, and existing rows are never overwritten.
+  if (additions.length) {
+    props.setProperty('HOLDWIN_CATALOG_FORMS_DIRTY', 'true');
+    catalogSheet.getRange(catalogSheet.getLastRow() + 1, 1, additions.length, 8).setValues(additions);
+  }
+  if (intake.length) sheet.getRange(sheet.getLastRow() + 1, 1, intake.length, 8).setNumberFormat('@').setValues(intake);
+  if (additions.length) props.setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
+  return additions.length;
+}
+
 function configureForms_(ss) {
   var props = PropertiesService.getScriptProperties();
   var catalog = catalog_(ss);
@@ -631,13 +699,15 @@ function configureForms_(ss) {
   var arrival = ensureForm_('HOLDWIN_ARRIVAL_FORM_ID', '宏穩茶水間｜到貨入庫', ss);
   var wish = ensureForm_('HOLDWIN_WISH_FORM_ID', '宏穩茶水間｜飲料與點心許願', ss);
   var vote = ensureForm_('HOLDWIN_VOTE_FORM_ID', '宏穩茶水間｜我也喜歡', ss);
+  var product = ensureForm_('HOLDWIN_PRODUCT_FORM_ID', '宏穩茶水間｜快速新增飲料', ss);
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   fields.count = fields.count || {};
   stocktake.setTitle('宏穩茶水間｜完整盤點').setDescription('不用登入，請填寫登記人。啟用品項全部填寫實際單包／瓶／罐數量，沒有就是 0。Google 自動記錄收到表單的時間。').setCollectEmail(false);
   arrival.setTitle('宏穩茶水間｜到貨入庫').setDescription('不用登入，請填寫登記人。實際收到飲料才登記，以單包／瓶／罐計數；分批收到就分次填寫。Google 自動記錄時間。').setCollectEmail(false);
   wish.setTitle('宏穩茶水間｜飲料與點心許願').setDescription('匿名留下想喝的飲料或想吃的點心，不用填姓名，可附購買連結與備註。請確認許願分類，勿填入個人資料或公司機密。').setCollectEmail(false);
   vote.setTitle('宏穩茶水間｜我也喜歡').setDescription('請填姓名，再送出贊同。保留網站預填的願望代號與匿名識別碼；同一瀏覽器的同一個願望只計一票。姓名保留在私人試算表，不顯示在公開願望卡。').setCollectEmail(false);
-  [stocktake, arrival, wish, vote].forEach(function (form) { form.setLimitOneResponsePerUser(false).setShowLinkToRespondAgain(false).setAllowResponseEdits(false); });
+  product.setTitle('宏穩茶水間｜快速新增飲料').setDescription('填品名、分類、包裝與登記人即可新增。圖片可以之後再補，先以包裝示意圖上架；數量仍須另外實際盤點或入庫，不會自動填入。已有品項請沿用原品項，避免重複。').setCollectEmail(false);
+  [stocktake, arrival, wish, vote, product].forEach(function (form) { form.setLimitOneResponsePerUser(false).setShowLinkToRespondAgain(false).setAllowResponseEdits(false); });
   var recorderValidator = FormApp.createTextValidation().requireTextLengthLessThanOrEqualTo(80).setHelpText('請填寫姓名或大家認得的暱稱，最多 80 字。').build();
   var countRecorder = findItem_(stocktake, '登記人', 'text').setRequired(true).setValidation(recorderValidator);
   var arrivalRecorder = findItem_(arrival, '登記人', 'text').setRequired(true).setValidation(recorderValidator);
@@ -673,6 +743,10 @@ function configureForms_(ss) {
   var voteWish = findItem_(vote, '願望代號（網站預填，請勿修改）', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^wish-[A-Za-z0-9_-]{1,155}$').build());
   var voteVoter = findItem_(vote, '匿名識別碼（網站預填，請勿修改）', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[A-Za-z0-9_-]{16,160}$').build());
   var voteName = findItem_(vote, '姓名', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextMatchesPattern('^[\\s\\S]*\\S[\\s\\S]*$').requireTextLengthLessThanOrEqualTo(80).setHelpText('請填寫姓名，最多 80 字。').build());
+  var productName = findItem_(product, '飲料名稱', 'text').setRequired(true).setValidation(FormApp.createTextValidation().requireTextLengthLessThanOrEqualTo(80).build());
+  var productCategory = findItem_(product, '飲料分類', 'list').setChoiceValues(PRODUCT_CATEGORIES).setRequired(true);
+  var productPackaging = findItem_(product, '包裝外觀', 'list').setChoiceValues(PRODUCT_PACKAGING).setRequired(true);
+  var productRecorder = findItem_(product, '登記人', 'text').setRequired(true).setValidation(recorderValidator);
   fields.countRecorder = String(countRecorder.getId()); fields.arrivalRecorder = String(arrivalRecorder.getId());
   fields.arrivalDrink = String(arrivalDrink.getId()); fields.arrivalQuantity = String(arrivalQuantity.getId()); fields.arrivalNote = String(arrivalNote.getId());
   fields.wishName = String(wishName.getId()); fields.wishUrl = String(wishUrl.getId()); fields.wishNote = String(wishNote.getId());
@@ -681,8 +755,10 @@ function configureForms_(ss) {
   fields.voteWishEntry = formEntryId_(vote, voteWish, 'wish-sample');
   fields.voteVoterEntry = formEntryId_(vote, voteVoter, 'anonymous-sample-12345678');
   fields.voteNameEntry = formEntryId_(vote, voteName, '姓名範例');
+  fields.productName = String(productName.getId()); fields.productCategory = String(productCategory.getId());
+  fields.productPackaging = String(productPackaging.getId()); fields.productRecorder = String(productRecorder.getId());
   props.setProperty('HOLDWIN_FORM_FIELDS', JSON.stringify(fields));
-  [stocktake, arrival, wish, vote].forEach(function (form) { form.setAcceptingResponses(true); });
+  [stocktake, arrival, wish, vote, product].forEach(function (form) { form.setAcceptingResponses(true); });
 }
 
 function formEntryId_(form, item, sample) {
@@ -829,7 +905,7 @@ function renderArchive_(ss, inventory) {
 function writeSetup_(ss) {
   var forms = forms_();
   var sheet = ss.getSheetByName(SHEETS.setup);
-    sheet.getRange(1, 1, 8, 2).setValues([
+    sheet.getRange(1, 1, 9, 2).setValues([
       ['宏穩茶水間｜設定與入口', '網址／說明'],
       ['私人倉庫庫存', ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId()],
       ['封存品項與數量紀錄', ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.archive).getSheetId()],
@@ -837,6 +913,7 @@ function writeSetup_(ss) {
       ['到貨入庫表單（免登入、必填登記人）', forms.arrival.getPublishedUrl()],
       ['同事許願表單（公開）', forms.wish.getPublishedUrl()],
       ['我也喜歡贊同表單（必填姓名、網站預填）', forms.vote.getPublishedUrl()],
+      ['快速新增飲料（可先不放圖片）', forms.product.getPublishedUrl()],
       ['公開資料網址', '完成「部署 → 網頁應用程式」後，將 /exec 網址填入網站 googleScriptUrl。']
     ]);
     styleHeader_(sheet, 1, 2); sheet.setColumnWidth(1, 260); sheet.setColumnWidth(2, 520);
@@ -845,7 +922,7 @@ function writeSetup_(ss) {
 function ensureTriggers_(ss) {
   var existing = ScriptApp.getProjectTriggers();
   var forms = forms_();
-  [forms.stocktake, forms.arrival, forms.wish, forms.vote].forEach(function (form) {
+  [forms.stocktake, forms.arrival, forms.wish, forms.vote, forms.product].filter(Boolean).forEach(function (form) {
     if (!existing.some(function (trigger) { return trigger.getHandlerFunction() === 'handleFormSubmit' && trigger.getTriggerSourceId() === form.getId(); })) ScriptApp.newTrigger('handleFormSubmit').forForm(form).onFormSubmit().create();
   });
   if (!existing.some(function (trigger) { return trigger.getHandlerFunction() === 'handleSheetEdit' && trigger.getTriggerSourceId() === ss.getId(); })) ScriptApp.newTrigger('handleSheetEdit').forSpreadsheet(ss).onEdit().create();
@@ -870,7 +947,8 @@ function findItem_(form, title, kind) {
 
 function forms_() {
   var props = PropertiesService.getScriptProperties();
-  return { stocktake: FormApp.openById(props.getProperty('HOLDWIN_COUNT_FORM_ID')), arrival: FormApp.openById(props.getProperty('HOLDWIN_ARRIVAL_FORM_ID')), wish: FormApp.openById(props.getProperty('HOLDWIN_WISH_FORM_ID')), vote: FormApp.openById(props.getProperty('HOLDWIN_VOTE_FORM_ID')) };
+  var productId = props.getProperty('HOLDWIN_PRODUCT_FORM_ID');
+  return { stocktake: FormApp.openById(props.getProperty('HOLDWIN_COUNT_FORM_ID')), arrival: FormApp.openById(props.getProperty('HOLDWIN_ARRIVAL_FORM_ID')), wish: FormApp.openById(props.getProperty('HOLDWIN_WISH_FORM_ID')), vote: FormApp.openById(props.getProperty('HOLDWIN_VOTE_FORM_ID')), product: productId ? FormApp.openById(productId) : null };
 }
 
 function spreadsheet_() {

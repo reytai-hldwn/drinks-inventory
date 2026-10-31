@@ -1,12 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
-import { COMPANY_CATALOG } from '../js/catalog.js';
+import { COMPANY_CATALOG, CATEGORIES_ORDER } from '../js/catalog.js';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 function backend() {
   const props = new Map();
   const properties = { getProperty: key => props.get(key) ?? null, setProperty(key, value) { props.set(key, value); return this; } };
-  const ctx = vm.createContext({ console, Date, JSON, Number, PropertiesService: { getScriptProperties: () => properties } });
+  const ctx = vm.createContext({ console, Date, JSON, Number, PropertiesService: { getScriptProperties: () => properties }, Utilities: {
+    DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
+    computeDigest: (algorithm, value, charset) => [...createHash(algorithm).update(value, charset).digest()],
+  } });
   return readFile(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8').then(code => { vm.runInContext(code, ctx); return { ctx, props }; });
 }
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -70,6 +74,7 @@ test('public fridge omits stocks while anonymous warehouse exposes only accepted
       ...COMPANY_CATALOG.filter(drink => drink.active === false).map(drink => [drink.id, drink.name, drink.category, drink.packaging, drink.unit, '', 10, false])]),
     WishReview: memorySheet([['id', 'name', 'url', 'note', 'status', 'createdAt'], ['wish-one', '新飲料', 'https://example.com', '', 'pending', '2026-10-01T00:00:00Z']]),
     WishVotes: memorySheet([['id', 'wish', 'voter', 'date', 'status', 'name'], ['vote1', 'wish-one', 'browser-1234567890123456', '2026-10-02T00:00:00Z', '採計', 'private-voter-name']]),
+    ProductIntake: memorySheet([['response', 'time', 'product', 'name', 'category', 'packaging', 'recorder', 'status'], ['private-response-id', '2026-10-02T00:00:00Z', 'tea', '茶', '茶飲', '鋁箔包', 'private-product-recorder', '採計']]),
     History: memorySheet([['id', 'time', 'type', 'drink', 'name', 'quantity', 'note', 'recorder', 'status'],
       ['c1', '2026-10-02T00:00:00Z', 'count', 'tea', '茶', 10, '實盤', 'private@example.com', '採計'],
       ['a1', '2026-10-03T00:00:00Z', 'restock', 'tea', '茶', 2, '實收', '小王', '採計'],
@@ -78,7 +83,7 @@ test('public fridge omits stocks while anonymous warehouse exposes only accepted
   };
   const ss = { getSheetByName: name => sheets[name], getUrl: () => 'https://docs.google.com/spreadsheets/d/privateSheet/edit' };
   ctx.requiredSpreadsheet_ = () => ss;
-  ctx.forms_ = () => Object.fromEntries(['wish', 'stocktake', 'arrival', 'vote'].map(kind => [kind, { getPublishedUrl: () => `https://docs.google.com/forms/d/e/${kind}/viewform` }]));
+  ctx.forms_ = () => Object.fromEntries(['wish', 'stocktake', 'arrival', 'vote', 'product'].map(kind => [kind, { getPublishedUrl: () => `https://docs.google.com/forms/d/e/${kind}/viewform` }]));
   props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ voteWishEntry: '123', voteVoterEntry: '456', voteNameEntry: '789', wishKindEntry: '987' }));
   const front = ctx.publicData_();
   assert.equal(front.wishes[0].votes, 1);
@@ -88,6 +93,9 @@ test('public fridge omits stocks while anonymous warehouse exposes only accepted
   assert.deepEqual(plain(front.drinks.filter(drink => !drink.active).map(drink => drink.name)), expectedArchiveNames);
   assert.equal(JSON.stringify(front).includes('browser-1234567890123456'), false);
   assert.equal(JSON.stringify(front).includes('private-voter-name'), false);
+  assert.equal(JSON.stringify(front).includes('private-product-recorder'), false);
+  assert.equal(JSON.stringify(front).includes('private-response-id'), false);
+  assert.equal(front.formUrls.product, 'https://docs.google.com/forms/d/e/product/viewform');
   assert.deepEqual(plain(front.wishForm), { url: 'https://docs.google.com/forms/d/e/wish/viewform', kindEntryId: '987' });
   const warehouse = ctx.warehouseData_();
   assert.equal(warehouse.drinks[0].stock, 12);
@@ -282,10 +290,10 @@ test('form setup removes account checks, requires recorders and exports real pre
     result.addTextItem = result.addListItem = result.addParagraphTextItem = addItem;
     return result;
   }
-  const forms = Object.fromEntries(['stocktake', 'arrival', 'wish', 'vote'].map(kind => [kind, form(kind)]));
+  const forms = Object.fromEntries(['stocktake', 'arrival', 'wish', 'vote', 'product'].map(kind => [kind, form(kind)]));
   const legacyWishName = forms.wish.addTextItem().setTitle('想喝的飲料');
   props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ wishName: String(legacyWishName.getId()) }));
-  for (const [kind, property] of Object.entries({ stocktake: 'HOLDWIN_COUNT_FORM_ID', arrival: 'HOLDWIN_ARRIVAL_FORM_ID', wish: 'HOLDWIN_WISH_FORM_ID', vote: 'HOLDWIN_VOTE_FORM_ID' })) props.set(property, kind);
+  for (const [kind, property] of Object.entries({ stocktake: 'HOLDWIN_COUNT_FORM_ID', arrival: 'HOLDWIN_ARRIVAL_FORM_ID', wish: 'HOLDWIN_WISH_FORM_ID', vote: 'HOLDWIN_VOTE_FORM_ID', product: 'HOLDWIN_PRODUCT_FORM_ID' })) props.set(property, kind);
   props.set('HOLDWIN_PRIVATE_FORMS_READY', 'false');
   const validation = () => { const builder = new Proxy({ build: () => ({}) }, { get: (target, key) => key in target ? target[key] : () => builder }); return builder; };
   ctx.FormApp = { openById: id => forms[id], createTextValidation: validation, createParagraphTextValidation: validation };
@@ -309,9 +317,90 @@ test('form setup removes account checks, requires recorders and exports real pre
   assert.equal(fields.wishKindEntry, String(Number(fields.wishKind) + 90000));
   assert.equal(fields.voteWishEntry, String(Number(fields.voteWish) + 90000));
   assert.equal(fields.voteVoterEntry, String(Number(fields.voteVoter) + 90000));
+  assert.equal(forms.product.items.find(item => item.title === '飲料名稱').required, true);
+  assert.equal(forms.product.items.find(item => item.title === '登記人').required, true);
+  assert.deepEqual(plain(forms.product.items.find(item => item.title === '飲料分類').choices), CATEGORIES_ORDER);
+  assert.deepEqual(plain(forms.product.items.find(item => item.title === '包裝外觀').choices), plain(ctx.PRODUCT_PACKAGING));
+  assert.ok(fields.productName && fields.productCategory && fields.productPackaging && fields.productRecorder);
   assert.notEqual(fields.voteWishEntry, fields.voteWish);
   assert.notEqual(fields.voteVoterEntry, fields.voteVoter);
   const ids = Object.values(forms).flatMap(form => form.items.map(item => item.id));
   ctx.configureForms_({});
   assert.deepEqual(Object.values(forms).flatMap(form => form.items.map(item => item.id)), ids, 'setup rerun must preserve existing questions and their response IDs');
+  const custom = { id: 'custom-drink-new', name: '新到的飲料', category: '茶飲', packaging: '寶特瓶', unit: '瓶', active: true };
+  ctx.catalog_ = () => [...COMPANY_CATALOG, custom];
+  ctx.configureForms_({});
+  assert.equal(Object.keys(JSON.parse(props.get('HOLDWIN_FORM_FIELDS')).count).length, 33);
+  assert.ok(forms.arrival.items.find(item => item.title === '飲料品項').choices.some(choice => choice.startsWith(custom.id + '｜')));
+  assert.ok(forms.stocktake.items.some(item => item.required && item.title.startsWith(custom.id + '｜')));
+});
+
+test('quick product intake is idempotent, validates actual submissions and preserves all inventory history', async () => {
+  const { ctx, props } = await backend();
+  const oldRow = ['company-drink-old', 'Existing Tea', '茶飲', '鋁箔包', '包', 24, 10, true];
+  const catalog = memorySheet([['id', 'name', 'category', 'packaging', 'unit', 'perCase', 'threshold', 'active'], [...oldRow]]);
+  const intake = memorySheet([plain(ctx.PRODUCT_INTAKE_HEADERS)]);
+  const history = memorySheet([['id', 'date', 'type', 'drink', 'name', 'quantity', 'note', 'recorder', 'status'], ['count-old', '2026-10-01T00:00:00Z', 'count', oldRow[0], oldRow[1], 19, '', '小王', '採計']]);
+  const beforeHistory = structuredClone(history.rows);
+  const ss = { getSheetByName: name => ({ Catalog: catalog, ProductIntake: intake, History: history })[name] };
+  props.set('HOLDWIN_PRODUCT_FORM_ID', 'product');
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ productName: '1', productCategory: '2', productPackaging: '3', productRecorder: '4' }));
+  const answers = (name, category = '茶飲', packaging = '寶特瓶', recorder = '小王') => ({ 1: name, 2: category, 3: packaging, 4: recorder });
+  const responses = [
+    response('new-bottle', answers(' 新飲料 ')), response('duplicate-new', answers('新飲料')),
+    response('duplicate-old', answers(' ＥＸＩＳＴＩＮＧ　ＴＥＡ ')),
+    response('empty-name', answers('  ')), response('long-name', answers('x'.repeat(81))),
+    response('no-recorder', answers('不採計飲料', '茶飲', '寶特瓶', ' ')),
+    response('bad-category', answers('不採計分類', '=bad()')), response('bad-packaging', answers('不採計包裝', '茶飲', '=bad()')),
+    response('new-can', answers('新汽水', '汽水', '小型鐵罐')), response('new-carton', answers('新牛乳', '牛奶／豆漿', '窄瓶鋁箔包')),
+  ];
+  ctx.FormApp = { openById: () => ({ getResponses: () => responses }) };
+  assert.equal(ctx.syncNewProducts_(ss), 3);
+  assert.deepEqual(catalog.rows[1], oldRow);
+  assert.equal(catalog.rows.length, 5);
+  assert.equal(intake.rows.length, 11);
+  const added = plain(ctx.catalog_(ss)).slice(1);
+  assert.deepEqual(added.map(drink => drink.unit), ['瓶', '罐', '包']);
+  assert.ok(added.every(drink => drink.active && drink.perCase === null && drink.threshold === 10));
+  assert.ok(added.every(drink => /^custom-drink-[a-f0-9]{64}$/.test(drink.id) && drink.id.length <= 80));
+  assert.equal(added[0].name, '新飲料');
+  assert.equal(intake.rows.filter(row => row[7] === '採計').length, 3);
+  assert.equal(intake.rows.find(row => row[0] === 'bad-category')[4], "'=bad()");
+  assert.equal(intake.rows.find(row => row[0] === 'bad-packaging')[5], "'=bad()");
+  assert.deepEqual(history.rows, beforeHistory);
+  const before = structuredClone({ catalog: catalog.rows, intake: intake.rows });
+  assert.equal(ctx.syncNewProducts_(ss), 0);
+  assert.deepEqual({ catalog: catalog.rows, intake: intake.rows }, before);
+  assert.ok(ctx.computeInventory_(plain(ctx.catalog_(ss)), []).slice(1).every(entry => entry.stock === null && entry.lastCountAt === null));
+  assert.equal(props.get('HOLDWIN_CATALOG_FORMS_DIRTY'), 'true');
+});
+
+test('product submission refresh updates form choices and retries safely if form configuration temporarily fails', async () => {
+  const { ctx, props } = await backend();
+  const catalog = memorySheet([['id', 'name', 'category', 'packaging', 'unit', 'perCase', 'threshold', 'active']]);
+  const intake = memorySheet([plain(ctx.PRODUCT_INTAKE_HEADERS)]);
+  const ss = { getSheetByName: name => ({ Catalog: catalog, ProductIntake: intake })[name] };
+  props.set('HOLDWIN_PRODUCT_FORM_ID', 'product');
+  props.set('HOLDWIN_FORM_FIELDS', JSON.stringify({ productName: '1', productCategory: '2', productPackaging: '3', productRecorder: '4' }));
+  ctx.FormApp = { openById: () => ({ getResponses: () => [response('submitted-product', { 1: '現在看到的新茶', 2: '茶飲', 3: '寶特瓶', 4: '登記者' })] }) };
+  ctx.requiredSpreadsheet_ = () => ss;
+  ctx.historyEvents_ = () => [];
+  ctx.intakeEvents_ = () => [];
+  ctx.appendHistory_ = ctx.syncWishes_ = ctx.syncVotes_ = () => {};
+  let rendered;
+  ctx.renderWarehouse_ = (_, value) => { rendered = plain(value); };
+  ctx.renderArchive_ = () => {};
+  ctx.configureForms_ = () => { throw new Error('temporary form failure'); };
+  assert.throws(() => ctx.refreshWarehouse_(), /temporary form failure/);
+  assert.equal(catalog.rows.length, 2);
+  assert.equal(props.get('HOLDWIN_CATALOG_FORMS_DIRTY'), 'true');
+  let configuredIds;
+  ctx.configureForms_ = () => { configuredIds = plain(ctx.catalog_(ss)).map(drink => drink.id); };
+  ctx.refreshWarehouse_();
+  assert.equal(catalog.rows.length, 2, 'retry must not duplicate the submitted product');
+  assert.deepEqual(configuredIds, [catalog.rows[1][0]]);
+  assert.equal(props.get('HOLDWIN_CATALOG_FORMS_DIRTY'), 'false');
+  assert.equal(rendered[0].stock, null);
+  assert.equal(rendered[0].lastCountAt, null);
+  assert.equal(rendered[0].drink.name, '現在看到的新茶');
 });

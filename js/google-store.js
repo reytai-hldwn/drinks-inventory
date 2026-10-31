@@ -129,6 +129,14 @@ function googleWishForm(value) {
   return { url, kindEntryId: value.kindEntryId };
 }
 
+function googleProductForm(value) {
+  if (!value) return '';
+  const url = googleLink(value, 'form');
+  const parsed = new URL(url);
+  if (parsed.hostname !== 'docs.google.com' || !/^\/forms\/(?:u\/\d+\/)?d\/(?:e\/)?[A-Za-z0-9_-]+\/viewform\/?$/.test(parsed.pathname)) throw new Error('Google 快速新增飲料表單網址不正確。');
+  return url;
+}
+
 /** Select display fields, including observed stock only for the warehouse view. */
 export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
   if (!payload || payload.error || payload.ok === false ||
@@ -216,6 +224,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     stocktake: googleLink(forms.stocktake, 'form', false),
     arrival: googleLink(forms.arrival, 'form', false),
     vote: googleLink(forms.vote, 'form', false),
+    product: googleProductForm(forms.product),
   };
   const voteForm = googleVoteForm(payload.voteForm);
   const wishForm = googleWishForm(payload.wishForm);
@@ -240,7 +249,7 @@ export class GoogleInventoryStore {
     this.preview = true;
     this.inWarehouse = false;
     this.data = blankData();
-    this.formUrls = { wish: '', stocktake: '', arrival: '', vote: '' };
+    this.formUrls = { wish: '', stocktake: '', arrival: '', vote: '', product: '' };
     this.voteForm = null;
     this.wishForm = null;
     this.forms = this.formUrls;
@@ -301,6 +310,13 @@ export class GoogleInventoryStore {
     const url = new URL(this.wishForm.url);
     url.searchParams.set('usp', 'pp_url');
     url.searchParams.set(`entry.${this.wishForm.kindEntryId}`, kind === 'snack' ? '點心' : '飲料');
+    return url.href;
+  }
+
+  getProductFormUrl() {
+    if (!this.formUrls.product) throw new Error('快速新增飲料表單尚未啟用，請更新 Google 設定並重新部署。');
+    const url = new URL(googleProductForm(this.formUrls.product));
+    url.searchParams.set('embedded', 'true');
     return url.href;
   }
 
