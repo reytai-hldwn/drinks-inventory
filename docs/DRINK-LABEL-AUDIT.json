@@ -3,9 +3,9 @@
   "note": "完整狀態只表示基本八項數值齊全（含註明的參考與換算版本），成分與過敏原是否已核對分別列示；不代表所有欄位均完整。",
   "summary": {
     "total": 40,
-    "basicNutritionComplete": 27,
-    "partial": 9,
-    "pending": 4
+    "basicNutritionComplete": 29,
+    "partial": 8,
+    "pending": 3
   },
   "products": [
     {
@@ -232,28 +232,19 @@
       "id": "company-drink-12",
       "name": "十六茶",
       "active": true,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
-      "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
+      "allergensChecked": true,
+      "missingNutrients": [],
       "container": "330 毫升",
       "referenceNote": null,
-      "basis": null,
+      "basis": "每包 330 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
-        "label": "PChome 24h 商品規格與包裝標籤",
+        "label": "momo購物網・ASAHI朝日官方直營商品規格",
         "checkedAt": "2026-11-01",
-        "scope": "台灣通路「新十六茶 回甘升級」330 毫升鋁箔包文字成分；舊版包裝配方可能不同。未使用日本瓶裝十六茶的成分或營養值。",
-        "url": "https://24h.pchome.com.tw/prod/DBABC3-A900BLE5P"
+        "scope": "依台灣 330 毫升鋁箔包的商品規格營養表逐欄核對；鈉每包 23 毫克、每 100 毫升 7 毫克，其餘基本七項明列為 0。未使用日本瓶裝十六茶的配方或數值。",
+        "url": "https://www.momoshop.com.tw/product/9506588"
       }
     },
     {
@@ -464,32 +455,28 @@
       "referenceNote": null,
       "basis": null,
       "source": null,
-      "pendingReason": "尚未找到台灣此口味與容量的進口標籤；原廠入口此次回應503，通路搜尋未取得相符飲料。",
-      "attemptedSource": null
+      "pendingReason": "momo已找到250毫升水蜜桃口味賣場與包裝正面；詳細圖片目前503連線逾時，尚未核對完整營養表，未套用原味數值。",
+      "attemptedSource": "https://www.momoshop.com.tw/TP/TP0001571/goodsDetail/TP00015710001227"
     },
     {
       "id": "company-drink-23",
       "name": "Milkis",
       "active": true,
-      "status": "pending",
-      "ingredientsChecked": false,
-      "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": null,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "250 毫升",
       "referenceNote": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "尚未找到台灣此口味與容量的進口標籤；原廠入口此次回應503，通路搜尋未取得相符飲料。",
-      "attemptedSource": null
+      "basis": "每罐 250 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "momo購物網・Milkis原味商品規格及包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "成分與過敏原依使用者指定的原味 250 毫升商品頁；營養逐欄核對 momo 同款原味 250 毫升罐裝的台灣進口標籤照片。未套用至水蜜桃、草莓或無糖版本。",
+        "url": "https://www.momoshop.com.tw/product/10252648",
+        "labelUrl": "https://i7.momoshop.com.tw/1788263810/goodsimg/TP000/0960/0000/874/TP00009600000874_R2_m.jpg"
+      }
     },
     {
       "id": "company-drink-24",
@@ -532,8 +519,8 @@
       "referenceNote": null,
       "basis": null,
       "source": null,
-      "pendingReason": "查詢的vida.com.my為網域停放頁，沒有當作品牌資料；台灣通路搜尋也未取得此款標籤。",
-      "attemptedSource": null
+      "pendingReason": "momo以Vida品牌及西柚青檸搜尋未找到相符飲料。先前vida.com.my為網域停放頁，未當成品牌資料。",
+      "attemptedSource": "https://www.momoshop.com.tw/search/vida?viewport=desktop"
     },
     {
       "id": "company-drink-26",
@@ -652,8 +639,8 @@
       "referenceNote": null,
       "basis": null,
       "source": null,
-      "pendingReason": "1000毫升通路文字成分有疑似誤植，尚無清楚標籤圖，未從450毫升或其他烏龍版本套入。",
-      "attemptedSource": "https://24h.pchome.com.tw/prod/DBAB09-A900J0EXG"
+      "pendingReason": "momo已找到原萃冷萃金萱烏龍1000毫升賣場，但詳細圖目前503連線逾時；舊通路文字有疑似誤植，未套用450毫升或其他烏龍版本。",
+      "attemptedSource": "https://www.momoshop.com.tw/TP/TP0007775/goodsDetail/TP00077750000140"
     },
     {
       "id": "company-drink-31",
