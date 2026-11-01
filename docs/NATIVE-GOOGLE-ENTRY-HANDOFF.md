@@ -13,7 +13,7 @@
 
 ## 正式站與進度
 
-- 正式網站為 https://reytai-hldwn.github.io/drinks-inventory/ ，儲存庫已公開。
+- 儲存庫已公開；保存進度時 GitHub 回報已更名為 `reytai-hldwn/pantry`。明天先確認正式 Pages 網址與部署狀態；先前的 `/drinks-inventory/` 網址不要直接當成仍有效。
 - main 的網站定稿版本為 `0fa3e36`；使用者已自行設定 Pages 與 Google 資料網址。
 - 本次修改尚未完成整合測試，僅存入 WIP 分支，不發布到 main。
 - `npm run check` 已通過；新寫入流程的單元、瀏覽器及真實部署驗證尚未完成。
