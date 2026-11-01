@@ -9,6 +9,7 @@ on:
       - 'styles.css'
       - 'themes.css'
       - 'fridge.css'
+      - 'pantry.css'
       - 'theme.js'
       - 'js/**'
       - 'assets/**'

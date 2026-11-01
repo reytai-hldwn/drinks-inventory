@@ -4,6 +4,18 @@ import { findProductPhoto } from './product-photos.js';
 
 const FRIDGE_DOOR_TIMERS = new WeakMap();
 const FRIDGE_CONTENT_ID = 'pantry-fridge-content';
+const PANTRY_SCENE_ASSET = './assets/pantry-scene-approved.png';
+const FRIDGE_OPEN_DURATION = 850;
+
+// Browser viewBoxes crop the approved illustration without regenerating its
+// furniture, lettering or logos. The controls and product photos remain HTML.
+function sceneCrop(viewBox, className = '') {
+  return `<svg class="${className}" viewBox="${viewBox}" aria-hidden="true" focusable="false"><image href="${h(PANTRY_SCENE_ASSET)}" width="1774" height="887"/></svg>`;
+}
+
+function renderPantryScene() {
+  return `<div class="pantry-room" aria-hidden="true"><div class="pantry-office-scene">${sceneCrop('276 310 1074 560', 'pantry-scene-art')}<span class="pantry-door-recess"></span><span class="pantry-painted-door pantry-painted-door-upper-left">${sceneCrop('496 333 161 295')}</span><span class="pantry-painted-door pantry-painted-door-upper-right">${sceneCrop('658 368 132 249')}</span><span class="pantry-painted-door pantry-painted-door-lower-left">${sceneCrop('497 620 160 211')}</span><span class="pantry-painted-door pantry-painted-door-lower-right">${sceneCrop('658 613 132 191')}</span></div><div class="pantry-mobile-scene">${sceneCrop('1388 388 347 475', 'pantry-scene-art')}<span class="pantry-door-recess"></span><span class="pantry-painted-door pantry-painted-door-mobile">${sceneCrop('1473 485 176 304')}</span></div></div>`;
+}
 const FRIDGE_SHELF_LABELS = {
   '牛奶／豆漿': 'MILK & SOY', '大瓶飲料': 'BIG BOTTLE CORNER', 茶飲: 'TEA & INFUSIONS', 咖啡: 'COFFEE BREAK',
   果汁: 'A LITTLE FRUITY', 汽水: 'BUBBLES & JOY', 其他: 'EVERYDAY FAVORITES',
@@ -104,11 +116,11 @@ export function renderFridge(drinks, { isOpen = false, lastInventoryAt = null, s
   const logoSrc = typeof document === 'undefined' ? '' : (document.querySelector('.brand-mark')?.getAttribute('src') || '');
   const logo = (className, size) => logoSrc ? `<img class="${className}" src="${h(logoSrc)}" alt="Holdwin Capital H 標誌" width="${size}" height="${size}">` : '';
 
-  return `<div class="fridge${isOpen ? ' is-open is-ready' : ''}" data-door-state="${isOpen ? 'open' : 'closed'}" aria-label="玻璃門飲料展示冰箱">
-    <header class="fridge-crown"><div class="fridge-maker">${logo('fridge-maker-logo', 30)}<div>HOLDWIN<small>THE OFFICE REFRESHMENT</small></div></div><span class="fridge-crown-note">每一格，都是一點補給。</span><button type="button" class="fridge-close" data-action="toggle-door" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}"${isOpen ? '' : ' hidden'}>關上冰箱門 <span aria-hidden="true">↶</span></button></header>
-    <div class="fridge-window"><div class="fridge-interior" id="${FRIDGE_CONTENT_ID}" role="region" aria-label="飲料展示層架，可向下捲動" aria-hidden="${!isOpen}" tabindex="${isOpen ? '0' : '-1'}"${isOpen ? '' : ' inert'}><div class="fridge-light" aria-hidden="true"></div>${shelves.map((shelf, index) => `<section class="fridge-shelf" aria-label="${h(shelf.name)}飲料架"><div class="fridge-shelf-heading"><span class="shelf-index">0${index + 1}</span><h3>${h(shelf.name)}</h3>${showQuantities ? `<span class="shelf-count">${shelf.drinks.length} 種飲料</span>` : ''}</div><div class="fridge-products">${shelf.drinks.map((drink) => renderFridgeProduct(drink, showQuantities, dateLabel)).join('')}</div><div class="fridge-shelf-rail"><span>${h(FRIDGE_SHELF_LABELS[shelf.name] || 'PANTRY FAVORITES')}</span><i aria-hidden="true"></i><span class="shelf-rail-note">喜歡的，留一瓶給同事。</span></div></section>`).join('')}</div>
-    <button type="button" class="fridge-door" data-action="toggle-door" aria-label="點擊打開冰箱門" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}" aria-hidden="${isOpen}" tabindex="${isOpen ? '-1' : '0'}"${isOpen ? ' inert' : ''}><span class="fridge-door-leaf fridge-door-leaf-left" aria-hidden="true"><span class="fridge-door-glass"></span><span class="fridge-door-handle"></span></span><span class="fridge-door-leaf fridge-door-leaf-right" aria-hidden="true"><span class="fridge-door-glass"></span><span class="fridge-door-handle"></span><span class="fridge-door-copy">${logo('fridge-door-logo', 48)}<span>今天，也好好補給。</span><small>GOOD THINGS INSIDE</small></span></span><span class="fridge-door-glass fridge-door-single-glass" aria-hidden="true"></span><span class="fridge-door-invitation">${logo('fridge-door-logo', 48)}<span class="fridge-door-wordmark">HOLDWIN PANTRY</span><strong>點擊打開冰箱門</strong><span class="fridge-door-subtitle">看看今天，想喝哪一瓶。</span><span class="fridge-door-arrow" aria-hidden="true"></span></span><span class="fridge-door-handle fridge-door-single-handle" aria-hidden="true"></span></button></div>
-    <footer class="fridge-plinth"><div class="fridge-vents" aria-hidden="true">${'<i></i>'.repeat(8)}</div><span>GOOD THINGS INSIDE</span><span class="fridge-footnote">HOLDWIN PANTRY</span></footer></div><p class="fridge-scroll-cue"${isOpen ? '' : ' hidden'}>↓ 在冰箱裡往下滑，看更多飲料</p><p class="fridge-caption">商品圖與包裝示意，點飲料可查看品項介紹。${showQuantities ? ` 最近完整盤點：${h(dateLabel(lastInventoryAt))}。` : ''}</p>`;
+  return `<div class="pantry-stage${isOpen ? ' is-open' : ''}">${renderPantryScene()}<div class="fridge${isOpen ? ' is-open is-ready' : ''}" data-door-state="${isOpen ? 'open' : 'closed'}" aria-label="飲料冰箱">
+    <header class="fridge-crown"><div class="fridge-maker">${logo('fridge-maker-logo', 30)}<span>Holdwin Capital</span></div><button type="button" class="fridge-close" data-action="toggle-door" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}"${isOpen ? '' : ' hidden'}>關上冰箱 <span aria-hidden="true">↶</span></button></header>
+    <div class="fridge-window"><div class="fridge-interior" id="${FRIDGE_CONTENT_ID}" role="region" aria-label="飲料展示層架，可向下捲動" aria-hidden="${!isOpen}" tabindex="${isOpen ? '0' : '-1'}"${isOpen ? '' : ' inert'}><div class="fridge-light" aria-hidden="true"></div>${shelves.map((shelf, index) => `<section class="fridge-shelf" aria-label="${h(shelf.name)}飲料架"><div class="fridge-shelf-heading"><span class="shelf-index">0${index + 1}</span><h3>${h(shelf.name)}</h3>${showQuantities ? `<span class="shelf-count">${shelf.drinks.length} 種飲料</span>` : ''}</div><div class="fridge-products">${shelf.drinks.map((drink) => renderFridgeProduct(drink, showQuantities, dateLabel)).join('')}</div><div class="fridge-shelf-rail"><span>${h(FRIDGE_SHELF_LABELS[shelf.name] || 'PANTRY FAVORITES')}</span><i aria-hidden="true"></i><span class="shelf-rail-note">喜歡的，留一瓶給同事。</span></div></section>`).join('') || '<div class="empty-state"><h2>這一格還沒有飲料</h2><p>換個分類或關鍵字看看。</p></div>'}</div>
+    <button type="button" class="fridge-door" data-action="toggle-door" aria-label="點擊打開冰箱門" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}" aria-hidden="${isOpen}" tabindex="${isOpen ? '-1' : '0'}"${isOpen ? ' inert' : ''}><span class="sr-only">點我打開冰箱，看看今天，想喝哪一瓶。</span></button></div>
+    </div></div><p class="fridge-scroll-cue"${isOpen ? '' : ' hidden'}>↓ 在冰箱裡往下滑，看更多飲料</p><p class="fridge-caption"${isOpen ? '' : ' hidden'}>點飲料可查看品項介紹。${showQuantities ? ` 最近完整盤點：${h(dateLabel(lastInventoryAt))}。` : ''}</p>`;
 }
 
 /** Changes only presentation and focus; never touches inventory or storage. */
@@ -121,11 +133,18 @@ export function syncFridgeDoor(element, isOpen) {
   const door = element.querySelector('.fridge-door');
   const closeButton = element.querySelector('.fridge-close');
   if (!interior || !door || !closeButton) return;
-  const cue = element.parentElement?.querySelector('.fridge-scroll-cue');
+  const cue = (element.closest('.fridge-panel') || element.parentElement)?.querySelector('.fridge-scroll-cue');
   const active = document.activeElement;
   const focusWasInside = interior.contains(active) || active === closeButton || active === door;
 
   element.classList.toggle('is-open', isOpen);
+  element.closest('.pantry-stage')?.classList.toggle('is-open', isOpen);
+  const panel = element.closest('.fridge-panel');
+  panel?.classList.toggle('is-browsing', isOpen);
+  const controls = panel?.querySelector(':scope > .toolbar');
+  if (controls) controls.hidden = !isOpen;
+  const caption = panel?.querySelector('.fridge-caption');
+  if (caption) caption.hidden = !isOpen;
   element.classList.remove('is-ready');
   element.dataset.doorState = isOpen ? 'opening' : 'closed';
   closeButton.hidden = !isOpen;
@@ -155,5 +174,5 @@ export function syncFridgeDoor(element, isOpen) {
   };
   const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (reducedMotion) finishOpening();
-  else FRIDGE_DOOR_TIMERS.set(element, setTimeout(finishOpening, 450));
+  else FRIDGE_DOOR_TIMERS.set(element, setTimeout(finishOpening, FRIDGE_OPEN_DURATION));
 }

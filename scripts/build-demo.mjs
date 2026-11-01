@@ -30,10 +30,10 @@ if (argumentsList.length) {
 }
 const read = (path) => readFile(new URL(path, root), 'utf8');
 let html = await read('index.html');
-const [styles, themes, fridge, theme, domain, catalog, productPhotosModule, wishSupportModule, drinkLabelsModule, drinkInformationModule, fridgeModule, googleStore, store, app, mark, productImages] = await Promise.all([
-  read('styles.css'), read('themes.css'), read('fridge.css'), read('theme.js'), read('js/domain.js'), read('js/catalog.js'), read('js/product-photos.js'), read('js/wish-support.js'), read('js/drink-labels.js'), read('js/drink-information.js'), read('js/fridge.js'), read('js/google-store.js'), read('js/store.js'), read('js/app.js'), readFile(new URL('assets/holdwin-mark.png', root)),
-  Promise.all(PRODUCT_PHOTOS.filter((photo) => photo.enabled !== false).map(async ({ src }) => {
-    const mime = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.avif': 'image/avif' }[extname(src).toLowerCase()];
+const [styles, themes, fridge, pantry, theme, domain, catalog, productPhotosModule, wishSupportModule, drinkLabelsModule, drinkInformationModule, fridgeModule, googleStore, store, app, mark, productImages] = await Promise.all([
+  read('styles.css'), read('themes.css'), read('fridge.css'), read('pantry.css'), read('theme.js'), read('js/domain.js'), read('js/catalog.js'), read('js/product-photos.js'), read('js/wish-support.js'), read('js/drink-labels.js'), read('js/drink-information.js'), read('js/fridge.js'), read('js/google-store.js'), read('js/store.js'), read('js/app.js'), readFile(new URL('assets/holdwin-mark.png', root)),
+  Promise.all([...PRODUCT_PHOTOS.filter((photo) => photo.enabled !== false), { src: './assets/pantry-scene-approved.png' }, { src: './assets/pantry-hand.woff2' }].map(async ({ src }) => {
+    const mime = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.avif': 'image/avif', '.woff2': 'font/woff2' }[extname(src).toLowerCase()];
     if (!mime || !/^\.\/assets\/[A-Za-z0-9_./-]+$/.test(src) || src.split('/').includes('..')) throw new Error(`Unsupported local product image: ${src}`);
     const bytes = await readFile(new URL(src, root));
     return { src, dataUrl: `data:${mime};base64,${bytes.toString('base64')}` };
@@ -45,12 +45,15 @@ const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], {
 if (syntax.status !== 0) throw new Error(`Standalone demo module failed syntax validation: ${syntax.stderr}`);
 html = html
   .replaceAll('./assets/holdwin-mark.png', `data:image/png;base64,${mark.toString('base64')}`)
-  .replace('  <link rel="stylesheet" href="./styles.css">', () => `<style>\n${styles}\n${themes}\n${fridge}\n</style>`)
+  .replace('  <link rel="stylesheet" href="./styles.css">', () => `<style>\n${styles}\n${themes}\n${fridge}\n${pantry}\n</style>`)
   .replace('  <link rel="stylesheet" href="./themes.css">', '')
   .replace('  <link rel="stylesheet" href="./fridge.css">', '')
+  .replace('  <link rel="stylesheet" href="./pantry.css">', '')
   .replace('  <script src="./theme.js"></script>', `<script>\n${theme}\n</script>`)
   .replace('  <script src="./config.js"></script>', () => `<script>window.DRINKS_CONFIG = ${JSON.stringify(previewConfig).replaceAll('<', '\\u003c')};</script>`)
   .replace('  <script type="module" src="./js/app.js"></script>', () => `<script type="module">\n${inline}\n</script>`);
 for (const { src, dataUrl } of productImages) html = html.replaceAll(src, dataUrl);
+const fontLicense = (await read('assets/Pantry-Hand-OFL.txt')).replaceAll('-->', '--&gt;').replace(/[ \t]+$/gm, '');
+html = html.replace('</head>', `<!-- Self-hosted LXGW WenKai TC heading font license:\n${fontLicense}\n-->\n</head>`);
 await writeFile(output, html);
 console.log('Built a self-contained local preview with no external requests.' + (previewConfig.initialStocktake ? ' Private stocktake included only in the external output.' : ''));

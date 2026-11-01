@@ -15,9 +15,10 @@ async function fixture(t) {
   for (const folder of ['js', 'assets', 'docs', 'tests', 'supabase']) await mkdir(join(root, folder));
   for (const [path, value] of Object.entries({
     'index.html': '<!doctype html><script src="./config.js"></script><script type="module" src="./js/app.js"></script>',
-    'styles.css': 'body{margin:0}', 'themes.css': ':root{color:gold}', 'fridge.css': '.fridge{}',
+    'styles.css': 'body{margin:0}', 'themes.css': ':root{color:gold}', 'fridge.css': '.fridge{}', 'pantry.css': '.pantry-stage{}',
     'theme.js': 'document.documentElement.dataset.theme="gold";', 'js/app.js': 'window.pantryReady=true;',
     'assets/holdwin-mark.png': 'fixture-png',
+    'assets/pantry-hand.woff2': 'fixture-font', 'assets/Pantry-Hand-OFL.txt': 'fixture-font-license',
     'config.js': 'window.DRINKS_CONFIG={mode:"demo"};', 'demo.html': 'FAKE DEMO STOCK',
     'designs.html': 'ARCHIVED PROPOSALS', 'docs/snapshot.png': 'SCREENSHOT',
     'tests/private.test.mjs': 'TEST ONLY', 'supabase/schema.sql': 'SQL ONLY',
@@ -41,10 +42,10 @@ test('production artifact contains only runtime files and always generates share
   const result = await buildSite({ root, env: publicEnv });
   assert.equal(result.output, join(root, 'dist'));
   assert.deepEqual(await filesUnder(result.output), [
-    '.nojekyll', 'assets/holdwin-mark.png', 'config.js', 'fridge.css', 'index.html',
-    'js/app.js', 'styles.css', 'theme.js', 'themes.css',
+    '.nojekyll', 'assets/holdwin-mark.png', 'assets/pantry-hand.woff2', 'assets/Pantry-Hand-OFL.txt', 'config.js', 'fridge.css', 'index.html',
+    'js/app.js', 'pantry.css', 'styles.css', 'theme.js', 'themes.css',
   ].sort());
-  assert.equal(result.files, 9);
+  assert.equal(result.files, 12);
   const context = { window: {} };
   runInNewContext(await readFile(join(result.output, 'config.js'), 'utf8'), context);
   assert.equal(context.window.DRINKS_CONFIG.mode, 'shared');

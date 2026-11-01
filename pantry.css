@@ -1,0 +1,120 @@
+/* Approved white, champagne and coffee palette. Illustration stays inside the
+   public refrigerator stage; navigation and inventory remain real controls. */
+@font-face{font-family:"Pantry Hand";src:url('./assets/pantry-hand.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap}
+:root[data-theme=gold]{--bg:#fff;--paper:#fff;--ink:#4d3027;--muted:#897568;--green:#8e6841;--green-soft:#f6f0e7;--line:#e9dfd3;--orange:#aa713a;--orange-soft:#fbf1e6;--shadow:0 3px 18px #65452b06}
+body{background:#fff;color:var(--ink)}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline-color:#bd9567}
+input:focus,select:focus,textarea:focus{border-color:#b48b5c}
+.sidebar{width:248px;padding:30px 23px 20px;background:#fff;border-right:1px solid #d8bda0}
+.brand{color:#4d3027;font-size:20px;letter-spacing:.8px;gap:11px}
+.brand small{color:#633f2e;font-size:8px;letter-spacing:2.1px}
+.brand .brand-mark{mix-blend-mode:normal;filter:none;width:44px;height:44px;background:#fff}
+.workspace-label,.sidebar-bottom{display:none}
+#navigation{margin-top:42px;gap:14px}
+#navigation a{position:relative;min-height:49px;padding:12px 14px;gap:14px;color:#5a382a;font-size:15px;border:1px solid transparent;border-radius:10px 7px 11px 8px}
+#navigation a>span{font-size:23px;width:23px;color:inherit}
+#navigation a:hover{background:#faf5ee}
+#navigation a.active{background:#fffdfa;color:#5a382a;border-color:#c49560;box-shadow:inset 0 0 0 3px #fff,0 0 0 1px #eed8bb;font-weight:650}
+.sidebar-note{margin-top:auto;padding:42px 0 6px}
+.sidebar-note svg{display:block;width:100%;height:auto;max-height:270px}
+.main-shell{margin-left:248px;width:calc(100% - 248px)}
+.topbar{height:56px;padding:0 34px;background:#fff;border-bottom:1px solid #eadcc9}
+.breadcrumb,.breadcrumb strong,.connection-status{color:#8a7565}
+.button-outline{border-color:#d5b790;color:#775031;background:#fff}
+.button-outline:hover,.button-plain:hover{background:#faf3e9}
+.button-plain{color:#765a45}
+.mode-banner{font-size:10px;padding:8px 34px;background:#faf7f1;color:#8c765d;border-color:#eee5d7}
+main{padding:32px 34px 18px}
+.page-footer{padding:18px 34px;color:#927c67}
+.mobile-menu-toggle{display:none}
+.page-heading h1,.sidebar-note{font-family:"Pantry Hand","DFKai-SB","BiauKai","STKaiti","KaiTi","Noto Serif TC","Noto Serif CJK TC",serif}
+.field,.subtle,.card-description,.stat-foot,.cell-note,.section-meta,.wish-date,.wish-peek small,.table-bottom{color:#8a7766}
+.category-label,.filter-tab,.stock-meter span,.pill-ok,.wish-supporter-list li{color:#8a6a48;background:#f5eee3}
+.info-box{color:#816346;background:#faf5ec;border-color:#e7d7bf}
+.pill-muted{color:#8f7d69;background:#f6f2ed}
+.wish-card p,.wish-card .wish-icon,.wish-date{color:#8a7058}
+.drink-cell small,.stock-value small,.cell-action,.drink-facts dt{color:#907962}
+.rank-bar span{background:#be9b6e}
+body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
+.pantry-heading{position:relative;margin-bottom:28px}
+.pantry-heading .page-heading{margin:0}
+.pantry-heading .eyebrow{display:none}
+.pantry-heading h1{position:relative;display:table;font-size:clamp(32px,3.3vw,48px);font-weight:700;line-height:1.6;letter-spacing:2px;margin:0 0 8px;transform:rotate(-1deg)}
+.pantry-heading h1:after{content:"";position:absolute;left:3%;right:1%;bottom:3px;height:4px;background:#dfbb7b;border-radius:60% 25% 65% 30%;transform:rotate(-1deg)}
+.pantry-heading .page-description{font-size:13px;color:#735441;line-height:1.9}
+.fridge-panel>.toolbar{padding:2px 0 18px;border:0;background:#fff;border-radius:0;margin:0;max-width:none}
+.fridge-panel .fridge-browse-label{display:none}
+.fridge-panel .search-controls{width:100%;gap:13px}
+.fridge-panel .search-field{flex:1;min-width:0}
+.fridge-panel .search-field input{width:100%;font-size:13px;padding:13px 16px 13px 39px;background:#fff;border-color:#bb9578;border-radius:14px 12px 13px 11px}
+.fridge-panel .search-field>span{top:10px;left:14px;font-size:23px;line-height:24px;color:#67412e}
+.fridge-panel #category-filter{width:180px;max-width:none;padding:13px;background:#fff;border-color:#bb9578;color:#67412e;font-size:13px;border-radius:12px 14px 11px 13px}
+.pantry-stage{position:relative;isolation:isolate;width:100%;aspect-ratio:1074/560;overflow:hidden;background:#fff;border:1px solid #e1cbb1;border-radius:3px}
+.pantry-room{position:absolute;inset:0;z-index:2;transform-origin:33% 50%;transform:translateX(0) scale(1);opacity:1;pointer-events:none;transition:transform 850ms cubic-bezier(.3,.02,.18,1),opacity 400ms ease 120ms}
+.pantry-office-scene,.pantry-mobile-scene{position:absolute;inset:0;perspective:1200px}
+.pantry-scene-art,.pantry-painted-door svg{display:block;width:100%;height:100%}
+.pantry-mobile-scene{display:none}
+.pantry-door-recess{position:absolute;left:20.2%;top:4%;width:27.7%;height:90.6%;background:linear-gradient(90deg,#ac916a,#fffaf0 6%,#fff 48%,#cfb78f);clip-path:polygon(0 0,100% 10%,100% 94%,0 100%);opacity:0;transition:opacity 100ms}
+.pantry-painted-door{position:absolute;display:block;backface-visibility:hidden;transition:transform 700ms cubic-bezier(.2,.5,.25,1),opacity 350ms ease 170ms;transform:rotateY(0);opacity:1}
+.pantry-painted-door-upper-left{left:20.484%;top:4.107%;width:14.991%;height:52.679%;transform-origin:left center;clip-path:polygon(0 0,100% 11.5%,100% 95.5%,0 100%)}
+.pantry-painted-door-upper-right{left:35.568%;top:10.357%;width:12.291%;height:44.464%;transform-origin:right center;clip-path:polygon(0 0,100% 5.6%,100% 96.8%,0 100%)}
+.pantry-painted-door-lower-left{left:20.577%;top:55.357%;width:14.898%;height:37.679%;transform-origin:left center;clip-path:polygon(0 4%,100% 0,100% 86%,0 100%)}
+.pantry-painted-door-lower-right{left:35.568%;top:54.107%;width:12.291%;height:34.107%;transform-origin:right center;clip-path:polygon(0 3%,100% 0,100% 89%,0 100%)}
+.pantry-stage.is-open .pantry-room{transform:translateX(17%) scale(2.35);opacity:0;transition:transform 850ms cubic-bezier(.3,.02,.18,1),opacity 400ms ease 250ms}
+.pantry-stage.is-open .pantry-door-recess{opacity:1}
+.pantry-stage.is-open .pantry-painted-door-upper-left,.pantry-stage.is-open .pantry-painted-door-lower-left{transform:rotateY(-105deg);opacity:0}
+.pantry-stage.is-open .pantry-painted-door-upper-right,.pantry-stage.is-open .pantry-painted-door-lower-right{transform:rotateY(105deg);opacity:0}
+.pantry-stage .fridge{position:absolute;inset:0;z-index:3;width:100%;height:100%;max-width:none;margin:0;padding:0;background:transparent;border:0;border-radius:0;box-shadow:none}
+.pantry-stage .fridge:before,.pantry-stage .fridge:after{display:none}
+.pantry-stage .fridge-crown{position:absolute;z-index:5;inset:0 0 auto;min-height:51px;height:51px;padding:8px 16px;background:#fffffff2;border:0;border-bottom:1px solid #e0c8a2;border-radius:0;box-shadow:none;opacity:0;visibility:hidden;transition:opacity 300ms ease}
+.pantry-stage.is-open .fridge-crown{opacity:1;visibility:visible}
+.pantry-stage .fridge-maker{font:15px Georgia,"Times New Roman",serif;letter-spacing:0;color:#aa855e;text-shadow:none;gap:8px}
+.pantry-stage .fridge-maker-logo{width:26px;height:26px;mix-blend-mode:normal;filter:none;background:#fff}
+.pantry-stage .fridge-close{min-height:34px;border-color:#cfa579;background:#fff;color:#795436;font-size:11px;padding:6px 12px;box-shadow:none}
+.pantry-stage .fridge-window{height:100%;border:0;background:transparent;overflow:hidden;border-radius:0;perspective:1200px}
+.pantry-stage .fridge-window:after{display:none!important}
+.pantry-stage .fridge-window>.fridge-interior{position:relative;height:100%;padding:72px 28px 18px;background:linear-gradient(90deg,#f2e9dc 0,#fffdf8 3%,#fff 9%,#fff 91%,#fffdf8 97%,#ecdfcb);box-shadow:inset 0 0 0 2px #ccb088,inset 0 0 23px #97734714;scrollbar-color:#c5a375 #fcfaf6;opacity:0;transform:scale(.38);transform-origin:33% 50%;transition:transform 850ms cubic-bezier(.3,.02,.18,1),opacity 250ms ease;pointer-events:none}
+.pantry-stage.is-open .fridge-window>.fridge-interior{opacity:1;transform:scale(1);pointer-events:auto;transition:transform 850ms cubic-bezier(.3,.02,.18,1),opacity 500ms ease 150ms}
+.pantry-stage .fridge-door,.pantry-stage .fridge-door:hover{position:absolute;inset:1% auto auto 18.7%;width:30.2%;height:94%;min-height:0;padding:0;display:block;border:0;border-radius:0;background:transparent;box-shadow:none;transform:none;transition:none;z-index:6;opacity:1}
+.pantry-stage .fridge-door:active:not(:disabled){transform:none}
+.pantry-stage .fridge-door:focus-visible{outline:3px solid #b18c60;outline-offset:4px}
+.pantry-stage.is-open .fridge-door{transform:none;opacity:0;pointer-events:none}
+.pantry-stage .fridge-shelf-heading h3,.pantry-stage .fridge-product-info h4{color:#70523e}
+.pantry-stage .shelf-index,.pantry-stage .fridge-product-packaging{color:#a48b71}
+.pantry-stage .fridge-product-stage:after{background:linear-gradient(90deg,transparent,#d6bb9750 23%,#d6bb9750 77%,transparent);box-shadow:none}
+.pantry-stage .fridge-shelf-rail{background:linear-gradient(#fffefb,#eee0ca 12%,#bc945e 18%,#f5e6cc 28%,#e6cba3 80%,#b88c54);border-top-color:#fff;border-bottom-color:#b58a52;box-shadow:0 -2px 6px #fff,0 5px 9px #7852310e;color:#947149}
+.pantry-stage .fridge-shelf-rail>i{background:#fff9ed;box-shadow:0 0 3px #fff,0 -2px 8px #ffefcf}
+.pantry-stage .shelf-rail-note{color:#9d825e}
+.pantry-stage .fridge-light{background:#fffdf5;box-shadow:0 0 7px #fff,0 3px 16px #ffefce}
+.pantry-stage .fridge-product-edit{color:#9b7851;border-color:#d7c5ac;background:#fffdf8e6}
+.fridge-scroll-cue,.fridge-caption{color:#a0876a}
+@media(min-width:1600px){body[data-view=overview] main{padding:34px 48px 16px}.sidebar{padding-top:36px}}
+@media(max-width:1100px) and (min-width:901px){.sidebar{width:216px;padding-left:15px;padding-right:15px}.main-shell{margin-left:216px;width:calc(100% - 216px)}.brand{font-size:18px;gap:8px}.brand .brand-mark{width:38px;height:38px}body[data-view=overview] main{padding:25px 22px 12px}.topbar{padding-left:22px;padding-right:22px}.connection-status{font-size:9px}}
+@media(max-width:900px){
+  .app-shell{display:block}.sidebar{position:relative;inset:auto;width:100%;padding:20px 18px 0;border-right:0;border-bottom:1px solid #e9dfd3;background:#fff}
+  .brand{font-size:21px;gap:10px;width:max-content}.brand small{font-size:8px;letter-spacing:1.8px}.brand .brand-mark{width:40px;height:40px}
+  .mobile-menu-toggle{position:absolute;right:20px;top:20px;display:grid;place-items:center;width:34px;height:36px;padding:0;border:0;background:#fff;color:#573729;font-size:24px;line-height:1}
+  nav#navigation{position:static;inset:auto;z-index:auto;display:flex;justify-content:flex-start;gap:6px;overflow:auto;width:auto;min-height:0;height:auto;margin:17px 0 0;padding:0 0 13px;border:0;background:#fff;box-shadow:none;backdrop-filter:none;scrollbar-width:none}
+  nav#navigation a{display:flex;flex:1;flex-direction:row;justify-content:center;align-items:center;min-height:38px;padding:8px 7px;gap:6px;white-space:nowrap;font-size:12px;border:1px solid #efe2d1;border-radius:9px 8px 9px 8px;color:#5a382a}
+  nav#navigation a.active{background:#fffdfa;color:#5a382a;border-color:#c49560}
+  nav#navigation a>span{font-size:19px;width:20px;line-height:20px}body[data-area=front] #navigation{justify-content:space-between}body[data-area=front] #navigation a{max-width:none}
+  .sidebar-note,.sidebar-bottom{display:none}.main-shell{margin:0;width:100%;padding-bottom:0}.topbar{display:none;height:auto;min-height:52px;padding:10px 17px}.mobile-menu-open .topbar{display:flex}.topbar-actions{justify-content:space-between;flex-wrap:wrap;gap:7px}.breadcrumb{display:none}
+  .mode-banner{padding:7px 17px;font-size:9px;line-height:1.6}
+  main,body[data-view=overview] main{padding:20px 16px 12px}
+  .pantry-heading{margin:0 auto 18px;max-width:480px}.pantry-heading .page-heading{display:block}.pantry-heading h1{font-size:clamp(29px,7.7vw,38px);letter-spacing:1px;margin:0 auto 10px;line-height:1.65}
+  .pantry-heading .page-description{text-align:center;font-size:12px;max-width:320px;margin:0 auto;line-height:1.85}
+  .pantry-stage{aspect-ratio:347/475;max-width:480px;margin:auto;border:0;border-radius:0}
+  .pantry-office-scene{display:none}.pantry-mobile-scene{display:block}.pantry-room{transform-origin:50% 50%}
+  .pantry-stage.is-open .pantry-room{transform:scale(1.75)}
+  .pantry-mobile-scene .pantry-door-recess{left:24.5%;top:20.4%;width:50.7%;height:64%;clip-path:none;border-radius:13px}
+  .pantry-painted-door-mobile{left:24.5%;top:20.4%;width:50.7%;height:64%;transform-origin:left center;border-radius:12px}
+  .pantry-stage.is-open .pantry-painted-door-mobile{transform:rotateY(-105deg);opacity:0}
+  .pantry-stage .fridge-door,.pantry-stage .fridge-door:hover{left:20%;top:1%;width:61%;height:91%;border:0;padding:0}
+  .fridge-panel>.toolbar{max-width:480px;margin:auto;padding-bottom:15px}
+  .fridge-panel .search-controls{flex-direction:column;align-items:stretch;gap:8px}.fridge-panel .search-field{width:100%;flex:auto}.fridge-panel .search-field input{font-size:12px;padding-top:11px;padding-bottom:11px}.fridge-panel #category-filter{width:100%;max-width:none;font-size:12px;padding:10px 13px}
+  .pantry-stage .fridge-window>.fridge-interior{padding:68px 16px 16px;transform-origin:center}
+  .pantry-stage .fridge-crown{padding:8px 10px}.pantry-stage .fridge-maker{font-size:12px;gap:5px}.pantry-stage .fridge-maker-logo{width:23px;height:23px}.pantry-stage .fridge-close{font-size:10px;padding:6px 9px}
+  .page-footer{padding:18px 16px;font-size:9px;letter-spacing:0}
+  .sticky-actions{bottom:12px}#toast{left:50%;bottom:20px}
+}
+@media(prefers-reduced-motion:reduce){.pantry-room,.pantry-painted-door,.pantry-stage .fridge-interior,.pantry-stage .fridge-crown{transition:none!important}.pantry-stage.is-open .pantry-room{transform:none}.pantry-stage .fridge-interior{transform:none!important}}

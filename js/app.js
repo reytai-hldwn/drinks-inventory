@@ -64,6 +64,7 @@ function updateChrome() {
   document.title = `${viewNames[view]} · 宏穩茶水間`;
   const inAdmin = adminViews.has(view) && (store.canManage || store.canEdit);
   document.body.dataset.area = inAdmin ? 'admin' : 'front';
+  document.body.dataset.view = view;
   document.querySelectorAll('[data-editor]').forEach((element) => { element.hidden = !inAdmin; });
   document.querySelectorAll('[data-front]').forEach((element) => { element.hidden = inAdmin; });
   document.querySelectorAll('nav [data-view]').forEach((element) => {
@@ -102,8 +103,9 @@ function inventoryToolbar(warehouse = false) {
 }
 
 function renderOverview() {
-  main.innerHTML = heading('OPEN A LITTLE HAPPINESS', '今天，喝點什麼？', '茶飲、咖啡，那些好喝的都在這') +
-    `<section aria-labelledby="inventory-title"><div class="section-heading"><div><h2 id="inventory-title">點開冰箱，看看今天的小補給</h2><p>飲料展示不顯示餘量，許願與歷史品項都在下方選單。</p></div></div><div class="inventory-panel fridge-panel">${inventoryToolbar()}<div id="inventory-table"></div></div></section>`;
+  main.innerHTML = `<div class="pantry-heading">${heading('OPEN A LITTLE HAPPINESS', '今天，喝點什麼？', '果汁、茶品與各項飲料，為你補充工作所需的燃料')}</div>` +
+    `<section aria-label="飲料冰箱"><div class="inventory-panel fridge-panel${fridgeOpen ? ' is-browsing' : ''}">${inventoryToolbar()}<div id="inventory-table"></div></div></section>`;
+  $('.fridge-panel > .toolbar').hidden = !fridgeOpen;
   renderInventoryTable();
 }
 
@@ -121,7 +123,7 @@ function renderInventoryTable() {
     (!warehouse || filter !== 'low' || stockStatus(drink) === 'low') &&
     (!category || drink.category === category) && (!query || drink.name.toLocaleLowerCase().includes(query.toLocaleLowerCase())));
   const target = $('#inventory-table');
-  if (!drinks.length) { target.innerHTML = empty('這一格還沒有飲料', '換個分類或關鍵字看看。'); return; }
+  if (!drinks.length && warehouse) { target.innerHTML = empty('這一格還沒有飲料', '換個分類或關鍵字看看。'); return; }
   if (!warehouse) {
     target.innerHTML = renderFridge(drinks, { isOpen: fridgeOpen, lastInventoryAt: store.data.lastInventoryAt, formatDate, showQuantities: false });
     return;
@@ -499,6 +501,11 @@ async function runAction(action, id) {
   if (action === 'view-wish-supporters') { openWishSupporters(id); return; }
   if (action === 'view-drink-label') { openDrinkLabel(id); return; }
   if (action === 'view-drink') { openDrinkDetails(id); return; }
+  if (action === 'toggle-mobile-menu') {
+    const expanded = document.body.classList.toggle('mobile-menu-open');
+    $('.mobile-menu-toggle').setAttribute('aria-expanded', String(expanded));
+    return;
+  }
   if (action === 'copy-low') { if (!store.canManage && !store.canEdit) throw new Error('請從倉庫管理產生補貨清單。'); await copyLowStock(); return; }
   if (action === 'toggle-door') { fridgeOpen = !fridgeOpen; syncFridgeDoor($('.fridge'), fridgeOpen); return; }
   if (action === 'new-wish') { openWish(); return; }

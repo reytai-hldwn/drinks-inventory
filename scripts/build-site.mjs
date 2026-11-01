@@ -5,7 +5,7 @@ import { validateGoogleScriptUrl } from '../js/google-store.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
-const pages = ['index.html', 'styles.css', 'themes.css', 'fridge.css', 'theme.js'];
+const pages = ['index.html', 'styles.css', 'themes.css', 'fridge.css', 'pantry.css', 'theme.js'];
 const assetTypes = new Set(['.png', '.svg', '.webp', '.avif', '.jpg', '.jpeg', '.gif', '.ico', '.woff', '.woff2']);
 const excludedDirectories = new Set(['tests', '__tests__', 'snapshots', '__snapshots__', 'docs', 'node_modules']);
 
@@ -74,7 +74,7 @@ export async function buildSite({ root = projectRoot, env = process.env } = {}) 
       if (entry.isDirectory()) { await copyDirectory(name, item); continue; }
       const included = name === 'js'
         ? extname(entry.name) === '.js' && !/\.(test|spec)\.js$/.test(entry.name)
-        : assetTypes.has(extname(entry.name).toLowerCase());
+        : assetTypes.has(extname(entry.name).toLowerCase()) || item === 'Pantry-Hand-OFL.txt';
       if (included) await copyStatic(join(root, name, item), join(staging, name, item));
     }
   }
