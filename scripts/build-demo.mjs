@@ -30,8 +30,8 @@ if (argumentsList.length) {
 }
 const read = (path) => readFile(new URL(path, root), 'utf8');
 let html = await read('index.html');
-const [styles, themes, fridge, pantry, theme, domain, catalog, productPhotosModule, wishSupportModule, drinkLabelsModule, drinkInformationModule, fridgeModule, googleStore, store, app, mark, productImages] = await Promise.all([
-  read('styles.css'), read('themes.css'), read('fridge.css'), read('pantry.css'), read('theme.js'), read('js/domain.js'), read('js/catalog.js'), read('js/product-photos.js'), read('js/wish-support.js'), read('js/drink-labels.js'), read('js/drink-information.js'), read('js/fridge.js'), read('js/google-store.js'), read('js/store.js'), read('js/app.js'), readFile(new URL('assets/holdwin-mark.png', root)),
+const [styles, themes, fridge, pantry, theme, domain, catalog, productPhotosModule, wishSupportModule, drinkLabelsModule, drinkInformationModule, fridgeModule, googleWriteModule, googleStore, store, app, mark, productImages] = await Promise.all([
+  read('styles.css'), read('themes.css'), read('fridge.css'), read('pantry.css'), read('theme.js'), read('js/domain.js'), read('js/catalog.js'), read('js/product-photos.js'), read('js/wish-support.js'), read('js/drink-labels.js'), read('js/drink-information.js'), read('js/fridge.js'), read('js/google-write.js'), read('js/google-store.js'), read('js/store.js'), read('js/app.js'), readFile(new URL('assets/holdwin-mark.png', root)),
   Promise.all([...PRODUCT_PHOTOS.filter((photo) => photo.enabled !== false), { src: './assets/pantry-scene-approved.png' }, { src: './assets/pantry-hand.woff2' }].map(async ({ src }) => {
     const mime = { '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.avif': 'image/avif', '.woff2': 'font/woff2' }[extname(src).toLowerCase()];
     if (!mime || !/^\.\/assets\/[A-Za-z0-9_./-]+$/.test(src) || src.split('/').includes('..')) throw new Error(`Unsupported local product image: ${src}`);
@@ -40,7 +40,7 @@ const [styles, themes, fridge, pantry, theme, domain, catalog, productPhotosModu
   })),
 ]);
 const stripModule = (code) => code.replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
-const inline = [stripModule(domain), stripModule(catalog), stripModule(productPhotosModule), 'const h = escapeHtml;', stripModule(wishSupportModule), stripModule(drinkLabelsModule), stripModule(drinkInformationModule), stripModule(fridgeModule), stripModule(googleStore), stripModule(store), stripModule(app)].join('\n');
+const inline = [stripModule(domain), stripModule(catalog), stripModule(productPhotosModule), 'const h = escapeHtml;', stripModule(wishSupportModule), stripModule(drinkLabelsModule), stripModule(drinkInformationModule), stripModule(fridgeModule), stripModule(googleWriteModule), stripModule(googleStore), stripModule(store), stripModule(app)].join('\n');
 const syntax = spawnSync(process.execPath, ['--check', '--input-type=module'], { input: inline, encoding: 'utf8' });
 if (syntax.status !== 0) throw new Error(`Standalone demo module failed syntax validation: ${syntax.stderr}`);
 html = html

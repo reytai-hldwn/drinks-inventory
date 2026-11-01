@@ -295,7 +295,8 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
     "active": false
   }
 ] /* GENERATED_CATALOG_END */;
-var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup' };
+var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup', website: 'WebsiteRequests' };
+var WEBSITE_REQUEST_HEADERS = ['請求代號', '收件時間', '操作', '資料指紋', '處理狀態', '結果', '處理內容 1', '處理內容 2', '處理內容 3', '處理內容 4', '處理內容 5', '處理內容 6', '處理內容 7', '處理內容 8'];
 var PRODUCT_CATEGORIES = ['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料'];
 var PRODUCT_PACKAGING = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
 var DEFAULT_CASE_SIZE = 24;
@@ -429,7 +430,8 @@ function doGet(e) {
     return ContentService.createTextOutput('{"ok":false,"error":"invalid_callback"}').setMimeType(ContentService.MimeType.JSON);
   }
   try {
-    if (parameters.action === 'warehouse') data = warehouseData_();
+    if (parameters.action === 'receipt') data = websiteReceipt_(parameters.requestId);
+    else if (parameters.action === 'warehouse') data = warehouseData_();
     else if (!parameters.action || parameters.action === 'public') data = publicData_();
     else data = { ok: false, error: 'unsupported_action' };
   } catch (error) {
@@ -439,6 +441,212 @@ function doGet(e) {
   var json = JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
   return ContentService.createTextOutput(callback ? callback + '(' + json + ');' : json)
     .setMimeType(callback ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
+}
+
+/** The website posts commands, never a replacement of the whole spreadsheet.
+ *  Replies are confirmed through doGet(action=receipt), not iframe navigation. */
+function doPost(e) {
+  try {
+    var raw = e && e.parameter && e.parameter.payload;
+    if (typeof raw !== 'string' || raw.length > 262144) throw new Error('invalid_request');
+    submitWebsiteRequest_(JSON.parse(raw));
+  } catch (error) {
+    // Validation receipts carry safe messages. Unexpected failures stay pending
+    // so the exact same request can be retried without duplicating a delivery.
+    console.warn('Website request did not finish. Inspect WebsiteRequests for its status.');
+  }
+  return HtmlService.createHtmlOutput('<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><title>宏穩茶水間</title><p>請回網站查看儲存結果。</p></html>')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function websiteInputError_(message) {
+  var error = new Error(message);
+  error.websiteInput = true;
+  return error;
+}
+
+function websiteText_(value, label, max, required) {
+  if (typeof value !== 'string' || value.trim().length > max || (required && !value.trim())) throw websiteInputError_('請填寫有效的' + label + '。');
+  var cleaned = text_(value, max);
+  if (required && !cleaned) throw websiteInputError_('請填寫有效的' + label + '。');
+  return cleaned;
+}
+
+function websiteCanonical_(value) {
+  if (Array.isArray(value)) return '[' + value.map(websiteCanonical_).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(function (key) { return JSON.stringify(key) + ':' + websiteCanonical_(value[key]); }).join(',') + '}';
+  return JSON.stringify(value);
+}
+
+function websiteFingerprint_(request) {
+  var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, websiteCanonical_({ operation: request.operation, data: request.data }), Utilities.Charset.UTF_8);
+  return bytes.map(function (byte) { return ('0' + ((byte + 256) % 256).toString(16)).slice(-2); }).join('');
+}
+
+function websiteRequestRecord_(sheet, requestId) {
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  var ids = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i += 1) {
+    if (String(ids[i][0]) === requestId) return { index: i + 2, row: sheet.getRange(i + 2, 1, 1, WEBSITE_REQUEST_HEADERS.length).getValues()[0] };
+  }
+  return null;
+}
+
+function websiteReceipt_(requestId) {
+  if (!/^[A-Za-z0-9_-]{20,100}$/.test(String(requestId || ''))) return { ok: false, error: 'invalid_request' };
+  var ss = requiredSpreadsheet_();
+  var record = websiteRequestRecord_(ss.getSheetByName(SHEETS.website), requestId);
+  if (!record || record.row[4] === 'pending') return { ok: true, requestId: requestId, state: 'pending' };
+  var result = JSON.parse(record.row[5] || '{}');
+  // No prepared rows, recorder, browser token or original payload is exposed.
+  return record.row[4] === 'accepted'
+    ? { ok: true, requestId: requestId, state: 'accepted', result: result }
+    : { ok: false, requestId: requestId, state: 'rejected', message: text_(result.message || '資料未儲存，請檢查輸入。', 300) };
+}
+
+function submitWebsiteRequest_(request) {
+  if (!request || !/^[A-Za-z0-9_-]{20,100}$/.test(String(request.requestId || ''))) throw new Error('invalid_request');
+  var fingerprint = websiteFingerprint_(request);
+  return locked_(function () {
+    var ss = requiredSpreadsheet_();
+    var sheet = ensureSheet_(ss, SHEETS.website, WEBSITE_REQUEST_HEADERS);
+    var record = websiteRequestRecord_(sheet, request.requestId);
+    if (record && record.row[3] !== fingerprint) throw new Error('request_conflict');
+    if (record && record.row[4] !== 'pending') return websiteReceipt_(request.requestId);
+    if (!record) {
+      var stamp = new Date().toISOString(), prepared, validationError;
+      try { prepared = prepareWebsiteRequest_(ss, request, stamp); }
+      catch (error) { if (!error.websiteInput) throw error; validationError = error; }
+      var row = [request.requestId, stamp, sheetText_(String(request.operation || '').slice(0, 30)), fingerprint, validationError ? 'rejected' : 'pending', validationError ? JSON.stringify({ message: validationError.message }) : ''];
+      var json = prepared ? JSON.stringify(prepared) : '';
+      while (json.length) {
+        var end = Math.min(40000, json.length);
+        if (end < json.length && /[\uD800-\uDBFF]/.test(json.charAt(end - 1))) end -= 1;
+        row.push(json.slice(0, end)); json = json.slice(end);
+      }
+      if (row.length > WEBSITE_REQUEST_HEADERS.length) throw websiteInputError_('這次資料較多，請分批送出。');
+      while (row.length < WEBSITE_REQUEST_HEADERS.length) row.push('');
+      var index = sheet.getLastRow() + 1;
+      sheet.getRange(index, 1, 1, row.length).setNumberFormat('@').setValues([row]);
+      record = { index: index, row: row };
+      if (validationError) return websiteReceipt_(request.requestId);
+    }
+    var effects = JSON.parse(record.row.slice(6).join(''));
+    applyWebsiteRequest_(ss, effects);
+    var inventory = computeInventory_(catalog_(ss), historyEvents_(ss));
+    renderWarehouse_(ss, inventory);
+    renderArchive_(ss, inventory);
+    PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
+    // Commit state and result together, only after data and views are saved.
+    sheet.getRange(record.index, 5, 1, 2).setValues([['accepted', JSON.stringify(effects.result)]]);
+    return websiteReceipt_(request.requestId);
+  });
+}
+
+function prepareWebsiteRequest_(ss, request, stamp) {
+  var data = request.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw websiteInputError_('送出資料格式不正確。');
+  var operation = request.operation, effects = { operation: operation, result: { operation: operation } };
+  var catalog = catalog_(ss);
+  function activeDrink(id) {
+    var found = catalog.filter(function (drink) { return drink.id === id && drink.active; })[0];
+    if (!found) throw websiteInputError_('這個品項目前不在供應清單，請重新讀取品項。');
+    return found;
+  }
+  if (operation === 'wish') {
+    if (['drink', 'snack'].indexOf(data.kind) < 0) throw websiteInputError_('請選擇飲料許願或零食許願。');
+    var name = websiteText_(data.name, '品項名稱', 80, true);
+    var note = websiteText_(data.note || '', '許願備註', 500, false);
+    var inputUrl = websiteText_(data.url || '', '產品連結', 2000, false);
+    var link = inputUrl ? safeUrl_(inputUrl) : '';
+    if (inputUrl && !link) throw websiteInputError_('請填寫有效的 http 或 https 產品連結。');
+    if (link) {
+      var address = /^https?:\/\/([A-Za-z0-9.-]+)(?::([0-9]{1,5}))?(?:[/?#]|$)/i.exec(link);
+      if (!address || (address[2] && (Number(address[2]) < 1 || Number(address[2]) > 65535))) throw websiteInputError_('請填寫有效的 http 或 https 產品連結。');
+    }
+    var wishId = 'wish-web-' + request.requestId;
+    effects.wish = [wishId, sheetText_(name), sheetText_(link), sheetText_(note), 'pending', stamp, data.kind];
+    effects.result.id = wishId;
+  } else if (operation === 'vote') {
+    var voterName = websiteText_(data.voterName, '姓名', 80, true);
+    if (!/^[A-Za-z0-9_-]{16,80}$/.test(String(data.voterId || ''))) throw websiteInputError_('瀏覽器識別資料無效，請重新開啟網站。');
+    if (!wishRows_(ss).some(function (wish) { return wish.id === data.wishId; })) throw websiteInputError_('找不到這個願望，請重新讀取。');
+    var votes = ss.getSheetByName(SHEETS.votes);
+    var rows = votes.getLastRow() > 1 ? votes.getRange(2, 1, votes.getLastRow() - 1, 6).getValues() : [];
+    var exists = rows.some(function (row) { return row[1] === data.wishId && row[2] === data.voterId && row[4] === '採計'; });
+    if (!exists) effects.vote = ['website:' + request.requestId, data.wishId, sheetText_(data.voterId), stamp, '採計', sheetText_(voterName)];
+    effects.result.alreadyVoted = exists;
+  } else if (operation === 'stocktake' || operation === 'arrival') {
+    var recorder = websiteText_(data.recorder, '登記人', 80, true);
+    effects.history = [];
+    if (operation === 'stocktake') {
+      if (!Array.isArray(data.entries) || !data.entries.length || data.entries.length > 1000) throw websiteInputError_('請至少填寫一個品項的實際數量。');
+      var seen = Object.create(null);
+      data.entries.forEach(function (entry) {
+        if (!entry || typeof entry.drinkId !== 'string' || seen[entry.drinkId]) throw websiteInputError_('盤點品項無效或重複。');
+        seen[entry.drinkId] = true;
+        var drink = activeDrink(entry.drinkId), quantity = quantity_(entry.quantity, true);
+        if (quantity === null) throw websiteInputError_('盤點數量請填 0 到 999999 的整數。');
+        effects.history.push(['website:' + request.requestId + ':' + drink.id, stamp, 'count', drink.id, sheetText_(drink.name), quantity, '網站實際盤點', sheetText_(recorder), '採計']);
+      });
+      effects.result.count = effects.history.length;
+    } else {
+      var drink = activeDrink(data.drinkId);
+      var quantity = arrivalQuantity_(data.cases, data.loose, drink.perCase);
+      if (quantity === null) throw websiteInputError_('整箱或零散數量至少填一項，且合計須大於 0。');
+      var current = computeInventory_(catalog, historyEvents_(ss)).filter(function (entry) { return entry.drink.id === drink.id; })[0];
+      if (current.stock !== null && current.stock + quantity > 999999) throw websiteInputError_('累計庫存不可超過 999999，請確認數量。');
+      var note = websiteText_(data.note || '', '入庫備註', 500, false);
+      effects.history.push(['website:' + request.requestId + ':' + drink.id, stamp, 'restock', drink.id, sheetText_(drink.name), quantity, sheetText_(note || '網站到貨入庫'), sheetText_(recorder), '採計']);
+      effects.result.quantity = quantity;
+    }
+  } else if (operation === 'product') {
+    var name = websiteText_(data.name, '飲料名稱', 80, true);
+    var recorder = websiteText_(data.recorder, '登記人', 80, true);
+    if (PRODUCT_CATEGORIES.indexOf(data.category) < 0 || PRODUCT_PACKAGING.indexOf(data.packaging) < 0) throw websiteInputError_('請選擇有效的飲料分類與包裝。');
+    if (catalog.some(function (drink) { return productNameKey_(drink.name) === productNameKey_(name); })) throw websiteInputError_('已經有同名品項，請沿用原品項或查看歷史清單。');
+    if (catalog.length >= 1000) throw websiteInputError_('品項數量已達上限。');
+    var unit = ['寶特瓶', '大瓶裝'].indexOf(data.packaging) >= 0 ? '瓶' : data.packaging.indexOf('鐵罐') >= 0 ? '罐' : '包';
+    var id = productResponseId_('website:' + request.requestId);
+    effects.catalog = [id, sheetText_(name), data.category, data.packaging, unit, DEFAULT_CASE_SIZE, 10, true];
+    effects.product = ['website:' + request.requestId, stamp, id, sheetText_(name), data.category, data.packaging, sheetText_(recorder), '採計'];
+    effects.result.id = id;
+  } else throw websiteInputError_('不支援的網站操作。');
+  return effects;
+}
+
+function websiteAppendMissing_(sheet, rows) {
+  if (!rows || !rows.length) return;
+  var known = Object.create(null);
+  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues().forEach(function (row) { known[String(row[0])] = true; });
+  var additions = rows.filter(function (row) { return !known[String(row[0])]; });
+  if (additions.length) sheet.getRange(sheet.getLastRow() + 1, 1, additions.length, additions[0].length).setValues(additions);
+}
+
+function applyWebsiteRequest_(ss, effects) {
+  if (effects.catalog) {
+    var catalog = catalog_(ss);
+    var duplicate = catalog.filter(function (drink) { return drink.id !== effects.catalog[0] && productNameKey_(drink.name) === productNameKey_(effects.catalog[1]); })[0];
+    if (duplicate) {
+      effects.result.id = duplicate.id;
+      effects.result.alreadyExists = true;
+      effects.product[2] = duplicate.id;
+      effects.product[7] = '未新增：品項已存在';
+    } else {
+      websiteAppendMissing_(ss.getSheetByName(SHEETS.catalog), [effects.catalog]);
+      PropertiesService.getScriptProperties().setProperty('HOLDWIN_CATALOG_FORMS_DIRTY', 'true');
+    }
+    websiteAppendMissing_(ensureSheet_(ss, SHEETS.products, PRODUCT_INTAKE_HEADERS), [effects.product]);
+  }
+  websiteAppendMissing_(ss.getSheetByName(SHEETS.history), effects.history);
+  websiteAppendMissing_(ss.getSheetByName(SHEETS.wishes), effects.wish ? [effects.wish] : []);
+  if (effects.vote) {
+    var voteSheet = ss.getSheetByName(SHEETS.votes);
+    var votes = voteSheet.getLastRow() > 1 ? voteSheet.getRange(2, 1, voteSheet.getLastRow() - 1, 6).getValues() : [];
+    var duplicateVote = votes.filter(function (row) { return row[1] === effects.vote[1] && row[2] === effects.vote[2] && row[4] === '採計'; })[0];
+    if (duplicateVote) effects.result.alreadyVoted = duplicateVote[0] !== effects.vote[0];
+    else websiteAppendMissing_(voteSheet, [effects.vote]);
+  }
 }
 
 function wishRows_(ss) {
@@ -467,7 +675,7 @@ function publicData_() {
   var forms = forms_();
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = { wish: forms.wish.getPublishedUrl(), stocktake: forms.stocktake.getPublishedUrl(), arrival: forms.arrival.getPublishedUrl(), vote: forms.vote.getPublishedUrl(), product: forms.product ? forms.product.getPublishedUrl() : '' };
-  return { ok: true, provider: 'google', drinks: drinks, wishes: wishes, formUrls: formUrls,
+  return { ok: true, provider: 'google', websiteEntry: { version: 1 }, drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),

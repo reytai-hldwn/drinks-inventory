@@ -227,7 +227,7 @@ test('Google store initializes read-only without local storage, credentials, or 
   assert.equal(store.inWarehouse, false);
   await assert.rejects(store.login(), /不用登入/);
   await assert.rejects(store.save({ drinks: [] }), /登記人/);
-  await assert.rejects(store.submitWish({ name: 'new' }), /Google 表單/);
+  await assert.rejects(store.submitWish({ name: 'new' }), /更新 Google Apps Script/);
 });
 
 test('warehouse normalization includes observed stock and accepted history but excludes identity and private fields', () => {

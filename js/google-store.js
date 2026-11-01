@@ -1,4 +1,5 @@
 import { blankData, safeUrl } from './domain.js';
+import { submitGoogleWebsiteCommand } from './google-write.js';
 
 let googleCallbackSequence = 0;
 
@@ -13,11 +14,12 @@ export function validateGoogleScriptUrl(value) {
   return url.href;
 }
 
-/** Read a catalog or warehouse view without CORS. All writes stay in Forms. */
+/** Read-only JSONP: catalogs, warehouse observations and write receipts. */
 export function fetchGooglePublicData(endpoint, options = {}) {
   const url = new URL(validateGoogleScriptUrl(endpoint));
   const action = options.action ?? 'public';
-  if (!['public', 'warehouse'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
+  if (!['public', 'warehouse', 'receipt'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
+  if (action === 'receipt' && !/^[A-Za-z0-9_-]{20,100}$/.test(options.requestId || '')) throw new Error('儲存回條代號不正確。');
   const pageWindow = options.window || globalThis.window;
   const pageDocument = options.document || globalThis.document;
   const schedule = options.setTimeout || globalThis.setTimeout;
@@ -29,6 +31,7 @@ export function fetchGooglePublicData(endpoint, options = {}) {
   const callback = `__holdwin_${Date.now().toString(36)}_${(++googleCallbackSequence).toString(36)}_${Math.random().toString(36).slice(2)}`;
   url.searchParams.set('action', action);
   url.searchParams.set('callback', callback);
+  if (action === 'receipt') url.searchParams.set('requestId', options.requestId);
   return new Promise((resolve, reject) => {
     const script = pageDocument.createElement('script');
     let timer;
@@ -241,6 +244,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     wishForm,
     adminUrl,
     updatedAt,
+    websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
   };
 }
 
@@ -262,13 +266,20 @@ export class GoogleInventoryStore {
     this.updatedAt = null;
     this.revision = '';
     this.googleReadSequence = 0;
+    this.websiteEntryVersion = 0;
+    this.lastWriteNeedsRefresh = false;
     this.readPublicData = options.readPublicData || fetchGooglePublicData;
     this.voteStorage = options.voteStorage;
     this.createVoterId = options.createVoterId || (() => globalThis.crypto.randomUUID());
+    this.createRequestId = options.createRequestId || (() => globalThis.crypto.randomUUID());
+    this.pendingStorage = options.pendingStorage;
+    this.submitWebsiteCommand = options.submitWebsiteCommand || submitGoogleWebsiteCommand;
+    this.readReceipt = options.readReceipt || ((requestId) => fetchGooglePublicData(this.url, { action: 'receipt', requestId }));
   }
 
   get canEdit() { return false; }
   get canManage() { return true; }
+  get supportsWebsiteEntry() { return this.websiteEntryVersion === 1; }
 
   async init() { await this.read(); }
 
@@ -304,7 +315,8 @@ export class GoogleInventoryStore {
     this.adminUrl = result.adminUrl;
     this.warehouseUrl = this.adminUrl;
     this.updatedAt = result.updatedAt;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl });
+    this.websiteEntryVersion = result.websiteEntryVersion;
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion });
     return this.data;
   }
 
@@ -328,6 +340,16 @@ export class GoogleInventoryStore {
     if (!this.data.wishes.some((wish) => wish.id === wishId)) throw new Error('找不到這個願望，請重新整理後再試。');
     if (!this.voteForm) throw new Error('贊同表單姓名欄位尚未啟用，請更新 Google 設定並重新部署。');
     if (typeof voterName !== 'string' || !voterName.trim() || voterName.trim().length > 80) throw new Error('請填寫姓名，最多 80 字。');
+    const voterId = this.getVoterId();
+    const url = new URL(this.voteForm.url);
+    url.searchParams.set('usp', 'pp_url');
+    url.searchParams.set(`entry.${this.voteForm.wishEntryId}`, wishId);
+    url.searchParams.set(`entry.${this.voteForm.voterEntryId}`, voterId);
+    url.searchParams.set(`entry.${this.voteForm.voterNameEntryId}`, voterName.trim());
+    return url.href;
+  }
+
+  getVoterId() {
     let voterId;
     try {
       const storage = this.voteStorage || globalThis.localStorage;
@@ -340,16 +362,80 @@ export class GoogleInventoryStore {
     } catch {
       throw new Error('請允許此網站儲存瀏覽器資料，才能避免重複贊同。');
     }
-    const url = new URL(this.voteForm.url);
-    url.searchParams.set('usp', 'pp_url');
-    url.searchParams.set(`entry.${this.voteForm.wishEntryId}`, wishId);
-    url.searchParams.set(`entry.${this.voteForm.voterEntryId}`, voterId);
-    url.searchParams.set(`entry.${this.voteForm.voterNameEntryId}`, voterName.trim());
-    return url.href;
+    return voterId;
+  }
+
+  hasVoted(wishId) {
+    try { return (this.voteStorage || globalThis.localStorage).getItem(`holdwin-google-voted-v1:${this.url}:${wishId}`) === 'true'; }
+    catch { return false; }
+  }
+
+  async sendWebsiteCommand(operation, data) {
+    if (!this.supportsWebsiteEntry) throw new Error('請先更新 Google Apps Script 的 Code.gs，並部署新版本，才能直接在網站送出。');
+    const endpoint = validateGoogleScriptUrl(this.url);
+    const key = `holdwin-google-pending-v1:${endpoint}:${operation}`;
+    const signature = JSON.stringify(data);
+    let storage, pending;
+    try {
+      storage = this.pendingStorage || globalThis.sessionStorage;
+      pending = JSON.parse(storage.getItem(key) || 'null');
+      if (pending && (!/^[A-Za-z0-9_-]{20,100}$/.test(pending.requestId || '') || typeof pending.signature !== 'string')) throw new Error('Invalid pending request');
+    } catch { throw new Error('目前無法保留送出紀錄，請允許網站使用瀏覽器儲存空間，避免重複入庫。'); }
+    if (pending && pending.signature !== signature) {
+      let receipt;
+      try { receipt = await this.readReceipt(pending.requestId); } catch { /* keep the unresolved request */ }
+      if (receipt?.requestId === pending.requestId && receipt.state === 'accepted' && receipt.ok === true) {
+        storage.removeItem(key);
+        await this.read().catch(() => {});
+        throw new Error('上一筆資料已經儲存。請先確認更新後的紀錄，再送出這筆修改。');
+      }
+      if (receipt?.requestId === pending.requestId && receipt.state === 'rejected') { storage.removeItem(key); pending = null; }
+      else throw new Error('上一筆送出仍待確認。請先保留原內容重試，避免重複入庫。');
+    }
+    if (!pending) pending = { requestId: this.createRequestId(), signature };
+    if (!/^[A-Za-z0-9_-]{20,100}$/.test(pending.requestId)) throw new Error('無法建立這次送出紀錄，請重新開啟網站。');
+    try { storage.setItem(key, JSON.stringify(pending)); }
+    catch { throw new Error('目前無法保留送出紀錄，資料尚未送出。'); }
+    this.lastWriteNeedsRefresh = false;
+    let result;
+    try { result = await this.submitWebsiteCommand(endpoint, { requestId: pending.requestId, operation, data }, { readReceipt: this.readReceipt }); }
+    catch (error) { if (error.code === 'rejected') storage.removeItem(key); throw error; }
+    // A confirmed write stays a success even if the following read fails.
+    storage.removeItem(key);
+    try { await this.read(); } catch { this.lastWriteNeedsRefresh = true; }
+    return result;
+  }
+
+  async submitWish({ kind, name, url = '', note = '' }) {
+    if (!this.supportsWebsiteEntry) throw new Error('請先更新 Google Apps Script 的 Code.gs，並部署新版本，才能直接在網站送出。');
+    if (!['drink', 'snack'].includes(kind) || typeof name !== 'string' || !name.trim() || name.trim().length > 80 || typeof note !== 'string' || note.length > 500) throw new Error('請選擇類型並填寫有效的品項名稱與備註。');
+    const link = url ? safeUrl(url) : '';
+    if (url && !link) throw new Error('請填寫有效的 http 或 https 連結。');
+    return this.sendWebsiteCommand('wish', { kind, name: name.trim(), url: link, note: note.trim() });
+  }
+
+  async voteWish(wishId, voterName) {
+    if (!this.supportsWebsiteEntry) throw new Error('請先更新 Google 程式，才能直接在網站贊同。');
+    if (!this.data.wishes.some((wish) => wish.id === wishId)) throw new Error('找不到這個願望，請重新整理後再試。');
+    if (typeof voterName !== 'string' || !voterName.trim() || voterName.trim().length > 80) throw new Error('請填寫姓名，最多 80 字。');
+    const result = await this.sendWebsiteCommand('vote', { wishId, voterName: voterName.trim(), voterId: this.getVoterId() });
+    try { (this.voteStorage || globalThis.localStorage).setItem(`holdwin-google-voted-v1:${this.url}:${wishId}`, 'true'); } catch { /* the server still prevents duplicate votes */ }
+    return result;
+  }
+
+  async submitStocktake(entries, recorder) {
+    return this.sendWebsiteCommand('stocktake', { entries, recorder });
+  }
+
+  async submitArrival({ drinkId, cases, loose, recorder, note = '' }) {
+    return this.sendWebsiteCommand('arrival', { drinkId, cases, loose, recorder, note });
+  }
+
+  async addDrink({ name, category, packaging, recorder }) {
+    return this.sendWebsiteCommand('product', { name: name.trim(), category, packaging, recorder: recorder.trim() });
   }
 
   async login() { throw new Error('管理入口不用登入，請直接開啟倉庫或使用盤點、入庫 Google 表單。'); }
   async logout() { /* Google owns the account session; no credentials are stored here. */ }
   async save() { throw new Error('請使用 Google 表單登記庫存，並填寫登記人。'); }
-  async submitWish() { throw new Error('請使用許願 Google 表單送出願望。'); }
 }

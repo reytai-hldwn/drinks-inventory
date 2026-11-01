@@ -149,6 +149,12 @@ function renderGoogleEntry() {
     `<section class="panel form-panel"><h2>${count ? '登記實際盤點' : '登記到貨入庫'}</h2><p class="page-description">${count ? '至少填一個品項即可，未盤點的品項留白，實際為零請填 0。' : '整箱或零散數量至少填一項，兩項都填會加總；每箱預設 24 包／瓶／罐。'}Google 表單內的「登記人」為必填。送出後回來重新整理，即可查看更新的庫存。</p><div class="form-actions">${renderGoogleLink(count ? store.formUrls.stocktake : store.formUrls.arrival, count ? '填寫盤點表單' : '填寫入庫表單')}<a href="#products" class="button button-outline">查看倉庫庫存</a></div></section>`;
 }
 
+function googleWriteToast(message) {
+  toast(store.mode === 'google' && store.lastWriteNeedsRefresh
+    ? '資料已存入共用試算表；畫面更新稍有延遲，請稍後重新整理。'
+    : message);
+}
+
 function openDrinkDetails(id) {
   const drink = drinkById(id);
   if (!drink) return;
@@ -209,7 +215,8 @@ function updateRestockSummary() {
   const quantity = Math.max(0, Number(form.elements.cases.value) || 0) * drink.perCase + Math.max(0, Number(form.elements.loose.value) || 0);
   $('#loose-label').textContent = `另外的單${drink.unit}數量`;
   $('#loose-hint').textContent = `以${drink.unit}為單位，不足整箱也可登記`;
-  $('#restock-summary').innerHTML = `${drink.perCase ? `每箱 <strong>${drink.perCase} ${h(drink.unit)}</strong>` : '每箱數量待設定，請先登記單包／瓶／罐'} · 目前帳面庫存 <strong>${drink.stock} ${h(drink.unit)}</strong>${drink.lastCountAt ? '' : '（尚未首次盤點）'}<br>本次入庫：<strong>${quantity} ${h(drink.unit)}</strong><br>入庫後帳面庫存：<strong>${drink.stock + quantity} ${h(drink.unit)}</strong>`;
+  const observed = drink.stock !== null && !!drink.lastCountAt;
+  $('#restock-summary').innerHTML = `${drink.perCase ? `每箱 <strong>${drink.perCase} ${h(drink.unit)}</strong>` : '每箱數量待設定，請先登記單包／瓶／罐'} · 目前帳面庫存 <strong>${observed ? `${drink.stock} ${h(drink.unit)}` : '待首次盤點'}</strong><br>本次入庫：<strong>${quantity} ${h(drink.unit)}</strong><br>入庫後帳面庫存：<strong>${observed ? `${drink.stock + quantity} ${h(drink.unit)}` : '先保存入庫紀錄，待盤點確認數量'}</strong>`;
 }
 
 const wishStatus = (status) => ({ pending: ['待評估', 'pill-low'], purchased: ['已採購', 'pill-ok'], declined: ['暫不採購', 'pill-muted'] })[status] || ['待評估', 'pill-low'];
@@ -222,9 +229,9 @@ function renderWishes() {
       const [label, style] = wishStatus(wish.status);
       const kindLabel = wishKindLabel(wishKind(wish));
       const url = safeUrl(wish.url);
-      const voted = store.mode === 'demo' && store.hasVoted(wish.id);
+      const voted = (store.mode === 'demo' || store.supportsWebsiteEntry) && store.hasVoted(wish.id);
       const votes = Number.isSafeInteger(wish.votes) && wish.votes >= 0 ? wish.votes : 0;
-      const unavailable = store.mode === 'google' && (!store.voteForm?.url || !store.voteForm?.voterNameEntryId);
+      const unavailable = store.mode === 'google' && !store.supportsWebsiteEntry && (!store.voteForm?.url || !store.voteForm?.voterNameEntryId);
       return `<article class="panel wish-card" data-wish-id="${h(wish.id)}"><div class="wish-top"><div class="wish-type"><span class="wish-icon" aria-hidden="true">♡</span><span class="category-label">${kindLabel}</span></div><span class="pill ${style}">${label}</span></div><h2>${h(wish.name)}</h2><p>${h(wish.note || '一個值得試試的新選擇。')}</p>${url ? `<a href="${h(url)}" target="_blank" rel="noopener noreferrer" class="text-link">看看這款${kindLabel} ↗</a>` : '<span class="subtle">尚未附上購買連結</span>'}<div class="wish-vote-row"><button class="wish-vote-button${voted ? ' is-voted' : ''}" data-action="vote-wish" data-id="${h(wish.id)}" aria-pressed="${voted}"${voted || unavailable ? ' disabled' : ''}${unavailable ? ' title="請先更新 Google 贊同表單，加入必填姓名欄位"' : ''}>${voted ? '♥ 已贊同' : '♡ 我也喜歡'}</button><button type="button" class="wish-vote-count" data-action="view-wish-supporters" data-id="${h(wish.id)}" title="${h(wishSupportPreview(wish))}" aria-label="${votes} 人喜歡，查看贊同名單" aria-haspopup="dialog" aria-live="polite">${votes} 人喜歡</button></div><div class="wish-bottom"><span class="wish-date">${formatDate(wish.createdAt)} 加入許願池</span>${store.canEdit ? `<button class="cell-action" data-action="edit-wish" data-id="${h(wish.id)}">管理願望 ↗</button>` : ''}</div></article>`;
     }).join('')}</div>` : `<div class="panel">${empty('第一個採買願望，會是什麼？', '選擇飲料或零食，附上想買的品項與連結。', button('♡ 新增願望', 'new-wish'))}</div>`);
 }
@@ -260,7 +267,7 @@ function render() {
     main.innerHTML = heading('EDITOR ACCESS', '這裡留給庫存管理者', '同事可以直接查看庫存與許願清單，修改資料需要登入。') + `<div class="panel">${empty('登入後繼續', '只有獲授權的帳號可以修改庫存。', button('管理員登入', 'login'))}</div>`;
     return;
   }
-  if (store.mode === 'google' && ['count', 'restock'].includes(view)) { renderGoogleEntry(); return; }
+  if (store.mode === 'google' && !store.supportsWebsiteEntry && ['count', 'restock'].includes(view)) { renderGoogleEntry(); return; }
   ({ overview: renderOverview, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, restock: renderRestock, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
 }
 
@@ -309,7 +316,7 @@ function openLogin() {
 
 function openQuickDrink() {
   if (!adminViews.has(view) || (!store.canManage && !store.canEdit)) throw new Error('請從管理入口新增飲料。');
-  if (store.mode === 'google') {
+  if (store.mode === 'google' && !store.supportsWebsiteEntry) {
     const url = store.getProductFormUrl();
     showModal('快速新增飲料', '直接在下方填寫品名、分類、包裝與登記人。沒有圖片也能上架，之後可再補圖。', `<iframe class="product-entry-frame" title="快速新增飲料表單" src="${h(url)}" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="subtle">表單送出後，按下方按鈕讀取新飲料；同步完成前不會顯示為已上架。新增品項的實際數量仍需盤點或登記到貨。</p><div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}${button('已送出，更新飲料架', 'refresh-new-drinks', 'type="button"')}</div>`);
     modal.classList.add('modal-product-entry');
@@ -327,7 +334,7 @@ function openDrink(id) {
 function openWish(id) {
   const wish = store.data.wishes.find((item) => item.id === id);
   const kind = wish ? wishKind(wish) : '';
-  if (store.mode === 'google') {
+  if (store.mode === 'google' && !store.supportsWebsiteEntry) {
     showModal('新增採買願望', '先選擇是飲料或零食，再到許願表單填寫品項。', `<form id="wish-category-form"><label class="field">許願類型<select name="kind" required>${wishKindOptions()}</select></label><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">繼續填寫願望</button></div></form>`);
     return;
   }
@@ -337,7 +344,7 @@ function openWish(id) {
 function openVote(id) {
   const wish = store.data.wishes.find((item) => item.id === id);
   if (!wish) throw new Error('找不到這個願望，請重新整理後再試。');
-  showModal('這個，我也喜歡', `支持「${h(wish.name)}」前，請填寫姓名；送出後會顯示在贊同名單。`, `<form id="vote-form" data-id="${h(id)}"><label class="field">姓名<input name="voterName" required maxlength="80" autocomplete="name" placeholder="請填寫姓名"></label><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">${store.mode === 'google' ? '繼續到贊同表單' : '送出贊同'}</button></div></form>`);
+  showModal('這個，我也喜歡', `支持「${h(wish.name)}」前，請填寫姓名；送出後會顯示在贊同名單。`, `<form id="vote-form" data-id="${h(id)}"><label class="field">姓名<input name="voterName" required maxlength="80" autocomplete="name" placeholder="請填寫姓名"></label><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">${store.mode === 'google' && !store.supportsWebsiteEntry ? '下一步' : '送出贊同'}</button></div></form>`);
 }
 
 function openWishSupporters(id) {
@@ -382,21 +389,21 @@ async function submitForm(form) {
     modal.close();
     filter = 'all'; query = ''; category = ''; fridgeOpen = true;
     location.hash = 'overview';
-    toast('新飲料已上架，先使用包裝示意圖；記得補登實際數量。');
+    googleWriteToast('新飲料已上架，先使用包裝示意圖；記得補登實際數量。');
     return;
   }
   if (form.id === 'vote-form') {
     const voterName = String(values.get('voterName') || '').trim();
     if (!voterName || voterName.length > 80) throw new Error('請填寫姓名，最多 80 字。');
-    if (store.mode === 'google') {
+    if (store.mode === 'google' && !store.supportsWebsiteEntry) {
       const url = store.getVoteUrl(form.dataset.id, voterName);
       showModal('送出這份喜歡', '姓名已預填。請送出 Google 贊同表單，再回來重新整理查看人數；同一瀏覽器重複送出不會多加票。', `<div class="form-actions">${renderGoogleLink(url, '開啟贊同表單')}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
     } else {
-      await store.voteWish(form.dataset.id, voterName);
+      const result = await store.voteWish(form.dataset.id, voterName);
       modalDirty = false;
       modal.close();
       renderWishes();
-      toast('已記下你的贊同！');
+      googleWriteToast(result?.alreadyVoted ? '這個瀏覽器已經贊同過，保留原本的一票。' : '已記下你的贊同！');
     }
     return;
   }
@@ -413,7 +420,27 @@ async function submitForm(form) {
     modal.close();
     if (wishFilter !== 'all') wishFilter = values.get('kind');
     render();
-    toast('願望已送出，等管理者下次採購時評估。');
+    googleWriteToast('願望已送出，等管理者下次採購時評估。');
+    return;
+  }
+  if (store.mode === 'google' && store.supportsWebsiteEntry && ['count-form', 'restock-form'].includes(form.id)) {
+    const recorder = String(values.get('recorder') || '').trim();
+    if (!recorder || recorder.length > 80) throw new Error('請填寫登記人，最多 80 字。');
+    if (form.id === 'count-form') {
+      const entries = stocktakeQuantities(store.data.drinks, Object.fromEntries(values));
+      await store.submitStocktake(entries, recorder);
+      dirty = false;
+      render();
+      googleWriteToast(`已完成 ${entries.length} 種飲料的盤點，其他品項保留原紀錄。`);
+    } else {
+      const drink = drinkById(values.get('drinkId'));
+      if (!drink || drink.active === false) throw new Error('請選擇供應中的飲料。');
+      const quantity = restockQuantity(values.get('cases'), values.get('loose'), drink.perCase);
+      const result = await store.submitArrival({ drinkId: drink.id, cases: values.get('cases'), loose: values.get('loose'), recorder, note: String(values.get('note') || '').trim() });
+      dirty = false;
+      render();
+      googleWriteToast(`已入庫 ${result.quantity ?? quantity} ${drink.unit}，紀錄已保存。`);
+    }
     return;
   }
   if (!store.canEdit) throw new Error('請從管理入口使用對應的登記表單。');
