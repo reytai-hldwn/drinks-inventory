@@ -1,11 +1,14 @@
 {
   "checkedAt": "2026-11-01",
-  "note": "完整狀態只表示基本八項數值齊全（含註明的參考與換算版本），成分與過敏原是否已核對分別列示；不代表所有欄位均完整。",
+  "note": "完整狀態只表示基本八項數值齊全（含明示的參考／推估版本），成分與過敏原是否已核對分別列示；不代表已取得所有現場包裝原標籤，也不將未確認警語當成無過敏原。",
   "summary": {
     "total": 40,
-    "basicNutritionComplete": 29,
-    "partial": 8,
-    "pending": 3
+    "basicNutritionComplete": 40,
+    "partial": 0,
+    "pending": 0,
+    "referencePackages": 5,
+    "missingIngredients": 2,
+    "missingAllergens": 21
   },
   "products": [
     {
@@ -291,27 +294,19 @@
       "id": "company-drink-15",
       "name": "荔枝氣泡水",
       "active": true,
-      "status": "partial",
-      "ingredientsChecked": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
+      "missingNutrients": [],
       "container": "330 毫升",
       "referenceNote": null,
-      "basis": null,
+      "basis": "每罐 330 毫升，本包裝含 1 份",
       "source": {
-        "type": "provided-package",
-        "label": "所提供的商品包裝正面",
+        "type": "provided-label",
+        "label": "使用者提供的全聯小時達荔枝氣泡飲商品規格截圖",
         "checkedAt": "2026-11-01",
-        "scope": "僅依使用者提供的原圖核對容量與果汁含量；圖片文字為荔枝風味氣泡飲，3% 指果汁含量，未取得完整成分與營養表。"
+        "scope": "依本次提供的同款 330 毫升商品規格截圖核對成分與每罐／每 100 毫升營養，數值照原表轉錄。果汁含量 3% 來自先前提供的商品正面圖；規格截圖的過敏原欄空白，保留待核對。",
+        "url": "https://shop.pxgo.com.tw/hourArrive/goods/308185-13020075-4711458100056"
       }
     },
     {
@@ -417,46 +412,40 @@
       "id": "company-drink-21",
       "name": "黑松沙士",
       "active": true,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
-      "allergensChecked": false,
-      "missingNutrients": [
-        "sugarG"
-      ],
+      "allergensChecked": true,
+      "missingNutrients": [],
       "container": "245 毫升",
       "referenceNote": null,
       "basis": "每罐 245 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
-        "label": "momo購物網・使用者指定的黑松沙士商品規格",
+        "label": "全聯全電商・黑松沙士245毫升完整商品規格",
         "checkedAt": "2026-11-01",
-        "scope": "採用指定的 245 毫升頁面文字營養表。該表沒有糖欄，糖維持待補；未把碳水化合物當成糖，也未與 330 毫升圖版混合。實際以手上包裝為準。",
-        "url": "https://www.momoshop.com.tw/product/4081572"
+        "scope": "採用全聯同款 245 毫升的完整營養表及成分。每罐糖 24.5 公克、碳水化合物 25.7 公克、鈉 3 毫克，與先前 momo 部分文字版本不同；本次完整更新為同一來源，實際以手上包裝為準。",
+        "url": "https://pxbox.es.pxmart.com.tw/product/306733"
       }
     },
     {
       "id": "company-drink-22",
       "name": "Milkis水蜜桃",
       "active": true,
-      "status": "pending",
-      "ingredientsChecked": false,
-      "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": null,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "250 毫升",
       "referenceNote": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "momo已找到250毫升水蜜桃口味賣場與包裝正面；詳細圖片目前503連線逾時，尚未核對完整營養表，未套用原味數值。",
-      "attemptedSource": "https://www.momoshop.com.tw/TP/TP0001571/goodsDetail/TP00015710001227"
+      "basis": "每罐 250 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "萬家福線上購物・使用者指定的水蜜桃Milkis包裝標籤",
+        "checkedAt": "2026-11-01",
+        "scope": "直接核對指定商品的第二張中文標籤照片，為水蜜桃口味 250 毫升；成分、過敏原與每份／每 100 毫升欄均依該圖轉錄，與原味分開記錄。",
+        "url": "https://online.uni-prosperity.com.tw/zh/lotte/1002401300101.html",
+        "labelUrl": "https://online.uni-prosperity.com.tw/on/demandware.static/-/Sites-uniprosperity-tw-m-inner/default/dwcf076d6b/images/large/1002401300101-1.jpg"
+      }
     },
     {
       "id": "company-drink-23",
@@ -502,80 +491,54 @@
       "id": "company-drink-25",
       "name": "Vida氣泡飲",
       "active": true,
-      "status": "pending",
-      "ingredientsChecked": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": null,
+      "missingNutrients": [],
+      "container": "325 毫升",
       "referenceNote": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "momo以Vida品牌及西柚青檸搜尋未找到相符飲料。先前vida.com.my為網域停放頁，未當成品牌資料。",
-      "attemptedSource": "https://www.momoshop.com.tw/search/vida?viewport=desktop"
+      "basis": "每罐 325 毫升，本包裝含 1 份",
+      "source": {
+        "type": "provided-label",
+        "label": "使用者提供的Vida柑橘味325毫升營養標籤圖片",
+        "checkedAt": "2026-11-01",
+        "scope": "依本次提供的柑橘味 325 毫升中文標籤核對成分、容量與營養。未列過敏原警語，該欄保留待確認。"
+      }
     },
     {
       "id": "company-drink-26",
       "name": "蜂蜜燕麥",
       "active": true,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
-      "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": "290 毫升",
-      "referenceNote": null,
-      "basis": null,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "880 毫升（參考版本）",
+      "referenceNote": "採用提供的 880 毫升蜂蜜燕麥標籤，營養以每份 220 毫升及每 100 毫升列示；網站目前的 290 毫升品項整瓶數值仍待核對。",
+      "basis": "參考880毫升瓶裝：每份 220 毫升，本包裝含 4 份",
       "source": {
-        "type": "retailer-label",
-        "label": "PChome 24h 商品規格與包裝標籤",
+        "type": "provided-label",
+        "label": "使用者提供的愛之味蜂蜜燕麥880毫升營養標籤圖片",
         "checkedAt": "2026-11-01",
-        "scope": "台灣通路 290 毫升品項已核對文字成分。完整營養與過敏原標示仍待核對，未從商品宣傳推測數值。",
-        "url": "https://24h.pchome.com.tw/prod/DBABGL-A900JJETK"
+        "scope": "直接核對本次提供的完整 880 毫升標籤圖片，包括成分、過敏原、每份量及每 100 毫升欄。數值照原表轉錄，沒有換算成 290 毫升整瓶；兩欄原有的四捨五入差異保留。"
       }
     },
     {
       "id": "company-drink-27",
       "name": "麥萃麥茶",
       "active": true,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
+      "missingNutrients": [],
       "container": "590 毫升",
       "referenceNote": null,
-      "basis": null,
+      "basis": "每份 295 毫升，本瓶含 2 份",
       "source": {
-        "type": "retailer-label",
-        "label": "PChome 24h 商品規格與包裝標籤",
+        "type": "provided-label",
+        "label": "使用者提供的御茶園麥萃無糖麥茶590毫升成分及營養標示圖片",
         "checkedAt": "2026-11-01",
-        "scope": "已核對台灣通路麥萃無糖麥茶 590 毫升文字成分。尚未取得完整營養標籤，不從 0 糖宣傳推定其餘營養值。",
-        "url": "https://24h.pchome.com.tw/prod/DBABB8-A900GL6IQ"
+        "scope": "照提供的 590 毫升標示逐欄核對，每瓶 2 份、每份 295 毫升。此款無糖但仍有熱量；8.4 大卡與鈉 35 毫克均為每份數值。圖片未列過敏原警語，保留待核對。"
       }
     },
     {
@@ -622,72 +585,55 @@
       "id": "company-drink-30",
       "name": "冷萃金萱烏龍",
       "active": true,
-      "status": "pending",
-      "ingredientsChecked": false,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": null,
+      "missingNutrients": [],
+      "container": "1,000 毫升",
       "referenceNote": null,
-      "basis": null,
-      "source": null,
-      "pendingReason": "momo已找到原萃冷萃金萱烏龍1000毫升賣場，但詳細圖目前503連線逾時；舊通路文字有疑似誤植，未套用450毫升或其他烏龍版本。",
-      "attemptedSource": "https://www.momoshop.com.tw/TP/TP0007775/goodsDetail/TP00077750000140"
+      "basis": "每份 250 毫升，本瓶含 4 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "全聯全電商・原萃冷萃金萱烏龍1000毫升商品規格",
+        "checkedAt": "2026-11-01",
+        "scope": "核對 1,000 毫升金萱烏龍版本的完整成分及八項營養表。來源以 250 毫升為一份，每瓶 4 份，鈉 23 毫克是每份數值。過敏原欄未提供內容，保留待核對。",
+        "url": "https://pxbox.es.pxmart.com.tw/product/306735"
+      }
     },
     {
       "id": "company-drink-31",
       "name": "Moriyama紅茶",
       "active": true,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
-      "allergensChecked": true,
-      "missingNutrients": [
-        "saturatedFatG",
-        "transFatG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": "1,000 公克",
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "1,000 毫升（標籤另列1,000公克）",
       "referenceNote": null,
-      "basis": "每 100 公克（日本官網標示）",
+      "basis": "每份 100 毫升，本包裝含 10 份",
       "source": {
-        "type": "official",
-        "label": "原廠官網商品規格及標示",
+        "type": "provided-label",
+        "label": "使用者提供的MORIYAMA經典紅茶中文營養標籤圖片",
         "checkedAt": "2026-11-01",
-        "scope": "日本原廠現行「喫茶店の味 オーガニック紅茶」1,000 公克版本；保留原廠已列數值。食鹽相當量不當成鈉，未將公克當成毫升，未推算糖、飽和脂肪或反式脂肪。",
-        "url": "https://www.fujimilk.co.jp/kissatennoaji/organictea.html"
+        "scope": "依本次提供的「喫茶店の味－經典紅茶」完整中文標籤逐欄核對。標籤同時列 1,000 毫升與 1,000 公克，營養以每份 100 毫升、共 10 份列示，鈉每份 10 毫克。過敏原警語未列，保留待核對。"
       }
     },
     {
       "id": "company-drink-32",
       "name": "Moriyama奶茶",
       "active": true,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
-      "allergensChecked": true,
-      "missingNutrients": [
-        "saturatedFatG",
-        "transFatG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": "1,000 公克",
+      "allergensChecked": false,
+      "missingNutrients": [],
+      "container": "1,000 毫升（依每份100毫升、共10份）",
       "referenceNote": null,
-      "basis": "每 100 公克（日本官網標示）",
+      "basis": "每份 100 毫升，本包裝含 10 份",
       "source": {
-        "type": "official",
-        "label": "原廠官網商品規格及標示",
+        "type": "provided-label",
+        "label": "使用者提供的Moriyama奶茶成分及營養表文字",
         "checkedAt": "2026-11-01",
-        "scope": "日本原廠現行「喫茶店の味 ロイヤルミルクティー」1,000 公克版本；保留原廠已列數值。食鹽相當量不當成鈉，未將公克當成毫升；原廠未列的台灣八項欄位維持待補。",
-        "url": "https://www.fujimilk.co.jp/kissatennoaji/royalmilktea.html"
+        "scope": "按本次提供的完整成分與營養表文字核對，每份 100 毫升、每包裝 10 份。熱量 75.4 大卡、糖 5.8 公克及鈉 47 毫克均為每份值；完整過敏原警語未提供，保留待核對。"
       }
     },
     {
@@ -753,28 +699,19 @@
       "id": "company-drink-36",
       "name": "紅牌蜂蜜奶茶",
       "active": false,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
+      "missingNutrients": [],
       "container": "300 毫升",
       "referenceNote": null,
-      "basis": null,
+      "basis": "每包 300 毫升，本包裝含 1 份",
       "source": {
         "type": "retailer-label",
-        "label": "PChome 24h 商品規格與包裝標籤",
+        "label": "愛買線上購物商品標示頁・使用者提供來源",
         "checkedAt": "2026-11-01",
-        "scope": "僅核對台灣通路同款 300 毫升商品文字成分；完整營養與過敏原標籤仍待確認。",
-        "url": "https://24h.pchome.com.tw/prod/DBAB4C-A90094MR9"
+        "scope": "採指定來源的紅牌蜂蜜奶茶 300 毫升每份欄及完整成分，原頁用字照錄。另一欄寫「每100公克」，因此本頁只採每份 300 毫升欄，不改寫其單位。原頁沒有明確過敏原警語，該欄仍待核對。",
+        "url": "https://imgsrv.fe-amart.com.tw/ems_photo/ecm_prod/01/015/160/001/755239/001/755239_22.html"
       }
     },
     {
@@ -841,28 +778,19 @@
       "id": "company-drink-40",
       "name": "愛之味麥仔茶",
       "active": false,
-      "status": "partial",
+      "status": "basic-nutrition-complete",
       "ingredientsChecked": true,
       "allergensChecked": false,
-      "missingNutrients": [
-        "energyKcal",
-        "proteinG",
-        "fatG",
-        "saturatedFatG",
-        "transFatG",
-        "carbohydrateG",
-        "sugarG",
-        "sodiumMg"
-      ],
-      "container": "300 毫升",
-      "referenceNote": null,
-      "basis": null,
+      "missingNutrients": [],
+      "container": "300 毫升（依590毫升版本推估）",
+      "referenceNote": "依指定的 590 毫升版本每 100 毫升標示 × 3，推估每包 300 毫升營養。以下成分是含異麥芽寡醣的 590 毫升參考配方，尚未確認與 300 毫升鋁箔包相同。",
+      "basis": "每包 300 毫升（依590毫升參考版每100毫升 × 3 推估）",
       "source": {
         "type": "retailer-label",
-        "label": "PChome 24h 商品規格與包裝標籤",
+        "label": "萬家福線上購物・使用者指定的愛之味麥仔茶590毫升推估來源",
         "checkedAt": "2026-11-01",
-        "scope": "僅核對台灣通路麥仔茶 300 毫升文字成分；未使用 Oligo 或無糖麥茶版本，完整營養與過敏原標籤仍待確認。",
-        "url": "https://24h.pchome.com.tw/prod/DBAB7K-A66008372"
+        "scope": "依使用者指示，以指定 590 毫升版本的每 100 毫升欄推估 300 毫升。原包裝每份 295 毫升、本瓶 2 份，熱量 53.2 大卡、糖 8.8 公克、鈉 41 毫克；參考配方含異麥芽寡醣，與鋁箔包可能不同。原頁未列明過敏原警語。",
+        "url": "https://online.uni-prosperity.com.tw/zh/%E6%84%9B%E4%B9%8B%E5%91%B3/1003504600124.html"
       }
     }
   ]
