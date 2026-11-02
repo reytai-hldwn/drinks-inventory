@@ -578,6 +578,15 @@ async function withBusy(task, element) {
   if (busy) return;
   busy = true;
   const buttons = element?.matches('form') ? [...element.querySelectorAll('button')] : element ? [element] : [];
+  let saveStatus;
+  if (element?.matches('form') && store.mode === 'google' && store.supportsWebsiteEntry) {
+    element.setAttribute('aria-busy', 'true');
+    saveStatus = document.createElement('p');
+    saveStatus.className = 'form-save-status';
+    saveStatus.setAttribute('role', 'status');
+    saveStatus.textContent = '正在儲存至共用試算表，請稍候…';
+    element.appendChild(saveStatus);
+  }
   buttons.forEach((item) => { item.disabled = true; });
   try { await task(); }
   catch (error) {
@@ -586,7 +595,11 @@ async function withBusy(task, element) {
       $('#modal-error').hidden = false;
     } else toast(error.message || '操作失敗，請稍後再試。', true);
     updateChrome();
-  } finally { buttons.forEach((item) => { item.disabled = false; }); busy = false; }
+  } finally {
+    saveStatus?.remove();
+    element?.removeAttribute('aria-busy');
+    buttons.forEach((item) => { item.disabled = false; }); busy = false;
+  }
 }
 
 document.addEventListener('click', (event) => {

@@ -48,7 +48,7 @@ window.DRINKS_CONFIG = {
 
 ## 4. 部署 GitHub Pages
 
-1. 將網站檔案提交並推送到 `reytai-hldwn/drinks-inventory` 的 `main` 分支。
+1. 將網站檔案提交並推送到 `reytai-hldwn/pantry` 的 `main` 分支。
 2. 在 GitHub 儲存庫 Settings → Pages，將 Source 設為 **Deploy from a branch**。
 3. 選取 `main` 與 `/ (root)`，儲存並等待 GitHub 完成發布。
 4. 以 GitHub Pages 頁面提供的網址開啟網站。

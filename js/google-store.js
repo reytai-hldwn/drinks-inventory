@@ -268,6 +268,7 @@ export class GoogleInventoryStore {
     this.googleReadSequence = 0;
     this.websiteEntryVersion = 0;
     this.lastWriteNeedsRefresh = false;
+    this.completedWrites = new Set();
     this.readPublicData = options.readPublicData || fetchGooglePublicData;
     this.voteStorage = options.voteStorage;
     this.createVoterId = options.createVoterId || (() => globalThis.crypto.randomUUID());
@@ -381,15 +382,22 @@ export class GoogleInventoryStore {
       pending = JSON.parse(storage.getItem(key) || 'null');
       if (pending && (!/^[A-Za-z0-9_-]{20,100}$/.test(pending.requestId || '') || typeof pending.signature !== 'string')) throw new Error('Invalid pending request');
     } catch { throw new Error('目前無法保留送出紀錄，請允許網站使用瀏覽器儲存空間，避免重複入庫。'); }
+    const clearPending = () => { try { storage.removeItem(key); } catch { /* acknowledgements still prove the write succeeded */ } };
+    const acknowledge = (state, result) => {
+      this.completedWrites.add(pending.requestId);
+      try { storage.setItem(key, JSON.stringify({ ...pending, state, result })); } catch { /* retain the server result in memory */ }
+      clearPending();
+    };
+    if (pending && (pending.state === 'accepted' || pending.state === 'rejected' || this.completedWrites.has(pending.requestId))) { clearPending(); pending = null; }
     if (pending && pending.signature !== signature) {
       let receipt;
       try { receipt = await this.readReceipt(pending.requestId); } catch { /* keep the unresolved request */ }
       if (receipt?.requestId === pending.requestId && receipt.state === 'accepted' && receipt.ok === true) {
-        storage.removeItem(key);
+        acknowledge('accepted', receipt.result);
         await this.read().catch(() => {});
         throw new Error('上一筆資料已經儲存。請先確認更新後的紀錄，再送出這筆修改。');
       }
-      if (receipt?.requestId === pending.requestId && receipt.state === 'rejected') { storage.removeItem(key); pending = null; }
+      if (receipt?.requestId === pending.requestId && receipt.state === 'rejected') { acknowledge('rejected'); pending = null; }
       else throw new Error('上一筆送出仍待確認。請先保留原內容重試，避免重複入庫。');
     }
     if (!pending) pending = { requestId: this.createRequestId(), signature };
@@ -399,9 +407,9 @@ export class GoogleInventoryStore {
     this.lastWriteNeedsRefresh = false;
     let result;
     try { result = await this.submitWebsiteCommand(endpoint, { requestId: pending.requestId, operation, data }, { readReceipt: this.readReceipt }); }
-    catch (error) { if (error.code === 'rejected') storage.removeItem(key); throw error; }
+    catch (error) { if (error.code === 'rejected') acknowledge('rejected'); throw error; }
     // A confirmed write stays a success even if the following read fails.
-    storage.removeItem(key);
+    acknowledge('accepted', result);
     try { await this.read(); } catch { this.lastWriteNeedsRefresh = true; }
     return result;
   }
@@ -435,7 +443,7 @@ export class GoogleInventoryStore {
     return this.sendWebsiteCommand('product', { name: name.trim(), category, packaging, recorder: recorder.trim() });
   }
 
-  async login() { throw new Error('管理入口不用登入，請直接開啟倉庫或使用盤點、入庫 Google 表單。'); }
+  async login() { throw new Error('管理入口不用登入，請直接開啟倉庫或使用盤點、入庫表單。'); }
   async logout() { /* Google owns the account session; no credentials are stored here. */ }
-  async save() { throw new Error('請使用 Google 表單登記庫存，並填寫登記人。'); }
+  async save() { throw new Error('請使用盤點或到貨表單登記庫存，並填寫登記人。'); }
 }

@@ -1,5 +1,5 @@
 /**
- * 宏穩茶水間：Google Forms + private Sheets backend, public catalog JSONP.
+ * 宏穩茶水間：native website commands + private Sheets, legacy Google Forms, JSONP reads.
  * Paste this complete file into a standalone Google Apps Script project.
  * The initial catalog is generated from js/catalog.js; it contains NO counts.
  */
@@ -528,6 +528,7 @@ function submitWebsiteRequest_(request) {
       while (row.length < WEBSITE_REQUEST_HEADERS.length) row.push('');
       var index = sheet.getLastRow() + 1;
       sheet.getRange(index, 1, 1, row.length).setNumberFormat('@').setValues([row]);
+      SpreadsheetApp.flush();
       record = { index: index, row: row };
       if (validationError) return websiteReceipt_(request.requestId);
     }
@@ -537,8 +538,10 @@ function submitWebsiteRequest_(request) {
     renderWarehouse_(ss, inventory);
     renderArchive_(ss, inventory);
     PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
+    SpreadsheetApp.flush();
     // Commit state and result together, only after data and views are saved.
     sheet.getRange(record.index, 5, 1, 2).setValues([['accepted', JSON.stringify(effects.result)]]);
+    SpreadsheetApp.flush();
     return websiteReceipt_(request.requestId);
   });
 }
@@ -609,6 +612,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     var unit = ['寶特瓶', '大瓶裝'].indexOf(data.packaging) >= 0 ? '瓶' : data.packaging.indexOf('鐵罐') >= 0 ? '罐' : '包';
     var id = productResponseId_('website:' + request.requestId);
     effects.catalog = [id, sheetText_(name), data.category, data.packaging, unit, DEFAULT_CASE_SIZE, 10, true];
+    effects.productKey = productNameKey_(name);
     effects.product = ['website:' + request.requestId, stamp, id, sheetText_(name), data.category, data.packaging, sheetText_(recorder), '採計'];
     effects.result.id = id;
   } else throw websiteInputError_('不支援的網站操作。');
@@ -626,7 +630,7 @@ function websiteAppendMissing_(sheet, rows) {
 function applyWebsiteRequest_(ss, effects) {
   if (effects.catalog) {
     var catalog = catalog_(ss);
-    var duplicate = catalog.filter(function (drink) { return drink.id !== effects.catalog[0] && productNameKey_(drink.name) === productNameKey_(effects.catalog[1]); })[0];
+    var duplicate = catalog.filter(function (drink) { return drink.id !== effects.catalog[0] && productNameKey_(drink.name) === (effects.productKey || productNameKey_(effects.catalog[1])); })[0];
     if (duplicate) {
       effects.result.id = duplicate.id;
       effects.result.alreadyExists = true;

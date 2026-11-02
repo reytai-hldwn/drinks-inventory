@@ -27,6 +27,7 @@ input:focus,select:focus,textarea:focus{border-color:#b48b5c}
 main{padding:32px 34px 18px}
 .page-footer{padding:18px 34px;color:#927c67}
 .mobile-menu-toggle{display:none}
+.form-save-status{font-size:12px;line-height:1.8;color:#8a6847;text-align:right;margin:14px 0 0}
 .page-heading h1,.sidebar-note{font-family:"Pantry Hand","DFKai-SB","BiauKai","STKaiti","KaiTi","Noto Serif TC","Noto Serif CJK TC",serif}
 .field,.subtle,.card-description,.stat-foot,.cell-note,.section-meta,.wish-date,.wish-peek small,.table-bottom{color:#8a7766}
 .category-label,.filter-tab,.stock-meter span,.pill-ok,.wish-supporter-list li{color:#8a6a48;background:#f5eee3}
