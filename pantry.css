@@ -100,6 +100,7 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
   .pantry-overview,.pantry-overview .fridge-panel,.pantry-overview #inventory-table{display:flex;flex-direction:column;flex:1;min-height:0}
   .pantry-overview #inventory-table{container-type:inline-size}
   .pantry-stage{flex:1;aspect-ratio:auto;min-height:calc(100cqw * 560 / 1074)}
+  .pantry-stage:not(.is-open){background:linear-gradient(#faf5ed,#f4eadd 65%,#fbf7f1)}
   .pantry-room{inset:auto;left:var(--scene-left,0px);top:var(--scene-top,0px);width:var(--scene-width,100%);height:var(--scene-height,100%)}
   .pantry-stage .fridge-door,.pantry-stage .fridge-door:hover{left:calc(var(--scene-left) + var(--scene-width) * .187);top:calc(var(--scene-top) + var(--scene-height) * .01);width:calc(var(--scene-width) * .302);height:calc(var(--scene-height) * .94)}
 }

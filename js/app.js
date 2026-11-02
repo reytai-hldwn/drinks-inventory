@@ -31,6 +31,9 @@ try { if (localStorage.getItem('holdwin-display') === 'list') display = 'list'; 
 let dirty = false;
 let modalDirty = false;
 let busy = false;
+let refreshing = false;
+let routeLoading = false;
+let inputSequence = 0;
 let ready = false;
 let toastTimer;
 let routeSequence = 0;
@@ -262,6 +265,7 @@ function renderAdmin() {
 
 function render() {
   syncFridgeScene(null);
+  main.removeAttribute('aria-busy');
   store.preview = !adminViews.has(view);
   dirty = false;
   updateChrome();
@@ -289,17 +293,24 @@ async function route() {
   }
   view = nextView;
   const sequence = ++routeSequence;
-  if (store.mode === 'google') {
+  const needsGoogleRead = store.mode === 'google' && store.inWarehouse !== adminViews.has(view);
+  routeLoading = needsGoogleRead;
+  if (needsGoogleRead) {
+    syncFridgeScene(null);
     updateChrome();
-    main.innerHTML = '<div class="loading-state"><span class="loader"></span><p>正在讀取共用資料…</p></div>';
+    main.setAttribute('aria-busy', 'true');
+    main.innerHTML = `<div class="loading-state"><span class="loader"></span><p>正在開啟${viewNames[view]}，讀取共用資料…</p></div>`;
     try { await (adminViews.has(view) ? store.readWarehouse() : store.readPublic()); }
     catch (error) {
       if (sequence !== routeSequence) return;
+      routeLoading = false;
+      main.removeAttribute('aria-busy');
       main.innerHTML = `<div class="panel">${empty('暫時無法讀取資料', h(error.message), button('重新讀取', 'retry-route'))}</div>`;
       return;
     }
   }
   if (sequence !== routeSequence) return;
+  routeLoading = false;
   render();
 }
 
@@ -609,7 +620,7 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   if (action) {
     event.preventDefault();
-    if (['close-modal', 'quick-add-drink', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door'].includes(action.dataset.action)) {
+    if (['close-modal', 'quick-add-drink', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-route'].includes(action.dataset.action)) {
       if (!busy) runAction(action.dataset.action, action.dataset.id).catch((error) => toast(error.message, true));
     } else withBusy(() => runAction(action.dataset.action, action.dataset.id), action);
   }
@@ -635,12 +646,14 @@ document.addEventListener('click', (event) => {
 });
 
 document.addEventListener('input', (event) => {
+  inputSequence += 1;
   if (event.target.closest('dialog form')) modalDirty = true;
   if (event.target.id === 'search') { query = event.target.value.trim(); renderInventoryTable(); }
   else if (event.target.closest('main form')) { dirty = true; }
   if (event.target.closest('#restock-form')) updateRestockSummary();
 });
 document.addEventListener('change', (event) => {
+  inputSequence += 1;
   if (event.target.closest('dialog form')) modalDirty = true;
   if (event.target.id === 'category-filter') { category = event.target.value; renderInventoryTable(); }
   else if (event.target.closest('#restock-form')) { dirty = true; updateRestockSummary(); }
@@ -671,28 +684,42 @@ $('#logout-button').addEventListener('click', () => {
     toast('已登出管理者帳號。');
   }, $('#logout-button'));
 });
+async function refreshCurrentView(manual = false) {
+  if (!ready || busy || refreshing || routeLoading) return;
+  if (!manual && (dirty || modal.open || !['overview', 'wishes', 'history'].includes(view) || document.hidden)) return;
+  if (manual && dirty && !confirm('重新讀取會捨棄未儲存的輸入，確定繼續嗎？')) return;
+  const sequence = routeSequence, inputs = inputSequence, currentView = view, revision = store.revision;
+  const button = $('#refresh-button');
+  refreshing = true;
+  if (manual) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
+  try {
+    await store.read();
+    // A read must never replace a newer page, an open dialog, or fresh input.
+    if (sequence !== routeSequence || inputs !== inputSequence || currentView !== view || busy || modal.open || (!manual && dirty)) return;
+    if (manual || revision !== store.revision) render();
+    else updateChrome();
+    if (manual) toast('已讀取最新庫存。');
+  } catch (error) {
+    if (sequence !== routeSequence || currentView !== view || busy) return;
+    if (manual) toast(error.message || '暫時無法更新資料，請稍後再試。', true);
+    else $('#connection-status').textContent = '連線暫時中斷 · 資料可能較舊';
+  } finally {
+    refreshing = false;
+    if (manual) { button.disabled = false; button.removeAttribute('aria-busy'); }
+  }
+}
+
 $('#refresh-button').addEventListener('click', () => {
   if (!ready) { location.reload(); return; }
-  if (dirty && !confirm('重新讀取會捨棄未儲存的輸入，確定繼續嗎？')) return;
-  withBusy(async () => { await store.read(); render(); toast('已讀取最新庫存。'); }, $('#refresh-button'));
+  refreshCurrentView(true);
 });
 window.addEventListener('hashchange', route);
 window.addEventListener('beforeunload', (event) => {
   if (dirty || modalDirty || busy) { event.preventDefault(); event.returnValue = ''; }
 });
 
-// Refresh public views only; never replace an editor's unfinished form.
-setInterval(async () => {
-  if (!ready || busy || dirty || modal.open || !['overview', 'wishes', 'history'].includes(view) || document.hidden) return;
-  busy = true;
-  try {
-    const revision = store.revision;
-    await store.read();
-    if (revision !== store.revision) render();
-    else updateChrome();
-  } catch { $('#connection-status').textContent = '連線暫時中斷 · 資料可能較舊'; }
-  finally { busy = false; }
-}, 60000);
+// Read-only refreshes keep navigation available and preserve unfinished input.
+setInterval(() => refreshCurrentView(), 60000);
 
 try {
   await store.init();

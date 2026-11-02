@@ -17,10 +17,10 @@ export function syncFridgeScene(stage) {
   const fit = () => {
     const width = stage.clientWidth, height = stage.clientHeight;
     if (!stage.isConnected || !width || !height) return;
-    const scale = Math.max(width / 1074, height / 560);
+    const scale = Math.min(width / 1074, height / 560);
     const sceneWidth = 1074 * scale, sceneHeight = 560 * scale;
-    const left = Math.min(0, Math.max(width - sceneWidth, width / 2 - sceneWidth * .342));
-    for (const [name, value] of Object.entries({ width: sceneWidth, height: sceneHeight, left, top: (height - sceneHeight) / 2 })) {
+    const left = (width - sceneWidth) / 2;
+    for (const [name, value] of Object.entries({ width: sceneWidth, height: sceneHeight, left, top: 0 })) {
       stage.style.setProperty(`--scene-${name}`, `${value}px`);
     }
   };
