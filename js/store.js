@@ -1,6 +1,7 @@
 import { applyInitialStocktake, blankData, safeUrl, uid } from './domain.js';
 import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE, createCompanyData, prepareCompanyCatalog } from './catalog.js';
 import { initialSupplies, supplyBatches, supplyToday, validSupplyExpiry } from './supplies.js';
+import { RESTOCK_MODES, isLowStockItem, restockPreferenceMode } from './restock-preferences.js';
 
 const DATA_KEY = 'office-pantry-demo-v1';
 const SESSION_KEY = 'office-pantry-session-v1';
@@ -45,6 +46,8 @@ export class InventoryStore {
   get supportsSupplyExpiry() { return this.supportsSupplies; }
   get supportsSupplyExpirySet() { return this.supportsSupplyExpiry; }
   get supportsNewArrivals() { return this.mode === 'demo'; }
+  get supportsRestockPreferences() { return this.mode === 'demo'; }
+  get restockPreferences() { return this.data.restockPreferences || []; }
   get supplies() { return this.data.supplies || initialSupplies(); }
   get supplyEvents() { return this.data.supplyEvents || []; }
 
@@ -296,6 +299,19 @@ export class InventoryStore {
     next.supplyEvents ||= [];
     for(const batch of batches)next.supplyEvents.push({id:uid(),supplyId,type:'expiry-set',quantity:batch.quantity,createdAt:stamp,recorder:recorder.trim(),note:note||'既有庫存效期補登，不異動數量',expiresOn:batch.expiresOn,batchId:group});
     await this.save(next);return{quantity:item.stock,batchCount:batches.length};
+  }
+
+  async setRestockPreference({kind,itemId,mode,expectedMode}) {
+    if(!this.supportsRestockPreferences||!this.canEdit)throw new Error('請從管理入口設定補貨提醒。');
+    if(!['drink','noodle','toner'].includes(kind)||!Object.hasOwn(RESTOCK_MODES,mode))throw new Error('補貨提醒設定不正確。');
+    const item=(kind==='drink'?this.data.drinks:this.supplies.filter(item=>item.kind===kind)).find(item=>item.id===itemId);
+    if(!item||(item.active===false&&mode!=='normal'))throw new Error('找不到可設定的品項。');
+    const current=restockPreferenceMode(this.restockPreferences,kind,itemId);
+    if(expectedMode!==current)throw new Error('其他裝置已更新這個品項的補貨設定，請重新整理。');
+    if(mode!=='normal'&&current==='normal'&&!isLowStockItem(item))throw new Error('目前庫存不在 10 以內，請重新整理後確認。');
+    const entry={kind,itemId,mode,updatedAt:new Date().toISOString()},next=structuredClone(this.data);
+    next.restockPreferences=[...this.restockPreferences.filter(entry=>entry.kind!==kind||entry.itemId!==itemId),entry];
+    await this.save(next);return entry;
   }
 
   async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {
