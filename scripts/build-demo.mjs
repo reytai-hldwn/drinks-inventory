@@ -39,6 +39,10 @@ const [styles, themes, fridge, pantry, theme, domain, suppliesModule, restockPre
     return { src, dataUrl: `data:${mime};base64,${bytes.toString('base64')}` };
   })),
 ]);
+// Offline previews keep the original single embedded fallback; only the website
+// downloads small unicode-range shards for newly entered heading characters.
+const previewPantry = pantry.replace(/\/\* PANTRY_FALLBACK_FONTS_START \*\/[\s\S]*?\/\* PANTRY_FALLBACK_FONTS_END \*\//,
+  '@font-face{font-family:"Pantry Hand Complete";src:url(\'./assets/pantry-hand-complete.woff2\') format(\'woff2\');font-style:normal;font-weight:700;font-display:swap}');
 const stripModule = (code) => code.replace(/^import .*;\n/gm, '').replace(/^export /gm, '');
 const previewProductPhotos = productPhotosModule.replace(/"src":("[^"]+")/g, (match, encoded) => {
   const photo = PRODUCT_PHOTOS.find(photo => photo.src === JSON.parse(encoded));
@@ -50,7 +54,7 @@ if (syntax.status !== 0) throw new Error(`Standalone demo module failed syntax v
 html = html
   .replaceAll('./assets/holdwin-mark-small.webp', `data:image/webp;base64,${mark.toString('base64')}`)
   .replace(/\s*<link rel="(?:preconnect|modulepreload)"[^>]+>/g, '')
-  .replace('  <link rel="stylesheet" href="./styles.css">', () => `<style>\n${styles}\n${themes}\n${fridge}\n${pantry}\n</style>`)
+  .replace('  <link rel="stylesheet" href="./styles.css">', () => `<style>\n${styles}\n${themes}\n${fridge}\n${previewPantry}\n</style>`)
   .replace('  <link rel="stylesheet" href="./themes.css">', '')
   .replace('  <link rel="stylesheet" href="./fridge.css">', '')
   .replace('  <link rel="stylesheet" href="./pantry.css">', '')
