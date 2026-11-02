@@ -247,7 +247,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     updatedAt,
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
     newArrivalVersion: warehouse && payload.websiteEntry?.newArrivalVersion === 1 ? 1 : 0,
-    ...(warehouse ? normalizeSupplyWarehouse(payload) : {supplies:[],supplyEvents:[],supplyEntryVersion:0,supplyExpiryVersion:0}),
+    ...(warehouse ? normalizeSupplyWarehouse(payload) : {supplies:[],supplyEvents:[],supplyEntryVersion:0,supplyExpiryVersion:0,supplyExpirySetVersion:0}),
   };
 }
 
@@ -290,6 +290,7 @@ export class GoogleInventoryStore {
     this.supplyEvents = [];
     this.supplyEntryVersion = 0;
     this.supplyExpiryVersion = 0;
+    this.supplyExpirySetVersion = 0;
   }
 
   get canEdit() { return false; }
@@ -298,6 +299,7 @@ export class GoogleInventoryStore {
   get supportsNewArrivals() { return this.supportsWebsiteEntry && this.newArrivalVersion === 1; }
   get supportsSupplies() { return this.supportsWebsiteEntry && this.supplyEntryVersion === 1; }
   get supportsSupplyExpiry() { return this.supportsSupplies && this.supplyExpiryVersion===1; }
+  get supportsSupplyExpirySet() { return this.supportsSupplyExpiry && this.supplyExpirySetVersion===1; }
 
   async init() {
     // Reuse only a validated public display. Warehouse counts are never cached.
@@ -370,7 +372,8 @@ export class GoogleInventoryStore {
     this.supplyEvents = result.supplyEvents || [];
     this.supplyEntryVersion = result.supplyEntryVersion || 0;
     this.supplyExpiryVersion = result.supplyExpiryVersion || 0;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplyExpiryVersion:this.supplyExpiryVersion });
+    this.supplyExpirySetVersion = result.supplyExpirySetVersion || 0;
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion });
   }
 
   async readPopularity() {
@@ -528,6 +531,11 @@ export class GoogleInventoryStore {
   async closeSupplyBatch(data) {
     if(!this.supportsSupplyExpiry)throw new Error('請先更新 Apps Script 部署，才能標記效期批次。');
     return this.sendWebsiteCommand('supply-expiry-close',data);
+  }
+
+  async setSupplyExpiry(data) {
+    if(!this.supportsSupplyExpirySet)throw new Error('請先更新 Apps Script 部署，才能補登既有庫存的保存期限。');
+    return this.sendWebsiteCommand('supply-expiry-set',data);
   }
 
   async addDrink({ name, category, packaging, recorder }) {

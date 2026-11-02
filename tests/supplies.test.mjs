@@ -93,7 +93,7 @@ test('read-only warehouse upgrade exposes pending supply rows, without changing 
   const front=plain(backend.ctx.publicData_());assert.equal(front.supplies,undefined);assert.equal(front.supplyEvents,undefined);
   const normalized=normalizeGooglePublicData(data,{warehouse:true});assert.equal(normalized.supplyEntryVersion,1);assert.equal(normalized.supplies.length,SUPPLY_CATALOG.length);
   assert.equal(normalizeGooglePublicData(data).supplies.length,0,'public cache cannot retain supply observations');
-  assert.deepEqual(normalizeSupplyWarehouse({}),{supplies:[],supplyEvents:[],supplyEntryVersion:0,supplyExpiryVersion:0});
+  assert.deepEqual(normalizeSupplyWarehouse({}),{supplies:[],supplyEvents:[],supplyEntryVersion:0,supplyExpiryVersion:0,supplyExpirySetVersion:0});
   for(const alter of [item=>{item.stock=-1;},item=>{item.unit='箱';},item=>{item.id='supply-toner-green';}]){
     const invalid=structuredClone(data),item=invalid.supplies.find(item=>item.kind==='toner');alter(item);assert.throws(()=>normalizeSupplyWarehouse(invalid));
   }
@@ -218,4 +218,55 @@ test('new dated arrivals never conceal an untracked positive baseline or adjustm
  assert.equal(supplyHasUntrackedExpiry(id,[event('count',0,'01'),event('restock',3,'02'),event('count',2,'03')]),false);
  assert.equal(supplyHasUntrackedExpiry(id,[event('count',0,'01'),event('restock',3,'02'),event('count',6,'03')]),true);
  assert.equal(supplyHasUntrackedExpiry(id,[event('count',5,'01'),event('count',0,'02')]),false);
+});
+
+test('existing stock expiry snapshots retain quantities and counts, support split/past dates and replace reminders',()=>{
+ const backend=websiteBackend(),id='supply-noodle-03';
+ backend.send('supply-stocktake',{entries:[{supplyId:id,quantity:6}],recorder:'盤點同事'});
+ const read=()=>plain(backend.ctx.warehouseData_()),before=read(),item=before.supplies.find(item=>item.id===id);
+ const command={supplyId:id,expectedStock:item.stock,expectedEventId:before.supplyEvents.at(-1).id,recorder:'效期核對',batches:[{quantity:2,expiresOn:'2000-01-01'},{quantity:4,expiresOn:'2099-12-31'}]};
+ const request=randomUUID(),receipt=backend.send('supply-expiry-set',command,request);assert.equal(receipt.state,'accepted');
+ assert.deepEqual(backend.send('supply-expiry-set',command,request),receipt);
+ let after=read(),updated=after.supplies.find(item=>item.id===id);
+ assert.equal(updated.stock,item.stock);assert.equal(updated.lastCountAt,item.lastCountAt);
+ assert.equal(after.supplyEvents.filter(event=>event.type==='restock').length,0,'expiry completion is not an arrival');
+ assert.equal(after.supplyEvents.filter(event=>event.type==='count').length,1,'expiry completion is not another count');
+ let batches=supplyBatches(id,after.supplyEvents);assert.equal(batches.length,2);assert.equal(batches[0].expiresOn,'2000-01-01');
+ assert.equal(supplyHasUntrackedExpiry(id,after.supplyEvents),false);assert.equal(normalizeGooglePublicData(after,{warehouse:true}).supplyExpirySetVersion,1);
+ assert.deepEqual(plain(backend.ctx.openSupplyBatches_(id,after.supplyEvents)).map(batch=>batch.id),batches.map(batch=>batch.id));
+ backend.send('supply-expiry-close',{batchId:batches[0].id,recorder:'核對同事'});after=read();assert.equal(supplyBatches(id,after.supplyEvents).length,1);
+ assert.equal(after.supplies.find(item=>item.id===id).stock,6);
+ const replacement={...command,expectedEventId:after.supplyEvents.at(-1).id,batches:[{quantity:6,expiresOn:'2098-01-01'}]};
+ assert.equal(backend.send('supply-expiry-set',replacement).state,'accepted');after=read();
+ assert.equal(supplyBatches(id,after.supplyEvents).length,1);assert.equal(supplyBatches(id,after.supplyEvents)[0].expiresOn,'2098-01-01');
+ backend.send('supply-arrival',{supplyId:id,quantity:1,expiresOn:'2099-12-31',recorder:'到貨同事'});after=read();
+ assert.equal(after.supplies.find(item=>item.id===id).stock,7);assert.equal(supplyBatches(id,after.supplyEvents).length,2,'later arrivals keep their own reminder');
+ backend.send('supply-stocktake',{entries:[{supplyId:id,quantity:0}],recorder:'盤點同事'});after=read();assert.equal(supplyBatches(id,after.supplyEvents).length,0);
+});
+
+test('expiry completion rejects stale stock, invalid batches, unknown stock and toner without changing source rows',()=>{
+ const backend=websiteBackend(),id='supply-noodle-04';
+ backend.send('supply-stocktake',{entries:[{supplyId:id,quantity:5},{supplyId:'supply-toner-blue',quantity:5}],recorder:'盤點'});
+ const view=plain(backend.ctx.warehouseData_()),last=view.supplyEvents.findLast(event=>event.supplyId===id);
+ const base={supplyId:id,expectedStock:5,expectedEventId:last.id,batches:[{quantity:5,expiresOn:'2099-01-01'}],recorder:'核對'};
+ for(const change of [{expectedStock:4},{expectedEventId:'stale'},{batches:[]},{batches:[{quantity:4,expiresOn:'2099-01-01'}]},{batches:[{quantity:5,expiresOn:'2026-02-30'}]},{batches:[{quantity:0,expiresOn:'2099-01-01'}]},{batches:[{quantity:2.5,expiresOn:'2099-01-01'},{quantity:2.5,expiresOn:'2099-01-01'}]},{batches:Array.from({length:21},()=>({quantity:1,expiresOn:'2099-01-01'}))},{supplyId:'supply-toner-blue'},{supplyId:'supply-noodle-01'},{recorder:''}]){
+  const before=plain(backend.sheets.SupplyHistory.rows);assert.equal(backend.send('supply-expiry-set',{...base,...change}).state,'rejected');assert.deepEqual(plain(backend.sheets.SupplyHistory.rows),before);
+ }
+ backend.send('supply-arrival',{supplyId:id,quantity:1,expiresOn:'2099-12-31',recorder:'到貨'});
+ assert.equal(backend.send('supply-expiry-set',base).state,'rejected','a concurrent arrival requires a fresh physical check');
+});
+
+test('expiry completion survives a view failure without duplicating batches, and the demo follows the same rules',async t=>{
+ const backend=websiteBackend(),id='supply-noodle-05';backend.send('supply-stocktake',{entries:[{supplyId:id,quantity:3}],recorder:'盤點'});
+ const before=plain(backend.ctx.warehouseData_()),render=backend.ctx.renderSupplyWarehouse_;let fail=true;
+ backend.ctx.renderSupplyWarehouse_=(...args)=>{if(fail){fail=false;throw new Error('view unavailable');}return render(...args);};
+ const data={supplyId:id,expectedStock:3,expectedEventId:before.supplyEvents.at(-1).id,batches:[{quantity:3,expiresOn:'2099-12-31'}],recorder:'補登'},request=randomUUID();
+ assert.throws(()=>backend.send('supply-expiry-set',data,request),/unavailable/);assert.equal(backend.send('supply-expiry-set',data,request).state,'accepted');
+ assert.equal(backend.ctx.supplyEvents_(backend.ss).filter(event=>event.type==='expiry-set').length,1);
+ const original=globalThis.localStorage;globalThis.localStorage=storage();t.after(()=>{if(original===undefined)delete globalThis.localStorage;else globalThis.localStorage=original;});
+ const demo=new InventoryStore();await demo.init();await demo.submitSupplyStocktake([{supplyId:id,quantity:3}],'盤點');
+ const local={...data,expectedEventId:demo.supplyEvents.at(-1).id};await demo.setSupplyExpiry(local);
+ assert.equal(demo.supplies.find(item=>item.id===id).stock,3);assert.equal(supplyBatches(id,demo.supplyEvents).length,1);
+ await assert.rejects(demo.setSupplyExpiry(local),/新紀錄/);
+ const batch=supplyBatches(id,demo.supplyEvents)[0];await demo.closeSupplyBatch({batchId:batch.id,recorder:'已用完'});assert.equal(supplyBatches(id,demo.supplyEvents).length,0);
 });

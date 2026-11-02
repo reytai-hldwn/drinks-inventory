@@ -38,7 +38,8 @@ try{
         const parameter=Object.fromEntries(new URL(request.url()).searchParams);
         reads.push(parameter.action);
         let body=backend.ctx.doGet({parameter}).body;
-        if(legacy)body=body.replace('"supplyEntry":{"version":1,"expiryVersion":1}','"supplyEntry":{}').replace('"newArrivalVersion":1','"newArrivalVersion":0');
+        if(legacy===true)body=body.replace(/"supplyEntry":\{[^}]*\}/,'"supplyEntry":{}').replace('"newArrivalVersion":1','"newArrivalVersion":0');
+        if(legacy==='expiry')body=body.replace('"expirySetVersion":1','"expirySetVersion":0');
         return route.fulfill({contentType:'application/javascript',body});
       });
       return{context,page};
@@ -85,6 +86,31 @@ try{
     await page.screenshot({path:`/tmp/supplies-toner-${width}.png`,fullPage:true});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
     assert.equal(JSON.stringify(backend.sheets.Catalog.rows),originalDrinks);
+
+    await tab('noodle');await row('supply-noodle-04').locator('[data-action=supply-count]').click();
+    await page.locator('#supply-count-form [name=recorder]').fill('既有庫存盤點');await page.locator('#supply-count-form [data-supply-count]').fill('6');await page.locator('#supply-count-form [type=submit]').click();await done();
+    const countedAt=await row('supply-noodle-04').locator('.supply-col-count').innerText();
+    await row('supply-noodle-04').locator('[data-action=supply-expiry-set]').click();
+    await page.locator('#supply-expiry-set-form [name=recorder]').fill('既有庫存效期核對');
+    await page.locator('[data-expiry-quantity]').fill('2');await page.locator('[data-expiry-date]').fill('2000-01-01');
+    const beforeExpiry=posts.length;await page.locator('#supply-expiry-set-form [type=submit]').click();assert.equal(posts.length,beforeExpiry,'batch total must match counted stock');
+    await page.locator('[data-action=supply-expiry-add]').click();
+    await page.locator('[data-expiry-quantity]').nth(1).fill('4');await page.locator('[data-expiry-date]').nth(1).fill(two);
+    await page.screenshot({path:`/tmp/supply-expiry-editor-${width}.png`,fullPage:true});
+    await page.locator('#supply-expiry-set-form').evaluate(form=>{form.requestSubmit();form.requestSubmit();});await done();
+    assert.equal(posts.length,beforeExpiry+1);assert.equal(posts.at(-1).operation,'supply-expiry-set');
+    assert.match(await row('supply-noodle-04').locator('.stock-value').innerText(),/6/);assert.equal(await row('supply-noodle-04').locator('.supply-col-count').innerText(),countedAt);
+    assert.match(await row('supply-noodle-04').locator('.supply-col-arrival').innerText(),/尚無紀錄/,'expiry backfill does not create arrivals');
+    await row('supply-noodle-04').locator('summary').click();assert.equal(await row('supply-noodle-04').locator('[data-batch-id]').count(),2);assert.match(await row('supply-noodle-04').innerText(),/已到期/);
+    await page.evaluate(()=>{location.hash='history';});await page.waitForSelector('.history-expiry-set');
+    assert.match(await page.locator('tr').filter({has:page.locator('.history-expiry-set')}).first().innerText(),/拉麵道豚骨拉麵/);
+    await page.evaluate(()=>{location.hash='products';});await page.waitForSelector('[data-action=warehouse-kind]');await tab('noodle');
+    await row('supply-noodle-04').locator('[data-action=supply-expiry-set]').click();
+    await page.locator('#supply-expiry-set-form [name=recorder]').fill('另一個效期核對');await page.locator('[data-expiry-date]').fill(two);
+    backend.send('supply-arrival',{supplyId:'supply-noodle-04',quantity:1,expiresOn:two,recorder:'另一裝置到貨'});
+    await page.locator('#supply-expiry-set-form [type=submit]').click();await page.waitForSelector('#modal-error:not([hidden])');assert.match(await page.locator('#modal-error').innerText(),/新紀錄/);
+    assert.equal(await page.locator('[data-expiry-quantity]').inputValue(),'6','stale rejection preserves the draft');
+    page.once('dialog',dialog=>dialog.accept());await page.locator('#supply-expiry-set-form [data-action=close-modal]').click();
 
     backend.send('stocktake',{entries:[{drinkId:drinks[0].id,quantity:7},{drinkId:drinks[1].id,quantity:2},{drinkId:drinks[2].id,quantity:0}],recorder:'排序測試'});
     backend.send('supply-stocktake',{entries:[{supplyId:'supply-noodle-02',quantity:1},{supplyId:'supply-noodle-03',quantity:0},{supplyId:'supply-toner-red',quantity:0},{supplyId:'supply-toner-yellow',quantity:1}],recorder:'排序測試'});
@@ -175,7 +201,10 @@ try{
     assert.equal(await old.page.locator('.restock-kind-tabs a').count(),3);
     assert.equal(await old.page.locator('#supply-restock-form .arrival-fields[disabled]').count(),1);assert.match(await old.page.locator('.supply-upgrade').innerText(),/更新 Apps Script/);
     assert.equal(await old.page.locator('#restock-supply option[value=__new__]').isDisabled(),true);await old.context.close();
-    assert.deepEqual(errors,[]);console.log(`PASS ${width}: three arrival subpages with isolated history, dynamic drink/noodle creation, required names/units/expiry, single writes, draft protection, direct links and legacy gate.`);
+    const priorExpiry=await connect('expiry');await priorExpiry.page.goto(`${base}/index.html#products`);await priorExpiry.page.waitForSelector('[data-action=warehouse-kind]');await priorExpiry.page.locator('[data-action=warehouse-kind][data-id=noodle]').click();
+    assert.equal(await priorExpiry.page.locator('[data-supply-id=supply-noodle-04] [data-action=supply-expiry-set]').getAttribute('disabled'),'');
+    assert.equal(await priorExpiry.page.locator('[data-supply-id=supply-noodle-04] [data-action=supply-arrival]').getAttribute('disabled'),null);await priorExpiry.context.close();
+    assert.deepEqual(errors,[]);console.log(`PASS ${width}: arrival pages/new items, quantity-neutral existing-stock expiry, split/past dates, total/stale checks, single writes, history names and legacy gates.`);
     await context.close();
   }
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
