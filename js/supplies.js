@@ -69,6 +69,7 @@ export function normalizeSupplyWarehouse(payload) {
   const supplies=payload.supplies.map(item=>{
     if(!item||typeof item.id!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(item.id)||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>80||!Object.hasOwn(SUPPLY_KINDS,item.kind)||!['碗','杯','盒'].includes(item.unit)||typeof item.active!=='boolean')throw new Error('泡麵與碳粉品項格式不正確。');
     const known=SUPPLY_CATALOG.find(known=>known.id===item.id);
+    if(item.kind==='noodle'&&!['杯','碗'].includes(item.unit))throw new Error('泡麵請使用杯或碗登記。');
     if(known&&(known.kind!==item.kind||known.unit!==item.unit))throw new Error('泡麵與碳粉單位不符合已確認設定。');
     if(item.kind==='toner'&&!SUPPLY_CATALOG.some(known=>known.kind==='toner'&&known.id===item.id))throw new Error('碳粉限黑、黃、紅、藍四個顏色。');
     if(item.stock!==null&&!validCount(item.stock))throw new Error('泡麵與碳粉庫存數量不正確。');
