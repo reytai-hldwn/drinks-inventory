@@ -62,10 +62,12 @@ try{
       assert.ok(door.x>=stage.x-1&&door.right<=stage.right+1&&door.y>=stage.y-1&&door.bottom<=stage.bottom+1,'entire fridge remains in view');
       const points=kind==='wide'?[[966,334],[1450,350],[1080,650],[1400,540]]:[[674,581],[995,540],[766,990],[1010,806]];
       for(const [x,y] of points){const px=room.x+x/dimensions[0]*room.w,py=room.y+y/dimensions[1]*room.h;assert.ok(px>=stage.x&&px<=stage.right&&py>=stage.y&&py<=stage.bottom,'TV, city and both chair rows stay visible');}
-      assert.equal(await page.locator(`.fridge-guide-${kind} text`).textContent(),'點擊打開冰箱看有什麼飲料');
-      const tip=await page.locator(`.fridge-guide-${kind}`).evaluate((svg,kind)=>{
-        const [x,y]=kind==='wide'?[237,167]:[117,201],p=new DOMPoint(x,y).matrixTransform(svg.getScreenCTM());return{x:p.x,y:p.y};
-      },kind);
+      assert.equal(await page.locator(`.fridge-guide-${kind} text`).textContent(),'點擊打開冰箱');
+      const bubble=await page.locator(`.fridge-guide-${kind} .guide-bubble`).boundingBox();
+      assert.ok(bubble.x>=stage.x&&bubble.x+bubble.width<=door.x+5&&bubble.y>=stage.y&&bubble.y+bubble.height<=stage.bottom,'speech bubble stays visible to the left of the fridge');
+      const tip=await page.locator(`.fridge-guide-${kind}`).evaluate(svg=>{
+        const path=svg.querySelector('.guide-arrow'),end=path.getPointAtLength(path.getTotalLength()),p=end.matrixTransform(svg.getScreenCTM());return{x:p.x,y:p.y};
+      });
       assert.ok(tip.x>=door.x&&tip.x<=door.right&&tip.y>=door.y&&tip.y<=door.bottom,'arrow points into the clickable fridge');
       assert.equal(await page.locator(`.pantry-office-${kind} .pantry-painted-door`).count(),4);
     };
@@ -87,7 +89,38 @@ try{
         await page.locator('.fridge-open-guide').click();await page.waitForSelector('.fridge.is-ready');await page.locator('.fridge-close').click();
       }
     }
-    assert.deepEqual(errors,[]);console.log(`PASS ${width}x${height}: selected native artwork, visible office/chair rows, four aligned doors, exact hand-lettered hint, keyboard opening, shelves, search; original mobile retained`);
+    assert.deepEqual(errors,[]);console.log(`PASS ${width}x${height}: visible office/chair rows, comic bubble left of fridge, arrow aligned after cropping/resizing, keyboard opening, shelves/search; original mobile retained`);
+    await context.close();
+  }
+  // Normal motion must visibly open the doors before the shelf/zoom covers them.
+  // Reduced-motion checks above cannot catch overlapping or skipped animation.
+  for(const [width,height] of [[1440,900],[1026,1330]]){
+    const backend=websiteBackend(),context=await browser.newContext({viewport:{width,height},reducedMotion:'no-preference'}),page=await context.newPage();
+    await page.route('**/config.js',route=>route.fulfill({contentType:'application/javascript',body:`window.DRINKS_CONFIG=${JSON.stringify({provider:'google',googleScriptUrl:endpoint})};`}));
+    await page.route(`${endpoint}**`,route=>route.fulfill({contentType:'application/javascript',body:backend.ctx.doGet({parameter:Object.fromEntries(new URL(route.request().url()).searchParams)}).body}));
+    await page.goto(`${base}/index.html`);await page.waitForSelector('.pantry-stage[data-scene]');await page.evaluate(()=>document.fonts.ready);
+    const before=await page.locator('.pantry-stage').evaluate(e=>({kind:e.dataset.scene,height:e.clientHeight}));
+    await page.locator('.fridge-open-guide').click();await page.waitForTimeout(280);
+    const swing=await page.locator('.pantry-stage').evaluate(stage=>{
+      const style=e=>getComputedStyle(e),interior=stage.querySelector('.fridge-interior');
+      return{kind:stage.dataset.scene,height:stage.clientHeight,roomOpacity:+style(stage.querySelector('.pantry-room')).opacity,interiorOpacity:+style(interior).opacity,inert:interior.inert,doors:[...stage.querySelectorAll(`.pantry-office-${stage.dataset.scene} .pantry-painted-door`)].map(e=>({opacity:+style(e).opacity,matrix:style(e).transform}))};
+    });
+    assert.equal(swing.kind,before.kind);assert.equal(swing.height,before.height,'no layout jump during door swing');
+    assert.equal(swing.roomOpacity,1);assert.equal(swing.interiorOpacity,0,'shelves do not cover the opening doors');assert.equal(swing.inert,true);
+    assert.equal(swing.doors.length,4);
+    for(const door of swing.doors){assert.ok(door.opacity>.95,'door remains visible during swing');assert.ok(door.matrix.startsWith('matrix3d('),'door actually rotates in perspective');const matrix=door.matrix.slice(9,-1).split(',').map(Number);assert.ok(Math.abs(matrix[2])>.1&&Math.abs(matrix[0])<.98,'door is between closed and fully open');}
+    assert.equal(await page.locator('.fridge-panel > .toolbar').isVisible(),false);
+    await page.screenshot({path:`/tmp/pantry-opening-${width}.png`});
+    await page.waitForSelector('.fridge.is-ready');assert.equal(await page.locator('.fridge-interior').evaluate(e=>e.inert),false);
+    assert.equal(await page.locator('.fridge-panel > .toolbar').isVisible(),true);
+    await page.locator('.fridge-close').click();await page.waitForTimeout(900);
+    // Cancel an opening via the real close action, then open again. The old
+    // completion timer must not reveal controls over a closed scene.
+    await page.locator('.fridge-open-guide').click();await page.waitForTimeout(180);await page.locator('.fridge-close').dispatchEvent('click');
+    await page.waitForTimeout(1450);assert.equal(await page.locator('.fridge').getAttribute('data-door-state'),'closed');assert.equal(await page.locator('.fridge-panel > .toolbar').isVisible(),false);
+    assert.equal(await page.locator('.fridge-interior').evaluate(e=>e.inert),true);
+    await page.locator('.fridge-open-guide').click();await page.waitForSelector('.fridge.is-ready');
+    console.log(`PASS ${width}x${height} normal motion: four visible rotating doors, stable scene, delayed shelves/controls, cancel and reopen`);
     await context.close();
   }
   const context=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'}),page=await context.newPage(),external=[];
