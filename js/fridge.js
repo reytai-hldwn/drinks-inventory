@@ -6,11 +6,11 @@ const FRIDGE_DOOR_TIMERS = new WeakMap();
 const FRIDGE_CONTENT_ID = 'pantry-fridge-content';
 const PANTRY_SCENE_ASSET = './assets/pantry-scene-approved.png';
 const FRIDGE_OPEN_DURATION = 850;
-const OFFICE_OPEN_DURATION = 1350;
+const OFFICE_OPEN_DURATION = 650;
 const OFFICE_SCENES = {
   wide: {
     src: './assets/pantry-office-wide.png', width: 1672, height: 941,
-    hit: [443, 188, 210, 506], guide: [30, 190, 540, 225], guideTip: [510, 310],
+    hit: [443, 188, 210, 506], guide: [225, 250, 330, 140], guideTip: [505, 335],
     recess: [[452, 199], [641, 210], [641, 663], [452, 687]],
     doors: [
       [[464, 212], [550, 218], [550, 472], [464, 474]],
@@ -21,7 +21,7 @@ const OFFICE_SCENES = {
   },
   portrait: {
     src: './assets/pantry-office-portrait.png', width: 1122, height: 1402,
-    hit: [286, 438, 177, 490], guide: [80, 435, 360, 220], guideTip: [340, 585],
+    hit: [286, 438, 177, 490], guide: [65, 495, 300, 140], guideTip: [340, 580],
     recess: [[298, 454], [449, 464], [449, 897], [298, 919]],
     doors: [
       [[302, 466], [372, 470], [372, 726], [302, 727]],
@@ -66,7 +66,7 @@ export function syncFridgeScene(stage) {
         // redraw the arrow to the actual door rather than shifting its target.
         values[0] = Math.max(12, Math.min(values[0], width - values[2] - 12));
         values[1] = Math.max(12, Math.min(values[1], height - values[3] - 12));
-        syncGuideArrow(stage.querySelector(`.fridge-guide-${variant}`), variant,
+        syncGuideArrow(stage.querySelector(`.fridge-guide-${variant}`),
           (left + scene.guideTip[0] * scale - values[0]) / scale,
           (top + scene.guideTip[1] * scale - values[1]) / scale);
       }
@@ -93,38 +93,51 @@ function officePart(scene, points) {
   return { viewBox: `${x} ${y} ${width} ${height}`, style: `--part-left:${x / scene.width * 100}%;--part-top:${y / scene.height * 100}%;--part-width:${width / scene.width * 100}%;--part-height:${height / scene.height * 100}%;--part-clip:polygon(${clip})` };
 }
 
-function renderOfficeScene(variant, scene) {
+// A small view of the actual drinks sits behind the moving doors. It prevents
+// the old blank white recess flashing before the full shelf view takes over.
+function renderOfficeRecess(variant, drinks) {
+  const rows = Array.from({ length: 4 }, (_, row) => {
+    const products = drinks.slice(row * 3, row * 3 + 3).map((drink, index) => {
+      const photo = findProductPhoto(drink.name);
+      if (!photo) return '';
+      const [x, y, width, height] = photo.crop || [0, 0, 84, photo.height];
+      const [originalWidth, originalHeight] = photo.originalSize || [84, photo.height];
+      const clipId = `pantry-recess-${variant}-${row}-${index}`;
+      const clip = photo.outline ? `<defs><clipPath id="${clipId}"><polygon points="${photo.outline.map(point => point.join(',')).join(' ')}"/></clipPath></defs>` : '';
+      return `<svg x="${24 + index * 41}" y="${31 + row * 84}" width="30" height="61" viewBox="${x} ${y} ${width} ${height}" preserveAspectRatio="xMidYMax meet">${clip}<image data-scene-src="${h(photo.src)}" width="${originalWidth}" height="${originalHeight}"${clip ? ` clip-path="url(#${clipId})"` : ''}/></svg>`;
+    }).join('');
+    return `${products}<path class="pantry-recess-shelf" d="M13 ${94 + row * 84} H148" stroke="#bca67e" stroke-width="6"/><path d="M15 ${91 + row * 84} H146" stroke="#fffdf1" stroke-width="2"/>`;
+  }).join('');
+  return `<svg class="pantry-recess-interior" viewBox="0 0 160 420" preserveAspectRatio="none"><rect width="160" height="420" rx="6" fill="#9d927d"/><rect x="8" y="6" width="144" height="408" rx="7" fill="#e7e5d9" stroke="#b7ad95" stroke-width="3"/><path d="M21 18 H139" stroke="#ffffed" stroke-width="5" stroke-linecap="round"/>${rows}<rect x="15" y="363" width="131" height="36" rx="4" fill="#dad8cb" stroke="#b7ad95" stroke-width="2"/><path d="M66 371 H96" stroke="#a49c89" stroke-width="3" stroke-linecap="round"/></svg>`;
+}
+
+function renderOfficeScene(variant, scene, drinks) {
   const id = `pantry-office-${variant}-art`;
   const crop = viewBox => `<svg viewBox="${viewBox}" aria-hidden="true" focusable="false"><use href="#${id}"/></svg>`;
   const recess = officePart(scene, scene.recess), parts = ['upper-left', 'upper-right', 'lower-left', 'lower-right'];
-  return `<div class="pantry-office-scene pantry-office-${variant}"><svg class="pantry-scene-art" viewBox="0 0 ${scene.width} ${scene.height}" aria-hidden="true" focusable="false"><defs><image id="${id}" data-scene-src="${h(scene.src)}" width="${scene.width}" height="${scene.height}"/></defs><use href="#${id}"/></svg><span class="pantry-door-recess" style="${recess.style}"></span>${scene.doors.map((points, index) => {
+  return `<div class="pantry-office-scene pantry-office-${variant}"><svg class="pantry-scene-art" viewBox="0 0 ${scene.width} ${scene.height}" aria-hidden="true" focusable="false"><defs><image id="${id}" data-scene-src="${h(scene.src)}" width="${scene.width}" height="${scene.height}"/></defs><use href="#${id}"/></svg><span class="pantry-door-recess" style="${recess.style}">${renderOfficeRecess(variant, drinks)}</span>${scene.doors.map((points, index) => {
     const part = officePart(scene, points);
     return `<span class="pantry-painted-door pantry-painted-door-${parts[index]}" style="${part.style}">${crop(part.viewBox)}</span>`;
   }).join('')}</div>`;
 }
 
-function renderPantryScene() {
-  return `<div class="pantry-room" aria-hidden="true">${Object.entries(OFFICE_SCENES).map(([variant, scene]) => renderOfficeScene(variant, scene)).join('')}<div class="pantry-mobile-scene">${sceneCrop('1388 388 347 475', 'pantry-scene-art')}<span class="pantry-door-recess"></span><span class="pantry-painted-door pantry-painted-door-mobile">${sceneCrop('1473 485 176 304')}</span></div></div>`;
+function renderPantryScene(drinks) {
+  return `<div class="pantry-room" aria-hidden="true">${Object.entries(OFFICE_SCENES).map(([variant, scene]) => renderOfficeScene(variant, scene, drinks)).join('')}<div class="pantry-mobile-scene">${sceneCrop('1388 388 347 475', 'pantry-scene-art')}<span class="pantry-door-recess"></span><span class="pantry-painted-door pantry-painted-door-mobile">${sceneCrop('1473 485 176 304')}</span></div></div>`;
 }
 
-function syncGuideArrow(svg, variant, endX, endY) {
+function syncGuideArrow(svg, endX, endY) {
   if (!svg) return;
-  const [startX, startY] = variant === 'wide' ? [245, 104] : [196, 109];
-  const gap = Math.max(60, endX - startX), radius = Math.max(16, Math.min(42, gap * .2));
-  const cx = startX + gap * .42, cy = startY - 8;
-  const curve = `M${startX} ${startY} C${startX + 15} ${startY - 30} ${cx + radius} ${cy - radius} ${cx + radius} ${cy} C${cx + radius} ${cy + radius} ${cx - radius} ${cy + radius} ${cx - radius} ${cy} C${cx - radius} ${cy - radius} ${cx + radius} ${cy - radius} ${cx + radius} ${cy} C${cx + radius + 15} ${cy + 25} ${endX - 18} ${endY - 25} ${endX} ${endY}`;
+  const startX = 177, startY = 77;
+  const gap = Math.max(60, endX - startX), radius = Math.min(14, gap * .13);
+  const cx = startX + gap * .48, cy = endY - 12;
+  const curve = `M${startX} ${startY} C${startX + gap * .08} ${startY + 12} ${cx + radius} ${cy + 13} ${cx + radius} ${cy - 6} C${cx + radius} ${cy - 27} ${cx - radius} ${cy - 27} ${cx - radius} ${cy - 8} C${cx - radius} ${cy + 10} ${cx + radius} ${endY} ${endX} ${endY}`;
   for (const path of svg.querySelectorAll('.guide-arrow')) path.setAttribute('d', curve);
-  const angle = Math.atan2(25, 18), length = 21, spread = .5;
-  svg.querySelector('.guide-arrowhead').setAttribute('d', `M${endX - length * Math.cos(angle - spread)} ${endY - length * Math.sin(angle - spread)} L${endX} ${endY} L${endX - length * Math.cos(angle + spread)} ${endY - length * Math.sin(angle + spread)}`);
-  svg.dataset.tipX = endX;
-  svg.dataset.tipY = endY;
+  svg.querySelector('.guide-arrowhead').setAttribute('d', `M${endX - 17} ${endY - 11} L${endX + 3} ${endY} L${endX - 17} ${endY + 10} L${endX - 13} ${endY} Z`);
 }
 
 function renderFridgeGuide(isOpen) {
-  const artwork = (variant, viewBox, bubble, x, y) => `<svg class="fridge-guide-${variant}" viewBox="${viewBox}" aria-hidden="true" focusable="false"><path class="guide-bubble" d="${bubble}"/><text x="${x}" y="${y}" text-anchor="middle">點擊打開冰箱</text><path class="guide-arrow"/><path class="guide-arrow guide-second-stroke" transform="translate(1.3 1.2)"/><path class="guide-arrowhead"/></svg>`;
-  const wide = artwork('wide', '0 0 540 225', 'M20 25 C70 4 177 9 222 35 C246 49 255 87 238 115 L254 129 L225 123 C185 148 71 149 24 127 C5 117 0 102 3 78 C2 54 4 37 20 25 Z', 125, 86);
-  const portrait = artwork('portrait', '0 0 360 220', 'M18 45 C57 22 145 25 178 46 C200 60 205 101 192 128 L207 140 L182 137 C150 159 57 160 20 139 C4 128 1 111 3 89 C2 69 5 54 18 45 Z', 100, 101);
-  return `<button type="button" class="fridge-open-guide" data-action="toggle-door" aria-label="點擊打開冰箱" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}"${isOpen ? ' hidden inert' : ''}>${wide}${portrait}</button>`;
+  const artwork = (variant, width) => `<svg class="fridge-guide-${variant}" viewBox="0 0 ${width} 140" aria-hidden="true" focusable="false"><g class="guide-gold-arrow"><path class="guide-arrow"/><path class="guide-arrow guide-arrow-highlight" transform="translate(0 -1.2)"/><path class="guide-arrowhead"/></g><path class="guide-bubble" d="M20 72 C3 77 -4 57 8 47 C-1 32 11 18 25 20 C27 3 48 -1 59 13 C70 1 92 2 100 15 C113 4 133 12 136 26 C154 21 169 34 163 49 C179 61 169 82 153 82 C151 98 130 105 117 94 C105 108 83 106 75 95 C59 106 40 99 38 87 C22 92 10 86 20 72 Z"/><text x="85" y="60" text-anchor="middle">點擊打開冰箱</text></svg>`;
+  return `<button type="button" class="fridge-open-guide" data-action="toggle-door" aria-label="點擊打開冰箱" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}"${isOpen ? ' hidden inert' : ''}>${artwork('wide', 330)}${artwork('portrait', 300)}</button>`;
 }
 const FRIDGE_SHELF_LABELS = {
   '牛奶／豆漿': 'MILK & SOY', '大瓶飲料': 'BIG BOTTLE CORNER', 茶飲: 'TEA & INFUSIONS', 咖啡: 'COFFEE BREAK',
@@ -226,7 +239,7 @@ export function renderFridge(drinks, { isOpen = false, lastInventoryAt = null, s
   const logoSrc = typeof document === 'undefined' ? '' : (document.querySelector('.brand-mark')?.getAttribute('src') || '');
   const logo = (className, size) => logoSrc ? `<img class="${className}" src="${h(logoSrc)}" alt="Holdwin Capital H 標誌" width="${size}" height="${size}">` : '';
 
-  return `<div class="pantry-stage${isOpen ? ' is-open' : ''}">${renderPantryScene()}<div class="fridge${isOpen ? ' is-open is-ready' : ''}" data-door-state="${isOpen ? 'open' : 'closed'}" aria-label="飲料冰箱">
+  return `<div class="pantry-stage${isOpen ? ' is-open' : ''}">${renderPantryScene(drinks)}<div class="fridge${isOpen ? ' is-open is-ready' : ''}" data-door-state="${isOpen ? 'open' : 'closed'}" aria-label="飲料冰箱">
     <header class="fridge-crown"><div class="fridge-maker">${logo('fridge-maker-logo', 30)}<span>Holdwin Capital</span></div><button type="button" class="fridge-close" data-action="toggle-door" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}"${isOpen ? '' : ' hidden'}>關上冰箱 <span aria-hidden="true">↶</span></button></header>
     <div class="fridge-window"><div class="fridge-interior" id="${FRIDGE_CONTENT_ID}" role="region" aria-label="飲料展示層架，可向下捲動" aria-hidden="${!isOpen}" tabindex="${isOpen ? '0' : '-1'}"${isOpen ? '' : ' inert'}><div class="fridge-light" aria-hidden="true"></div>${shelves.map((shelf, index) => `<section class="fridge-shelf" aria-label="${h(shelf.name)}飲料架"><div class="fridge-shelf-heading"><span class="shelf-index">0${index + 1}</span><h3>${h(shelf.name)}</h3>${showQuantities ? `<span class="shelf-count">${shelf.drinks.length} 種飲料</span>` : ''}</div><div class="fridge-products">${shelf.drinks.map((drink) => renderFridgeProduct(drink, showQuantities, dateLabel)).join('')}</div><div class="fridge-shelf-rail"><span>${h(FRIDGE_SHELF_LABELS[shelf.name] || 'PANTRY FAVORITES')}</span><i aria-hidden="true"></i><span class="shelf-rail-note">喜歡的，留一瓶給同事。</span></div></section>`).join('') || '<div class="empty-state"><h2>這一格還沒有飲料</h2><p>換個分類或關鍵字看看。</p></div>'}</div>
     <button type="button" class="fridge-door" data-action="toggle-door" aria-label="點擊打開冰箱門" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}" aria-hidden="${isOpen}" tabindex="${isOpen ? '-1' : '0'}"${isOpen ? ' inert' : ''}><span class="sr-only">點我打開冰箱，看看今天，想喝哪一瓶。</span></button>${renderFridgeGuide(isOpen)}</div>

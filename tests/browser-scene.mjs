@@ -64,11 +64,13 @@ try{
       for(const [x,y] of points){const px=room.x+x/dimensions[0]*room.w,py=room.y+y/dimensions[1]*room.h;assert.ok(px>=stage.x&&px<=stage.right&&py>=stage.y&&py<=stage.bottom,'TV, city and both chair rows stay visible');}
       assert.equal(await page.locator(`.fridge-guide-${kind} text`).textContent(),'點擊打開冰箱');
       const bubble=await page.locator(`.fridge-guide-${kind} .guide-bubble`).boundingBox();
-      assert.ok(bubble.x>=stage.x&&bubble.x+bubble.width<=door.x+5&&bubble.y>=stage.y&&bubble.y+bubble.height<=stage.bottom,'speech bubble stays visible to the left of the fridge');
+      assert.ok(bubble.x>=stage.x&&bubble.x+bubble.width<=door.x+5&&bubble.y>=stage.y&&bubble.y+bubble.height<=stage.bottom,'small cloud label stays visible to the left of the fridge');
       const tip=await page.locator(`.fridge-guide-${kind}`).evaluate(svg=>{
         const path=svg.querySelector('.guide-arrow'),end=path.getPointAtLength(path.getTotalLength()),p=end.matrixTransform(svg.getScreenCTM());return{x:p.x,y:p.y};
       });
       assert.ok(tip.x>=door.x&&tip.x<=door.right&&tip.y>=door.y&&tip.y<=door.bottom,'arrow points into the clickable fridge');
+      const arrow=await page.locator(`.fridge-guide-${kind} .guide-gold-arrow`).boundingBox();
+      assert.ok(arrow.width<stage.w*.095&&arrow.height<stage.h*.075,'gold loop arrow stays compact');
       assert.equal(await page.locator(`.pantry-office-${kind} .pantry-painted-door`).count(),4);
     };
     await page.goto(`${base}/index.html`);await inspect();
@@ -96,37 +98,59 @@ try{
   // Reduced-motion checks above cannot catch overlapping or skipped animation.
   for(const [width,height] of [[1440,900],[1026,1330]]){
     const backend=websiteBackend(),context=await browser.newContext({viewport:{width,height},reducedMotion:'no-preference'}),page=await context.newPage();
+    backend.sheets.Catalog.rows.splice(1,99,...createCompanyData().drinks.map(d=>[d.id,d.name,d.category,d.packaging,d.unit,d.perCase,d.threshold,d.active]));
     await page.route('**/config.js',route=>route.fulfill({contentType:'application/javascript',body:`window.DRINKS_CONFIG=${JSON.stringify({provider:'google',googleScriptUrl:endpoint})};`}));
     await page.route(`${endpoint}**`,route=>route.fulfill({contentType:'application/javascript',body:backend.ctx.doGet({parameter:Object.fromEntries(new URL(route.request().url()).searchParams)}).body}));
     await page.goto(`${base}/index.html`);await page.waitForSelector('.pantry-stage[data-scene]');await page.evaluate(()=>document.fonts.ready);
-    const before=await page.locator('.pantry-stage').evaluate(e=>({kind:e.dataset.scene,height:e.clientHeight}));
-    await page.locator('.fridge-open-guide').click();await page.waitForTimeout(280);
-    const swing=await page.locator('.pantry-stage').evaluate(stage=>{
-      const style=e=>getComputedStyle(e),interior=stage.querySelector('.fridge-interior');
-      return{kind:stage.dataset.scene,height:stage.clientHeight,roomOpacity:+style(stage.querySelector('.pantry-room')).opacity,interiorOpacity:+style(interior).opacity,inert:interior.inert,doors:[...stage.querySelectorAll(`.pantry-office-${stage.dataset.scene} .pantry-painted-door`)].map(e=>({opacity:+style(e).opacity,matrix:style(e).transform}))};
+    await page.evaluate(async()=>{
+      const stage=document.querySelector('.pantry-stage');
+      await Promise.all([...stage.querySelectorAll(`.pantry-office-${stage.dataset.scene} image[href]`)].map(async element=>{
+        const image=new Image();image.src=element.getAttribute('href');await image.decode();
+      }));
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     });
-    assert.equal(swing.kind,before.kind);assert.equal(swing.height,before.height,'no layout jump during door swing');
-    assert.equal(swing.roomOpacity,1);assert.equal(swing.interiorOpacity,0,'shelves do not cover the opening doors');assert.equal(swing.inert,true);
-    assert.equal(swing.doors.length,4);
-    for(const door of swing.doors){assert.ok(door.opacity>.95,'door remains visible during swing');assert.ok(door.matrix.startsWith('matrix3d('),'door actually rotates in perspective');const matrix=door.matrix.slice(9,-1).split(',').map(Number);assert.ok(Math.abs(matrix[2])>.1&&Math.abs(matrix[0])<.98,'door is between closed and fully open');}
-    assert.equal(await page.locator('.fridge-panel > .toolbar').isVisible(),false);
-    await page.screenshot({path:`/tmp/pantry-opening-${width}.png`});
-    await page.waitForSelector('.fridge.is-ready');assert.equal(await page.locator('.fridge-interior').evaluate(e=>e.inert),false);
+    const before=await page.locator('.pantry-stage').evaluate(e=>({kind:e.dataset.scene,height:e.clientHeight}));
+    await page.evaluate(()=>{
+      window.fridgeMotion=[];
+      document.querySelector('.fridge-open-guide').addEventListener('click',()=>{
+        const started=performance.now(),stage=document.querySelector('.pantry-stage'),fridge=stage.querySelector('.fridge'),interior=stage.querySelector('.fridge-interior');
+        const sample=()=>{
+          const style=e=>getComputedStyle(e);
+          window.fridgeMotion.push({elapsed:performance.now()-started,ready:fridge.classList.contains('is-ready'),kind:stage.dataset.scene,height:stage.clientHeight,roomOpacity:+style(stage.querySelector('.pantry-room')).opacity,interiorOpacity:+style(interior).opacity,inert:interior.inert,controlsHidden:document.querySelector('.fridge-panel > .toolbar').hidden,doors:[...stage.querySelectorAll(`.pantry-office-${stage.dataset.scene} .pantry-painted-door`)].map(e=>({opacity:+style(e).opacity,matrix:style(e).transform}))});
+          if(!fridge.classList.contains('is-ready')&&performance.now()-started<1500)requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      },{once:true});
+    });
+    await page.locator('.fridge-open-guide').click();await page.waitForFunction(()=>window.fridgeMotion.some(frame=>frame.ready));
+    const frames=await page.evaluate(()=>window.fridgeMotion);
+    const swinging=frames.find(frame=>frame.roomOpacity===1&&frame.interiorOpacity===0&&frame.doors.length===4&&frame.doors.every(door=>{
+      if(door.opacity<.95||!door.matrix.startsWith('matrix3d('))return false;
+      const matrix=door.matrix.slice(9,-1).split(',').map(Number);return Math.abs(matrix[2])>.1&&Math.abs(matrix[0])<.98;
+    }));
+    assert.ok(swinging,'all four doors visibly rotate before shelves cover them');
+    for(const frame of frames.filter(frame=>!frame.ready)){
+      assert.equal(frame.kind,before.kind);assert.equal(frame.height,before.height,'no layout jump during opening');assert.equal(frame.inert,true);assert.equal(frame.controlsHidden,true);
+    }
+    assert.ok(await page.locator(`.pantry-office-${before.kind} .pantry-recess-interior image[href]`).count()>0,'actual drink images fill the opening instead of a blank recess');
+    assert.ok(frames.some(frame=>frame.roomOpacity<1&&frame.roomOpacity>0&&frame.interiorOpacity>0&&frame.interiorOpacity<1),'shelves fade in during the zoom without a pause');
+    assert.ok(frames.find(frame=>frame.ready).elapsed<1000,'opening finishes promptly');
+    assert.equal(await page.locator('.fridge-interior').evaluate(e=>e.inert),false);
     assert.equal(await page.locator('.fridge-panel > .toolbar').isVisible(),true);
     await page.locator('.fridge-close').click();await page.waitForTimeout(900);
     // Cancel an opening via the real close action, then open again. The old
     // completion timer must not reveal controls over a closed scene.
     await page.locator('.fridge-open-guide').click();await page.waitForTimeout(180);await page.locator('.fridge-close').dispatchEvent('click');
-    await page.waitForTimeout(1450);assert.equal(await page.locator('.fridge').getAttribute('data-door-state'),'closed');assert.equal(await page.locator('.fridge-panel > .toolbar').isVisible(),false);
+    await page.waitForTimeout(900);assert.equal(await page.locator('.fridge').getAttribute('data-door-state'),'closed');assert.equal(await page.locator('.fridge-panel > .toolbar').isVisible(),false);
     assert.equal(await page.locator('.fridge-interior').evaluate(e=>e.inert),true);
     await page.locator('.fridge-open-guide').click();await page.waitForSelector('.fridge.is-ready');
-    console.log(`PASS ${width}x${height} normal motion: four visible rotating doors, stable scene, delayed shelves/controls, cancel and reopen`);
+    console.log(`PASS ${width}x${height} normal motion: visible doors with stocked interior, continuous quick zoom, stable scene, cancel and reopen`);
     await context.close();
   }
   const context=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'}),page=await context.newPage(),external=[];
   page.on('request',request=>{if(!request.url().startsWith(base)&&!request.url().startsWith('data:'))external.push(request.url());});
   await page.goto(`${base}/demo.html`);await page.waitForSelector('.pantry-stage[data-scene=wide]');
-  const embedded=await page.locator('.pantry-office-wide image').getAttribute('href');assert.ok(embedded.startsWith('data:image/png;base64,'));
+  const embedded=await page.locator('.pantry-office-wide .pantry-scene-art image').getAttribute('href');assert.ok(embedded.startsWith('data:image/png;base64,'));
   const dimensions=await page.evaluate(src=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve([image.naturalWidth,image.naturalHeight]);image.onerror=reject;image.src=src;}),embedded);
   assert.deepEqual(dimensions,[1672,941]);await page.locator('.fridge-open-guide').click();await page.waitForSelector('.fridge.is-ready');
   assert.equal(await page.locator('.fridge-product').count(),32);assert.deepEqual(external,[]);
