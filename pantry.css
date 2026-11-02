@@ -55,6 +55,9 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
 .pantry-stage{position:relative;isolation:isolate;width:100%;aspect-ratio:1074/560;overflow:hidden;background:#fff;border:1px solid #e1cbb1;border-radius:3px}
 .pantry-room{position:absolute;inset:0;z-index:2;transform-origin:33% 50%;transform:translateX(0) scale(1);opacity:1;pointer-events:none;transition:transform 850ms cubic-bezier(.3,.02,.18,1),opacity 400ms ease 120ms}
 .pantry-office-scene,.pantry-mobile-scene{position:absolute;inset:0;perspective:1200px}
+.pantry-office-scene{display:none}
+.pantry-stage[data-scene=wide] .pantry-office-wide,.pantry-stage[data-scene=portrait] .pantry-office-portrait{display:block}
+.pantry-office-scene .pantry-painted-door,.pantry-office-scene .pantry-door-recess{left:var(--part-left);top:var(--part-top);width:var(--part-width);height:var(--part-height);clip-path:var(--part-clip);border-radius:0}
 .pantry-scene-art,.pantry-painted-door svg{display:block;width:100%;height:100%}
 .pantry-mobile-scene{display:none}
 .pantry-door-recess{position:absolute;left:20.2%;top:4%;width:27.7%;height:90.6%;background:linear-gradient(90deg,#ac916a,#fffaf0 6%,#fff 48%,#cfb78f);clip-path:polygon(0 0,100% 10%,100% 94%,0 100%);opacity:0;transition:opacity 100ms}
@@ -82,6 +85,12 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
 .pantry-stage .fridge-door:active:not(:disabled){transform:none}
 .pantry-stage .fridge-door:focus-visible{outline:3px solid #b18c60;outline-offset:4px}
 .pantry-stage.is-open .fridge-door{transform:none;opacity:0;pointer-events:none}
+.fridge-open-guide{display:none;position:absolute;z-index:6;left:var(--guide-left);top:var(--guide-top);width:var(--guide-width);height:var(--guide-height);padding:0;border:0;background:transparent;box-shadow:none;color:#6e4933;cursor:pointer}
+.fridge-open-guide svg{display:none;width:100%;height:100%;overflow:visible}
+.fridge-open-guide text{font-family:var(--heading-font);font-size:30px;font-weight:700;fill:currentColor}
+.fridge-open-guide path{fill:none;stroke:#c08c48;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round}
+.fridge-open-guide .guide-second-stroke{stroke:#dabb83;stroke-width:1.4}
+.pantry-stage[data-scene=wide] .fridge-guide-wide,.pantry-stage[data-scene=portrait] .fridge-guide-portrait{display:block}
 .pantry-stage .fridge-shelf-heading h3,.pantry-stage .fridge-product-info h4{color:#70523e}
 .pantry-stage .shelf-index,.pantry-stage .fridge-product-packaging{color:#a48b71}
 .pantry-stage .fridge-product-stage:after{background:linear-gradient(90deg,transparent,#d6bb9750 23%,#d6bb9750 77%,transparent);box-shadow:none}
@@ -100,9 +109,9 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
   .pantry-overview,.pantry-overview .fridge-panel,.pantry-overview #inventory-table{display:flex;flex-direction:column;flex:1;min-height:0}
   .pantry-overview #inventory-table{container-type:inline-size}
   .pantry-stage{flex:1;aspect-ratio:auto;min-height:calc(100cqw * 560 / 1074)}
-  .pantry-stage:not(.is-open){background:linear-gradient(#faf5ed,#f4eadd 65%,#fbf7f1)}
   .pantry-room{inset:auto;left:var(--scene-left,0px);top:var(--scene-top,0px);width:var(--scene-width,100%);height:var(--scene-height,100%)}
-  .pantry-stage .fridge-door,.pantry-stage .fridge-door:hover{left:calc(var(--scene-left) + var(--scene-width) * .187);top:calc(var(--scene-top) + var(--scene-height) * .01);width:calc(var(--scene-width) * .302);height:calc(var(--scene-height) * .94)}
+  .pantry-stage .fridge-door,.pantry-stage .fridge-door:hover{left:var(--hit-left);top:var(--hit-top);width:var(--hit-width);height:var(--hit-height)}
+  .fridge-open-guide{display:block}
 }
 @media(min-width:1600px){body[data-view=overview] main{padding:34px 48px 16px}.sidebar{padding-top:36px}}
 @media(max-width:1100px) and (min-width:901px){.sidebar{width:216px;padding-left:15px;padding-right:15px}.main-shell{margin-left:216px;width:calc(100% - 216px)}.brand{font-size:18px;gap:8px}.brand .brand-mark{width:38px;height:38px}body[data-view=overview] main{padding:25px 22px 12px}.topbar{padding-left:22px;padding-right:22px}.connection-status{font-size:9px}}
