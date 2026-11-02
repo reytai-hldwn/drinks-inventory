@@ -295,7 +295,8 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
     "active": false
   }
 ] /* GENERATED_CATALOG_END */;
-var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup', website: 'WebsiteRequests', supplyCatalog: 'SupplyCatalog', supplyHistory: 'SupplyHistory', supplyWarehouse: 'SupplyWarehouse' };
+var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup', website: 'WebsiteRequests', supplyCatalog: 'SupplyCatalog', supplyHistory: 'SupplyHistory', supplyWarehouse: 'SupplyWarehouse', restockPreferences: 'RestockPreferences' };
+var RESTOCK_PREFERENCE_HEADERS = ['事件 ID','Google 收件時間','分類','品項 ID','補貨狀態','操作來源','採計狀態'];
 var INITIAL_SUPPLIES = [
   { id: 'supply-noodle-01', name: '來一客海鮮', kind: 'noodle', unit: '杯', active: true },
   { id: 'supply-noodle-02', name: '滿漢大餐牛肉麵', kind: 'noodle', unit: '碗', active: true },
@@ -555,12 +556,12 @@ function submitWebsiteRequest_(request) {
       SpreadsheetApp.flush();
       return websiteReceipt_(request.requestId);
     }
-    if (effects.supplyHistory) renderSupplyWarehouse_(ss);
+    if (effects.supplyHistory || (effects.restockPreference && effects.restockPreference[2] !== 'drink')) renderSupplyWarehouse_(ss);
     else {
       var inventory = computeInventory_(catalog_(ss), historyEvents_(ss));
       renderWarehouse_(ss, inventory);
       renderArchive_(ss, inventory);
-      PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
+      if (effects.operation !== 'restock-preference') PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
     }
     SpreadsheetApp.flush();
     // Commit state and result together, only after data and views are saved.
@@ -580,7 +581,22 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     if (!found) throw websiteInputError_('這個品項目前不在供應清單，請重新讀取品項。');
     return found;
   }
-  if (operation === 'new-arrival') {
+  if (operation === 'restock-preference') {
+    var kind = data.kind, mode = data.mode;
+    if (['drink','noodle','toner'].indexOf(kind) < 0 || ['normal','hold','replace'].indexOf(mode) < 0) throw websiteInputError_('補貨提醒設定不正確。');
+    var item = (kind === 'drink' ? catalog : supplyCatalog_(ss).filter(function (entry) { return entry.kind === kind; })).filter(function (entry) { return entry.id === data.itemId; })[0];
+    if (!item || (!item.active && mode !== 'normal')) throw websiteInputError_('找不到可設定的品項。');
+    var preferences = restockPreferences_(ss), currentMode = restockMode_(preferences,kind,item.id);
+    if (data.expectedMode !== currentMode) throw websiteInputError_('其他裝置已更新這個品項的補貨設定，請重新整理。');
+    if (mode !== 'normal' && currentMode === 'normal') {
+      var current = kind === 'drink' ? computeInventory_(catalog,historyEvents_(ss)).filter(function (entry) { return entry.drink.id === item.id; })[0] : supplyInventory_(supplyCatalog_(ss),supplyEvents_(ss)).filter(function (entry) { return entry.id === item.id; })[0];
+      if (!current.lastCountAt || current.stock === null || current.stock > 10) throw websiteInputError_('目前庫存不在 10 以內，請重新整理後確認。');
+    }
+    if (mode !== currentMode) effects.restockPreference = ['website:' + request.requestId,stamp,kind,item.id,mode,'網站管理後台','採計'];
+    effects.result.kind = kind; effects.result.itemId = item.id; effects.result.mode = mode;
+    var previous = preferences.filter(function (entry) { return entry.kind === kind && entry.itemId === item.id; })[0];
+    effects.result.updatedAt = mode !== currentMode ? stamp : previous ? previous.updatedAt : stamp;
+  } else if (operation === 'new-arrival') {
     var kind = data.kind;
     if (['drink','noodle'].indexOf(kind) < 0) throw websiteInputError_('新品到貨僅支援飲料與泡麵。');
     var name = websiteText_(data.name, '新品名稱', 80, true);
@@ -746,6 +762,11 @@ function websiteAppendMissing_(sheet, rows) {
 }
 
 function applyWebsiteRequest_(ss, effects) {
+  if (effects.restockPreference) {
+    var sheet = ss.getSheetByName(SHEETS.restockPreferences);
+    if (sheet && sheet.getLastRow() > 0 && !restockPreferenceSheetMatches_(sheet)) throw websiteInputError_('RestockPreferences 已有其他用途，請先確認工作表。');
+    websiteAppendMissing_(ensureSheet_(ss,SHEETS.restockPreferences,RESTOCK_PREFERENCE_HEADERS),[effects.restockPreference]);
+  }
   if (effects.newArrival) {
     var row = effects.supplyCatalog || effects.catalog;
     var items = effects.supplyCatalog ? supplyCatalog_(ss).filter(function (item) { return item.kind === 'noodle'; }) : catalog_(ss);
@@ -836,7 +857,39 @@ function warehouseData_() {
   result.supplyEntry = { version: 1, expiryVersion: 1, expirySetVersion: 1 };
   result.supplyEvents = supplyEvents_(ss);
   result.supplies = supplyInventory_(supplyCatalog_(ss), result.supplyEvents);
+  result.restockPreferenceEntry = {version:1};
+  result.restockPreferences = restockPreferences_(ss);
   return result;
+}
+
+function restockPreferenceSheetMatches_(sheet) {
+  var first = sheet.getRange(1,1,1,RESTOCK_PREFERENCE_HEADERS.length).getValues()[0];
+  return RESTOCK_PREFERENCE_HEADERS.every(function (label,index) { return first[index] === label; });
+}
+
+function restockPreferences_(ss) {
+  var sheet = ss.getSheetByName(SHEETS.restockPreferences), latest = Object.create(null);
+  if (!sheet || sheet.getLastRow() < 2 || !restockPreferenceSheetMatches_(sheet)) return [];
+  sheet.getRange(2,1,sheet.getLastRow()-1,7).getValues().forEach(function (row) {
+    if (row[6] !== '採計') return;
+    var kind=String(row[2]),itemId=String(row[3]),mode=String(row[4]),updatedAt=iso_(row[1]);
+    if (['drink','noodle','toner'].indexOf(kind)<0 || !/^[A-Za-z0-9_-]{1,160}$/.test(itemId) || ['normal','hold','replace'].indexOf(mode)<0 || !updatedAt) throw new Error('Invalid restock preference');
+    var key=kind+':'+itemId;
+    if (!latest[key] || Date.parse(updatedAt)>=Date.parse(latest[key].updatedAt)) latest[key]={kind:kind,itemId:itemId,mode:mode,updatedAt:updatedAt};
+  });
+  return Object.keys(latest).map(function (key) { return latest[key]; });
+}
+
+function restockMode_(preferences, kind, itemId) {
+  var found=preferences.filter(function (entry) { return entry.kind===kind && entry.itemId===itemId; })[0];
+  return found ? found.mode : 'normal';
+}
+
+function restockModeLabel_(mode) { return mode==='hold'?'暫不需要補貨':mode==='replace'?'可以準備替換新品項':''; }
+
+function sortInventoryEntries_(entries) {
+  function stock(entry) { return entry.lastCountAt && entry.stock!==null ? entry.stock : Infinity; }
+  return entries.slice().sort(function (a,b) { return stock(a)===stock(b) ? 0 : stock(a)-stock(b); });
 }
 
 // Reading a newly upgraded deployment needs no setupOnce or sheet mutation.
@@ -916,8 +969,8 @@ function supplyInventory_(supplies, events) {
 
 function renderSupplyWarehouse_(ss) {
   var sheet = ensureSheet_(ss, SHEETS.supplyWarehouse);
-  var events = supplyEvents_(ss), inventory = supplyInventory_(supplyCatalog_(ss), events);
-  var headers = ['品項 ID','品項名稱','分類','單位','目前庫存','最近實際盤點','入庫批次保存期限'];
+  var events = supplyEvents_(ss), inventory = sortInventoryEntries_(supplyInventory_(supplyCatalog_(ss), events)), preferences=restockPreferences_(ss);
+  var headers = ['品項 ID','品項名稱','分類','單位','目前庫存','最近實際盤點','入庫批次保存期限','補貨標示'];
   // Do not replace an unrelated existing sheet with a coinciding name.
   if (sheet.getLastRow() > 0) {
     var first = sheet.getRange(1, 1, 1, 6).getValues()[0];
@@ -927,7 +980,7 @@ function renderSupplyWarehouse_(ss) {
   sheet.clearContents();
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   if (inventory.length) sheet.getRange(2, 1, inventory.length, headers.length).setValues(inventory.map(function (item) {
-    return [item.id, sheetText_(item.name), item.kind === 'noodle' ? '泡麵' : '碳粉', item.unit, item.stock === null ? '待盤點' : item.stock, item.lastCountAt || '', item.kind === 'noodle' ? openSupplyBatches_(item.id,events).map(function (event) { return (event.expiresOn || '效期待補') + (event.type === 'expiry-set' ? '｜效期核對 ' : '｜入庫 ') + event.quantity + ' ' + item.unit; }).join('\n') : ''];
+    return [item.id, sheetText_(item.name), item.kind === 'noodle' ? '泡麵' : '碳粉', item.unit, item.stock === null ? '待盤點' : item.stock, item.lastCountAt || '', item.kind === 'noodle' ? openSupplyBatches_(item.id,events).map(function (event) { return (event.expiresOn || '效期待補') + (event.type === 'expiry-set' ? '｜效期核對 ' : '｜入庫 ') + event.quantity + ' ' + item.unit; }).join('\n') : '', restockModeLabel_(restockMode_(preferences,item.kind,item.id))];
   }));
   styleHeader_(sheet, 1, headers.length); sheet.setFrozenRows(1);
 }
@@ -1335,9 +1388,10 @@ function appendHistory_(ss, events) {
 function renderWarehouse_(ss, inventory) {
   var sheet = ss.getSheetByName(SHEETS.warehouse);
   var forms = forms_();
-  var rows = inventory.filter(function (entry) { return entry.drink.active; }).map(function (entry) {
+  var preferences=restockPreferences_(ss);
+  var rows = sortInventoryEntries_(inventory.filter(function (entry) { return entry.drink.active; })).map(function (entry) {
     var drink = entry.drink;
-    return [drink.id, sheetText_(drink.name), drink.category, drink.packaging, drink.unit, drink.perCase === null ? '待確認' : drink.perCase, entry.stock === null ? '待盤點' : entry.stock, entry.lastCountAt ? new Date(entry.lastCountAt) : '', entry.receivedAfterCount === null ? '' : entry.receivedAfterCount, entry.stock === null ? '待盤點' : entry.stock <= drink.threshold ? '需要補貨' : '庫存充足', drink.threshold];
+    return [drink.id, sheetText_(drink.name), drink.category, drink.packaging, drink.unit, drink.perCase === null ? '待確認' : drink.perCase, entry.stock === null ? '待盤點' : entry.stock, entry.lastCountAt ? new Date(entry.lastCountAt) : '', entry.receivedAfterCount === null ? '' : entry.receivedAfterCount, restockModeLabel_(restockMode_(preferences,'drink',drink.id)) || (entry.stock === null ? '待盤點' : entry.stock <= 10 ? '需要補貨' : '庫存充足'), 10];
   });
   // This is a generated view only. Source form responses, History, Catalog and
   // WishReview are retained and never cleared or recreated during refresh.
@@ -1354,7 +1408,7 @@ function renderWarehouse_(ss, inventory) {
     sheet.getRange(7, 8, rows.length, 1).setNumberFormat('yyyy/MM/dd HH:mm');
     var range = sheet.getRange(7, 1, rows.length, 11);
     sheet.setConditionalFormatRules([
-      SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND(ISNUMBER($G7),$G7<=$K7)').setBackground('#fff0e9').setFontColor('#b14b3d').setRanges([range]).build(),
+      SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=AND(ISNUMBER($G7),$G7<=10,$J7="需要補貨")').setBackground('#fff0e9').setFontColor('#b14b3d').setRanges([range]).build(),
       SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$G7="待盤點"').setBackground('#f5f2ea').setFontColor('#a28f70').setRanges([range]).build()
     ]);
   }
@@ -1363,7 +1417,7 @@ function renderWarehouse_(ss, inventory) {
 
 function renderArchive_(ss, inventory) {
   var sheet = ss.getSheetByName(SHEETS.archive) || ss.insertSheet(SHEETS.archive);
-  var rows = inventory.filter(function (entry) { return !entry.drink.active; }).map(function (entry) {
+  var rows = sortInventoryEntries_(inventory.filter(function (entry) { return !entry.drink.active; })).map(function (entry) {
     var drink = entry.drink;
     return [drink.id, sheetText_(drink.name), drink.category, drink.packaging, drink.unit, drink.perCase === null ? '待確認' : drink.perCase, entry.stock === null ? '待盤點' : entry.stock, entry.lastCountAt ? new Date(entry.lastCountAt) : '', entry.receivedAfterCount === null ? '' : entry.receivedAfterCount, '已封存', drink.threshold];
   });

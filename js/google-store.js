@@ -1,6 +1,7 @@
 import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
 import { normalizeSupplyWarehouse } from './supplies.js';
+import { normalizeRestockPreferences } from './restock-preferences.js';
 
 let googleCallbackSequence = 0;
 
@@ -248,6 +249,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
     newArrivalVersion: warehouse && payload.websiteEntry?.newArrivalVersion === 1 ? 1 : 0,
     ...(warehouse ? normalizeSupplyWarehouse(payload) : {supplies:[],supplyEvents:[],supplyEntryVersion:0,supplyExpiryVersion:0,supplyExpirySetVersion:0}),
+    ...(warehouse ? normalizeRestockPreferences(payload) : {restockPreferences:[],restockPreferenceVersion:0}),
   };
 }
 
@@ -291,6 +293,8 @@ export class GoogleInventoryStore {
     this.supplyEntryVersion = 0;
     this.supplyExpiryVersion = 0;
     this.supplyExpirySetVersion = 0;
+    this.restockPreferences = [];
+    this.restockPreferenceVersion = 0;
   }
 
   get canEdit() { return false; }
@@ -300,6 +304,7 @@ export class GoogleInventoryStore {
   get supportsSupplies() { return this.supportsWebsiteEntry && this.supplyEntryVersion === 1; }
   get supportsSupplyExpiry() { return this.supportsSupplies && this.supplyExpiryVersion===1; }
   get supportsSupplyExpirySet() { return this.supportsSupplyExpiry && this.supplyExpirySetVersion===1; }
+  get supportsRestockPreferences() { return this.supportsWebsiteEntry && this.restockPreferenceVersion===1; }
 
   async init() {
     // Reuse only a validated public display. Warehouse counts are never cached.
@@ -373,7 +378,9 @@ export class GoogleInventoryStore {
     this.supplyEntryVersion = result.supplyEntryVersion || 0;
     this.supplyExpiryVersion = result.supplyExpiryVersion || 0;
     this.supplyExpirySetVersion = result.supplyExpirySetVersion || 0;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion });
+    this.restockPreferences = result.restockPreferences || [];
+    this.restockPreferenceVersion = result.restockPreferenceVersion || 0;
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
   }
 
   async readPopularity() {
@@ -536,6 +543,16 @@ export class GoogleInventoryStore {
   async setSupplyExpiry(data) {
     if(!this.supportsSupplyExpirySet)throw new Error('請先更新 Apps Script 部署，才能補登既有庫存的保存期限。');
     return this.sendWebsiteCommand('supply-expiry-set',data);
+  }
+
+  async setRestockPreference(data) {
+    if(!this.supportsRestockPreferences)throw new Error('請先更新 Apps Script 部署，才能儲存暫不補貨設定。');
+    const result=await this.sendWebsiteCommand('restock-preference',data);
+    if(this.lastWriteNeedsRefresh){
+      const normalized=normalizeRestockPreferences({restockPreferenceEntry:{version:1},restockPreferences:[result]}).restockPreferences[0];
+      this.restockPreferences=[...this.restockPreferences.filter(entry=>entry.kind!==normalized.kind||entry.itemId!==normalized.itemId),normalized];
+    }
+    return result;
   }
 
   async addDrink({ name, category, packaging, recorder }) {
