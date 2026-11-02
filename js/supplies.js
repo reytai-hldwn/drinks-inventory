@@ -6,6 +6,7 @@ export const SUPPLY_CATALOG = Object.freeze([
   ['supply-noodle-03','拉麵道味噌拉麵','noodle','杯'],
   ['supply-noodle-04','拉麵道豚骨拉麵','noodle','杯'],
   ['supply-noodle-05','奶油白醬辣火雞麵','noodle','杯'],
+  ['supply-noodle-06','辛拉麵','noodle','杯'],
   ['supply-toner-black','黑色碳粉','toner','盒'],
   ['supply-toner-yellow','黃色碳粉','toner','盒'],
   ['supply-toner-red','紅色碳粉','toner','盒'],

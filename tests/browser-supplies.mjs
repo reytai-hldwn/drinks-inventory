@@ -49,7 +49,7 @@ try{
     const row=id=>page.locator(`[data-supply-id=${id}]`);
     await page.goto(`${base}/index.html#products`);await page.waitForSelector('[data-action=warehouse-kind]');
     assert.deepEqual(reads,['warehouse'],'direct back-office link needs only one initial Google read');
-    await tab('noodle');assert.equal(await page.locator('[data-supply-id]').count(),5);assert.match(await row('supply-noodle-05').innerText(),/奶油白醬辣火雞麵/);assert.match(await row('supply-noodle-02').innerText(),/碗/);
+    await tab('noodle');assert.equal(await page.locator('[data-supply-id]').count(),6);assert.match(await row('supply-noodle-05').innerText(),/奶油白醬辣火雞麵/);assert.match(await row('supply-noodle-02').innerText(),/碗/);
     if(width<=640){const box=await row('supply-noodle-01').locator('[data-action=supply-arrival]').boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width,'quick arrival is visible without horizontal scrolling');}
     await row('supply-noodle-01').locator('[data-action=supply-count]').click();
     await page.locator('#supply-count-form [name=recorder]').fill('盤點測試');await page.locator('#supply-count-form [data-supply-count]').fill('0');await page.locator('#supply-count-form [type=submit]').click();await done();
@@ -100,7 +100,7 @@ try{
     await page.locator('.restock-kind-tabs a[href="#restock-noodle"]').click();await page.waitForSelector('#restock-supply');
     assert.equal(await page.locator('body').getAttribute('data-view'),'restock-noodle');
     assert.equal(await page.locator('#navigation [data-view=restock].active').count(),1);
-    assert.equal(await page.locator('#restock-supply option:not([value=__new__])').count(),5);
+    assert.equal(await page.locator('#restock-supply option:not([value=__new__])').count(),6);
     assert.deepEqual((await page.locator('#restock-supply option:not([value=__new__])').evaluateAll(options=>options.map(option=>option.value))).slice(0,3),['supply-noodle-03','supply-noodle-02','supply-noodle-01']);
     assert.equal(await page.locator('[name=cases],[name=loose],[name=drinkId]').count(),0);
     await page.locator('#restock-supply').selectOption('supply-noodle-02');

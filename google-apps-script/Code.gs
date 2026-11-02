@@ -302,6 +302,7 @@ var INITIAL_SUPPLIES = [
   { id: 'supply-noodle-03', name: '拉麵道味噌拉麵', kind: 'noodle', unit: '杯', active: true },
   { id: 'supply-noodle-04', name: '拉麵道豚骨拉麵', kind: 'noodle', unit: '杯', active: true },
   { id: 'supply-noodle-05', name: '奶油白醬辣火雞麵', kind: 'noodle', unit: '杯', active: true },
+  { id: 'supply-noodle-06', name: '辛拉麵', kind: 'noodle', unit: '杯', active: true },
   { id: 'supply-toner-black', name: '黑色碳粉', kind: 'toner', unit: '盒', active: true },
   { id: 'supply-toner-yellow', name: '黃色碳粉', kind: 'toner', unit: '盒', active: true },
   { id: 'supply-toner-red', name: '紅色碳粉', kind: 'toner', unit: '盒', active: true },
