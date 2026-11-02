@@ -69,8 +69,8 @@ try{
         const path=svg.querySelector('.guide-arrow'),end=path.getPointAtLength(path.getTotalLength()),p=end.matrixTransform(svg.getScreenCTM());return{x:p.x,y:p.y};
       });
       assert.ok(tip.x>=door.x&&tip.x<=door.right&&tip.y>=door.y&&tip.y<=door.bottom,'arrow points into the clickable fridge');
-      const arrow=await page.locator(`.fridge-guide-${kind} .guide-gold-arrow`).boundingBox();
-      assert.ok(arrow.width<stage.w*.095&&arrow.height<stage.h*.075,'gold loop arrow stays compact');
+      const arrow=await page.locator(`.fridge-guide-${kind} .guide-hand-arrow`).boundingBox();
+      assert.ok(arrow.width<stage.w*.095&&arrow.height<stage.h*.075,'hand-drawn loop arrow stays compact');
       assert.equal(await page.locator(`.pantry-office-${kind} .pantry-painted-door`).count(),4);
     };
     await page.goto(`${base}/index.html`);await inspect();

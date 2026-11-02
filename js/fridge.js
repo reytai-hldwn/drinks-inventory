@@ -130,13 +130,13 @@ function syncGuideArrow(svg, endX, endY) {
   const startX = 177, startY = 77;
   const gap = Math.max(60, endX - startX), radius = Math.min(14, gap * .13);
   const cx = startX + gap * .48, cy = endY - 12;
-  const curve = `M${startX} ${startY} C${startX + gap * .08} ${startY + 12} ${cx + radius} ${cy + 13} ${cx + radius} ${cy - 6} C${cx + radius} ${cy - 27} ${cx - radius} ${cy - 27} ${cx - radius} ${cy - 8} C${cx - radius} ${cy + 10} ${cx + radius} ${endY} ${endX} ${endY}`;
+  const curve = `M${startX} ${startY} C${startX + gap * .08} ${startY + 11} ${cx + radius + 1} ${cy + 12} ${cx + radius} ${cy - 5} C${cx + radius + 1} ${cy - 24} ${cx - radius + 2} ${cy - 26} ${cx - radius} ${cy - 8} C${cx - radius - 2} ${cy + 9} ${cx + radius} ${endY + 2} ${endX} ${endY}`;
   for (const path of svg.querySelectorAll('.guide-arrow')) path.setAttribute('d', curve);
-  svg.querySelector('.guide-arrowhead').setAttribute('d', `M${endX - 17} ${endY - 11} L${endX + 3} ${endY} L${endX - 17} ${endY + 10} L${endX - 13} ${endY} Z`);
+  svg.querySelector('.guide-arrowhead').setAttribute('d', `M${endX - 15} ${endY - 9} Q${endX - 5} ${endY - 4} ${endX + 2} ${endY} Q${endX - 5} ${endY + 5} ${endX - 16} ${endY + 10} L${endX - 12} ${endY + 1} Z`);
 }
 
 function renderFridgeGuide(isOpen) {
-  const artwork = (variant, width) => `<svg class="fridge-guide-${variant}" viewBox="0 0 ${width} 140" aria-hidden="true" focusable="false"><g class="guide-gold-arrow"><path class="guide-arrow"/><path class="guide-arrow guide-arrow-highlight" transform="translate(0 -1.2)"/><path class="guide-arrowhead"/></g><path class="guide-bubble" d="M20 72 C3 77 -4 57 8 47 C-1 32 11 18 25 20 C27 3 48 -1 59 13 C70 1 92 2 100 15 C113 4 133 12 136 26 C154 21 169 34 163 49 C179 61 169 82 153 82 C151 98 130 105 117 94 C105 108 83 106 75 95 C59 106 40 99 38 87 C22 92 10 86 20 72 Z"/><text x="85" y="60" text-anchor="middle">點擊打開冰箱</text></svg>`;
+  const artwork = (variant, width) => `<svg class="fridge-guide-${variant}" viewBox="0 0 ${width} 140" aria-hidden="true" focusable="false"><g class="guide-hand-arrow"><path class="guide-arrow"/><path class="guide-arrow guide-arrow-echo" transform="translate(.6 .8)"/><path class="guide-arrowhead"/></g><path class="guide-bubble" d="M20 72 C3 77 -4 57 8 47 C-1 32 11 18 25 20 C27 3 48 -1 59 13 C70 1 92 2 100 15 C113 4 133 12 136 26 C154 21 169 34 163 49 C179 61 169 82 153 82 C151 98 130 105 117 94 C105 108 83 106 75 95 C59 106 40 99 38 87 C22 92 10 86 20 72 Z"/><text x="85" y="60" text-anchor="middle">點擊打開冰箱</text></svg>`;
   return `<button type="button" class="fridge-open-guide" data-action="toggle-door" aria-label="點擊打開冰箱" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}"${isOpen ? ' hidden inert' : ''}>${artwork('wide', 330)}${artwork('portrait', 300)}</button>`;
 }
 const FRIDGE_SHELF_LABELS = {
