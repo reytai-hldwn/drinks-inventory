@@ -1,5 +1,6 @@
 import { applyInitialStocktake, blankData, safeUrl, uid } from './domain.js';
 import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE, createCompanyData, prepareCompanyCatalog } from './catalog.js';
+import { initialSupplies, supplyBatches, supplyToday, validSupplyExpiry } from './supplies.js';
 
 const DATA_KEY = 'office-pantry-demo-v1';
 const SESSION_KEY = 'office-pantry-session-v1';
@@ -40,6 +41,10 @@ export class InventoryStore {
 
   get canEdit() { return this.isEditor && !this.preview; }
   get canManage() { return this.mode === 'demo' || this.canEdit; }
+  get supportsSupplies() { return this.mode === 'demo'; }
+  get supportsSupplyExpiry() { return this.supportsSupplies; }
+  get supplies() { return this.data.supplies || initialSupplies(); }
+  get supplyEvents() { return this.data.supplyEvents || []; }
 
   async init() {
     if (this.mode === 'demo') {
@@ -212,6 +217,43 @@ export class InventoryStore {
     next.drinks.push(drink);
     await this.save(next);
     return drink;
+  }
+
+  async saveSupplyEvents(entries, recorder) {
+    if (!this.supportsSupplies || !this.canEdit) throw new Error('請從支援此功能的管理入口登記庫存。');
+    if (typeof recorder !== 'string' || !recorder.trim() || recorder.trim().length>80) throw new Error('請填寫登記人，最多 80 字。');
+    if (!Array.isArray(entries) || !entries.length) throw new Error('請至少填寫一個品項。');
+    const next=structuredClone(this.data),seen=new Set(),stamp=new Date().toISOString();
+    next.supplies ||= initialSupplies(); next.supplyEvents ||= [];
+    for(const entry of entries){
+      const item=next.supplies.find(item=>item.id===entry.supplyId&&item.active!==false);
+      if(!item||seen.has(entry.supplyId)||!['count','restock','expiry-close'].includes(entry.type)||!Number.isSafeInteger(entry.quantity)||entry.quantity<0||entry.quantity>999999||(entry.type==='restock'&&entry.quantity===0)||(entry.type==='expiry-close'&&entry.quantity!==0))throw new Error('請填寫有效且不重複的品項與整數數量。');
+      seen.add(item.id);
+      if(entry.type==='restock'&&item.stock!==null&&item.stock+entry.quantity>999999)throw new Error('累計庫存不可超過 999999。');
+      if(typeof entry.note!=='string'||entry.note.length>500)throw new Error('入庫備註最多 500 字。');
+      if(entry.type==='restock'&&item.kind==='noodle'&&(!validSupplyExpiry(entry.expiresOn)||entry.expiresOn<supplyToday()))throw new Error('泡麵入庫請填寫有效的保存期限，不能早於今天。');
+      next.supplyEvents.push({id:uid(),supplyId:item.id,type:entry.type,quantity:entry.quantity,createdAt:stamp,recorder:recorder.trim(),note:entry.note,expiresOn:entry.type==='restock'&&item.kind==='noodle'?entry.expiresOn:null,batchId:entry.batchId||null});
+      if(entry.type==='count'){item.stock=entry.quantity;item.lastCountAt=stamp;}
+      else if(entry.type==='restock'&&item.stock!==null)item.stock+=entry.quantity;
+    }
+    await this.save(next);
+  }
+
+  async submitSupplyStocktake(entries, recorder) {
+    return this.saveSupplyEvents(entries.map(entry=>({...entry,type:'count',note:'網站實際盤點'})),recorder);
+  }
+
+  async submitSupplyArrival({supplyId,quantity,recorder,note='',expiresOn=null}) {
+    await this.saveSupplyEvents([{supplyId,quantity,type:'restock',note,expiresOn}],recorder);
+    return {quantity};
+  }
+
+  async closeSupplyBatch({batchId,recorder,note=''}) {
+    const batch=this.supplyEvents.find(event=>event.id===batchId&&event.type==='restock');
+    if(!batch||!this.supplies.some(item=>item.id===batch.supplyId&&item.kind==='noodle'))throw new Error('找不到可標記的泡麵入庫批次。');
+    if(!supplyBatches(batch.supplyId,this.supplyEvents).some(event=>event.id===batchId))return {alreadyClosed:true};
+    await this.saveSupplyEvents([{supplyId:batch.supplyId,type:'expiry-close',quantity:0,batchId,note:note||'此批已用完或移除；總庫存請另行盤點'}],recorder);
+    return {alreadyClosed:false};
   }
 
   async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {

@@ -141,6 +141,17 @@ test('symbolic links cannot smuggle arbitrary files into the production artifact
   assert.equal((await readdir(root)).some((name) => name.startsWith('.dist-build-')), false);
 });
 
+test('font changes invalidate matching preload and stylesheet URLs without duplicate old-font requests',async t=>{
+  const root=await fixture(t);
+  await writeFile(join(root,'index.html'),'<head><link rel="preload" as="font" href="./assets/pantry-hand.woff2"><link rel="stylesheet" href="./pantry.css"></head>');
+  await writeFile(join(root,'pantry.css'),"@font-face{src:url('./assets/pantry-hand.woff2') format('woff2')}");
+  const first=await buildSite({root,env:publicEnv});
+  for(const name of ['index.html','pantry.css'])assert.ok((await readFile(join(root,'dist',name),'utf8')).includes(`./assets/pantry-hand.woff2?v=${first.revision}`));
+  await writeFile(join(root,'assets/pantry-hand.woff2'),'new glyphs');
+  const second=await buildSite({root,env:publicEnv});assert.notEqual(first.revision,second.revision);
+  for(const name of ['index.html','pantry.css'])assert.ok((await readFile(join(root,'dist',name),'utf8')).includes(`./assets/pantry-hand.woff2?v=${second.revision}`));
+});
+
 
 test('Google production uses only a configured published script and never publishes private backend code', async (t) => {
   const root = await fixture(t);
