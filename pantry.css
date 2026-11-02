@@ -1,6 +1,8 @@
 /* Approved white, champagne and coffee palette. Illustration stays inside the
    public refrigerator stage; navigation and inventory remain real controls. */
 @font-face{font-family:"Pantry Hand";src:url('./assets/pantry-hand.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/pantry-hand-complete.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap}
+:root{--heading-font:"Pantry Hand","Pantry Hand Complete",serif}
 :root[data-theme=gold]{--bg:#fff;--paper:#fff;--ink:#4d3027;--muted:#897568;--green:#8e6841;--green-soft:#f6f0e7;--line:#e9dfd3;--orange:#aa713a;--orange-soft:#fbf1e6;--shadow:0 3px 18px #65452b06}
 body{background:#fff;color:var(--ink)}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline-color:#bd9567}
@@ -28,7 +30,7 @@ main{padding:32px 34px 18px}
 .page-footer{padding:18px 34px;color:#927c67}
 .mobile-menu-toggle{display:none}
 .form-save-status{font-size:12px;line-height:1.8;color:#8a6847;text-align:right;margin:14px 0 0}
-.page-heading h1,.sidebar-note{font-family:"Pantry Hand","DFKai-SB","BiauKai","STKaiti","KaiTi","Noto Serif TC","Noto Serif CJK TC",serif}
+:is(#main,#modal) :is(h1,h2,h3,h4),.sidebar-note,.fridge-door-invitation>strong,.fridge-door-copy>span{font-family:var(--heading-font);font-weight:700}
 .field,.subtle,.card-description,.stat-foot,.cell-note,.section-meta,.wish-date,.wish-peek small,.table-bottom{color:#8a7766}
 .category-label,.filter-tab,.stock-meter span,.pill-ok,.wish-supporter-list li{color:#8a6a48;background:#f5eee3}
 .info-box{color:#816346;background:#faf5ec;border-color:#e7d7bf}
@@ -99,6 +101,7 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
   nav#navigation a{display:flex;flex:1;flex-direction:row;justify-content:center;align-items:center;min-height:38px;padding:8px 7px;gap:6px;white-space:nowrap;font-size:12px;border:1px solid #efe2d1;border-radius:9px 8px 9px 8px;color:#5a382a}
   nav#navigation a.active{background:#fffdfa;color:#5a382a;border-color:#c49560}
   nav#navigation a>span{font-size:19px;width:20px;line-height:20px}body[data-area=front] #navigation{justify-content:space-between}body[data-area=front] #navigation a{max-width:none}
+  body[data-area=admin] nav#navigation a{min-height:44px}
   .sidebar-note,.sidebar-bottom{display:none}.main-shell{margin:0;width:100%;padding-bottom:0}.topbar{display:none;height:auto;min-height:52px;padding:10px 17px}.mobile-menu-open .topbar{display:flex}.topbar-actions{justify-content:space-between;flex-wrap:wrap;gap:7px}.breadcrumb{display:none}
   .mode-banner{padding:7px 17px;font-size:9px;line-height:1.6}
   main,body[data-view=overview] main{padding:20px 16px 12px}
@@ -117,5 +120,10 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
   .pantry-stage .fridge-crown{padding:8px 10px}.pantry-stage .fridge-maker{font-size:12px;gap:5px}.pantry-stage .fridge-maker-logo{width:23px;height:23px}.pantry-stage .fridge-close{font-size:10px;padding:6px 9px}
   .page-footer{padding:18px 16px;font-size:9px;letter-spacing:0}
   .sticky-actions{bottom:12px}#toast{left:50%;bottom:20px}
+}
+@media(max-width:640px){
+  body[data-area=admin] nav#navigation{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;overflow:visible}
+  body[data-area=admin] nav#navigation a{min-width:0;min-height:44px;max-width:none;padding:10px 6px;gap:5px;font-size:12px;line-height:1.5;white-space:normal;text-align:center}
+  body[data-area=admin] nav#navigation a>span{flex-shrink:0;width:18px;font-size:18px;line-height:20px}
 }
 @media(prefers-reduced-motion:reduce){.pantry-room,.pantry-painted-door,.pantry-stage .fridge-interior,.pantry-stage .fridge-crown{transition:none!important}.pantry-stage.is-open .pantry-room{transform:none}.pantry-stage .fridge-interior{transform:none!important}}
