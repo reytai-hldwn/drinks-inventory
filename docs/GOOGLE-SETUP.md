@@ -87,3 +87,6 @@
 歷史品項回購會在 `WishReview` 第八欄保留來源歷史品項 ID，首筆回購建立願望並記下一票，後續同事沿用同筆願望；不變更供應狀態與庫存。第八欄已有其他用途時拒絕寫入，保留原資料。
 
 效期補登登記人可透過精確事件 ID 的 `supply-recorder-correction` 更正；只接受既有 `expiry-set` 與相符原登記人。`HistoryRecorderCorrections` 追加保存更正 ID、時間、事件 ID、原／新登記人。讀取與匯出套用更正，`SupplyHistory` 原列、數量、盤點時間、效期與批次保持原值。
+
+
+零食由 `supplyEntry.snackVersion=1` 啟用，含分類、單位與保存期限。`SupplyCatalog` 第六欄為 `category`，只對零食使用。新品到貨的 `kind=snack` 必須附合法 `category`；零食不設定低庫存補貨提醒，只保留升冪排序與食品效期提醒。更新原部署一次即可涵蓋先前效能、歷史回購與登記人更正功能，無須重跑設定。

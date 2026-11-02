@@ -120,7 +120,7 @@ try{
     // Arrival subpages keep their own forms and histories while using the same
     // receipt-backed supply writer as the warehouse shortcut.
     await page.evaluate(()=>{location.hash='restock';});await page.waitForSelector('#restock-form');
-    assert.equal(await page.locator('.restock-kind-tabs a').count(),3);
+    assert.equal(await page.locator('.restock-kind-tabs a').count(),4);
     assert.deepEqual((await page.locator('#restock-drink option:not([value=__new__])').evaluateAll(options=>options.map(option=>option.value))).slice(0,3),[drinks[2].id,drinks[1].id,drinks[0].id]);
     assert.doesNotMatch(await page.locator('#restock-drink').innerText(),/需要補貨/);
     await page.locator('.restock-kind-tabs a[href="#restock-noodle"]').click();await page.waitForSelector('#restock-supply');
@@ -198,7 +198,7 @@ try{
     const old=await connect(true);await old.page.goto(`${base}/index.html#products`);await old.page.waitForSelector('[data-action=warehouse-kind]');await old.page.locator('[data-action=warehouse-kind][data-id=noodle]').click();await old.page.locator('[data-action=supply-stock-filter][data-id=all]').click();
     assert.match(await old.page.locator('.supply-upgrade').innerText(),/更新 Apps Script/);assert.equal(await old.page.locator('[data-action=supply-arrival]:enabled').count(),0);
     await old.page.evaluate(()=>{location.hash='restock-noodle';});await old.page.waitForSelector('#restock-supply');
-    assert.equal(await old.page.locator('.restock-kind-tabs a').count(),3);
+    assert.equal(await old.page.locator('.restock-kind-tabs a').count(),4);
     assert.equal(await old.page.locator('#supply-restock-form .arrival-fields[disabled]').count(),1);assert.match(await old.page.locator('.supply-upgrade').innerText(),/更新 Apps Script/);
     assert.equal(await old.page.locator('#restock-supply option[value=__new__]').isDisabled(),true);await old.context.close();
     const priorExpiry=await connect('expiry');await priorExpiry.page.goto(`${base}/index.html#products`);await priorExpiry.page.waitForSelector('[data-action=warehouse-kind]');await priorExpiry.page.locator('[data-action=warehouse-kind][data-id=noodle]').click();await priorExpiry.page.locator('[data-action=supply-stock-filter][data-id=all]').click();
