@@ -5,7 +5,7 @@ const id = randomUUID;
 const plain = value => JSON.parse(JSON.stringify(value));
 const backendCode=await readFile(new URL('../../google-apps-script/Code.gs',import.meta.url),'utf8');
 export function memorySheet(rows = []) {
-  return { rows, getLastRow: () => rows.length, getSheetId: () => 7, setFrozenRows() {},
+  return { rows, getLastRow: () => rows.length, getSheetId: () => 7, setFrozenRows() {}, clearContents(){rows.length=0;return this;},
     getRange(row, column, count = 1, columns = 1) {
       const range = new Proxy({
         getValues: () => Array.from({ length: count }, (_, offset) => Array.from({ length: columns }, (_, col) => rows[row - 1 + offset]?.[column - 1 + col] ?? '')),

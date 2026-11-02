@@ -52,6 +52,7 @@ export async function buildSite({ root = projectRoot, env = process.env } = {}) 
   const output = join(root, 'dist');
   const staging = join(root, `.dist-build-${randomUUID()}`);
   const runtimeFiles = [];
+  const fontFiles = [];
   let copied = 0;
 
   async function copyStatic(source, target) {
@@ -60,6 +61,7 @@ export async function buildSite({ root = projectRoot, env = process.env } = {}) 
     await mkdir(dirname(target), { recursive: true });
     await copyFile(source, target);
     if (['.html', '.css', '.js'].includes(extname(target))) runtimeFiles.push(relative(staging, target).split(sep).join('/'));
+    if (['.woff', '.woff2'].includes(extname(target))) fontFiles.push(relative(staging, target).split(sep).join('/'));
     copied += 1;
   }
 
@@ -95,13 +97,17 @@ export async function buildSite({ root = projectRoot, env = process.env } = {}) 
     const sourceFiles = await Promise.all(runtimeFiles.sort().map(async name => [name, await readFile(join(staging, name), 'utf8')]));
     const hash = createHash('sha256').update('pantry-runtime-v1\0');
     for (const [name, source] of sourceFiles) hash.update(name).update('\0').update(source).update('\0');
+    for (const [name, bytes] of await Promise.all(fontFiles.sort().map(async name=>[name,await readFile(join(staging,name))]))) hash.update(name).update('\0').update(bytes).update('\0');
     const revision = hash.digest('hex').slice(0, 16);
     for (const [name, source] of sourceFiles) {
       let versioned = source;
       if (extname(name) === '.html') {
-        versioned = source.replace(/\b(src|href)=(["'])(\.\/[^"'?#]+\.(?:css|js))\2/g,
+        versioned = source.replace(/\b(src|href)=(["'])(\.\/[^"'?#]+\.(?:css|js|woff2?))\2/g,
           (_, attribute, quote, url) => `${attribute}=${quote}${url}?v=${revision}${quote}`)
           .replace('</head>', `  <meta name="pantry-release" content="${revision}">\n</head>`);
+      } else if (extname(name) === '.css') {
+        versioned = source.replace(/(url\(\s*["']?)(\.\/[^"')?#]+\.woff2?)(["']?\s*\))/g,
+          (_,before,url,after)=>`${before}${url}?v=${revision}${after}`);
       } else if (extname(name) === '.js') {
         versioned = source.replace(/(\b(?:from\s+|import\s*(?:\(\s*)?)["'])(\.\.?\/[^"'\s?#]+\.js)(["'])/g,
           (_, before, url, quote) => `${before}${url}?v=${revision}${quote}`);

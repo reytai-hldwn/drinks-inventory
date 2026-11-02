@@ -295,7 +295,20 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
     "active": false
   }
 ] /* GENERATED_CATALOG_END */;
-var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup', website: 'WebsiteRequests' };
+var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup', website: 'WebsiteRequests', supplyCatalog: 'SupplyCatalog', supplyHistory: 'SupplyHistory', supplyWarehouse: 'SupplyWarehouse' };
+var INITIAL_SUPPLIES = [
+  { id: 'supply-noodle-01', name: '來一客海鮮', kind: 'noodle', unit: '杯', active: true },
+  { id: 'supply-noodle-02', name: '滿漢大餐牛肉麵', kind: 'noodle', unit: '碗', active: true },
+  { id: 'supply-noodle-03', name: '拉麵道味噌拉麵', kind: 'noodle', unit: '杯', active: true },
+  { id: 'supply-noodle-04', name: '拉麵道豚骨拉麵', kind: 'noodle', unit: '杯', active: true },
+  { id: 'supply-noodle-05', name: '奶油白醬辣火雞麵', kind: 'noodle', unit: '杯', active: true },
+  { id: 'supply-toner-black', name: '黑色碳粉', kind: 'toner', unit: '盒', active: true },
+  { id: 'supply-toner-yellow', name: '黃色碳粉', kind: 'toner', unit: '盒', active: true },
+  { id: 'supply-toner-red', name: '紅色碳粉', kind: 'toner', unit: '盒', active: true },
+  { id: 'supply-toner-blue', name: '藍色碳粉', kind: 'toner', unit: '盒', active: true }
+];
+var SUPPLY_CATALOG_HEADERS = ['id', 'name', 'kind', 'unit', 'active'];
+var SUPPLY_HISTORY_HEADERS = ['事件 ID', 'Google 收件時間', '類型', '品項 ID', '品項名稱', '數量', '備註', '登記人', '採計狀態', '保存期限', '原入庫事件 ID'];
 var WEBSITE_REQUEST_HEADERS = ['請求代號', '收件時間', '操作', '資料指紋', '處理狀態', '結果', '處理內容 1', '處理內容 2', '處理內容 3', '處理內容 4', '處理內容 5', '處理內容 6', '處理內容 7', '處理內容 8'];
 var PRODUCT_CATEGORIES = ['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料'];
 var PRODUCT_PACKAGING = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
@@ -534,10 +547,13 @@ function submitWebsiteRequest_(request) {
     }
     var effects = JSON.parse(record.row.slice(6).join(''));
     applyWebsiteRequest_(ss, effects);
-    var inventory = computeInventory_(catalog_(ss), historyEvents_(ss));
-    renderWarehouse_(ss, inventory);
-    renderArchive_(ss, inventory);
-    PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
+    if (effects.supplyHistory) renderSupplyWarehouse_(ss);
+    else {
+      var inventory = computeInventory_(catalog_(ss), historyEvents_(ss));
+      renderWarehouse_(ss, inventory);
+      renderArchive_(ss, inventory);
+      PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
+    }
     SpreadsheetApp.flush();
     // Commit state and result together, only after data and views are saved.
     sheet.getRange(record.index, 5, 1, 2).setValues([['accepted', JSON.stringify(effects.result)]]);
@@ -556,7 +572,52 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     if (!found) throw websiteInputError_('這個品項目前不在供應清單，請重新讀取品項。');
     return found;
   }
-  if (operation === 'wish') {
+  if (operation === 'supply-stocktake' || operation === 'supply-arrival' || operation === 'supply-expiry-close') {
+    var recorder = websiteText_(data.recorder, '登記人', 80, true);
+    var supplies = supplyCatalog_(ss);
+    effects.supplyHistory = [];
+    function activeSupply(id) {
+      var item = supplies.filter(function (entry) { return entry.id === id && entry.active; })[0];
+      if (!item) throw websiteInputError_('這個泡麵或碳粉品項目前不可登記，請重新整理。');
+      return item;
+    }
+    if (operation === 'supply-expiry-close') {
+      var events = supplyEvents_(ss);
+      var batch = events.filter(function (event) { return event.id === data.batchId && event.type === 'restock'; })[0];
+      if (!batch || activeSupply(batch.supplyId).kind !== 'noodle') throw websiteInputError_('找不到可標記的泡麵入庫批次。');
+      var open = openSupplyBatches_(batch.supplyId, events).some(function (event) { return event.id === batch.id; });
+      effects.result.alreadyClosed = !open;
+      if (open) {
+        var item = activeSupply(batch.supplyId);
+        var note = websiteText_(data.note || '', '批次備註', 500, false);
+        effects.supplyHistory.push(['website:' + request.requestId + ':' + item.id, stamp, 'expiry-close', item.id, sheetText_(item.name), 0, sheetText_(note || '此批已用完或移除；總庫存請另行盤點'), sheetText_(recorder), '採計', '', batch.id]);
+      }
+    } else if (operation === 'supply-stocktake') {
+      if (!Array.isArray(data.entries) || !data.entries.length || data.entries.length > 1000) throw websiteInputError_('請至少填寫一個品項的實際數量。');
+      var seen = Object.create(null);
+      data.entries.forEach(function (entry) {
+        if (!entry || typeof entry.supplyId !== 'string' || seen[entry.supplyId]) throw websiteInputError_('盤點品項無效或重複。');
+        seen[entry.supplyId] = true;
+        var item = activeSupply(entry.supplyId), quantity = quantity_(entry.quantity, true);
+        if (quantity === null) throw websiteInputError_('盤點數量請填 0 到 999999 的整數。');
+        effects.supplyHistory.push(['website:' + request.requestId + ':' + item.id, stamp, 'count', item.id, sheetText_(item.name), quantity, '網站實際盤點', sheetText_(recorder), '採計', '', '']);
+      });
+      effects.result.count = effects.supplyHistory.length;
+    } else {
+      var item = activeSupply(data.supplyId), quantity = quantity_(data.quantity, false);
+      if (quantity === null || (data.cases !== undefined && String(data.cases).trim() !== '' && Number(data.cases) !== 0)) throw websiteInputError_('請填寫大於 0 的整數數量；泡麵與碳粉不支援整箱換算。');
+      var current = supplyInventory_(supplies, supplyEvents_(ss)).filter(function (entry) { return entry.id === item.id; })[0];
+      if (current.stock !== null && current.stock + quantity > 999999) throw websiteInputError_('累計庫存不可超過 999999，請確認數量。');
+      var note = websiteText_(data.note || '', '入庫備註', 500, false);
+      var expiresOn = '';
+      if (item.kind === 'noodle') {
+        expiresOn = validSupplyExpiry_(data.expiresOn);
+        if (!expiresOn || expiresOn < supplyToday_(stamp)) throw websiteInputError_('泡麵入庫請填寫有效的保存期限，不能早於今天。');
+      }
+      effects.supplyHistory.push(['website:' + request.requestId + ':' + item.id, stamp, 'restock', item.id, sheetText_(item.name), quantity, sheetText_(note || '網站快速入庫'), sheetText_(recorder), '採計', expiresOn, '']);
+      effects.result.quantity = quantity;
+    }
+  } else if (operation === 'wish') {
     if (['drink', 'snack'].indexOf(data.kind) < 0) throw websiteInputError_('請選擇飲料許願或零食許願。');
     var name = websiteText_(data.name, '品項名稱', 80, true);
     var note = websiteText_(data.note || '', '許願備註', 500, false);
@@ -628,6 +689,12 @@ function websiteAppendMissing_(sheet, rows) {
 }
 
 function applyWebsiteRequest_(ss, effects) {
+  if (effects.supplyHistory) {
+    ensureSupplyStorage_(ss);
+    var history = ss.getSheetByName(SHEETS.supplyHistory);
+    history.getRange(1, 10, Math.max(1, history.getLastRow() + effects.supplyHistory.length), 2).setNumberFormat('@');
+    websiteAppendMissing_(history, effects.supplyHistory);
+  }
   if (effects.catalog) {
     var catalog = catalog_(ss);
     var duplicate = catalog.filter(function (drink) { return drink.id !== effects.catalog[0] && productNameKey_(drink.name) === (effects.productKey || productNameKey_(effects.catalog[1])); })[0];
@@ -703,7 +770,99 @@ function warehouseData_() {
   var active = result.drinks.filter(function (drink) { return drink.active; });
   result.lastInventoryAt = active.length && active.every(function (drink) { return drink.lastCountAt; })
     ? active.map(function (drink) { return drink.lastCountAt; }).sort()[0] : null;
+  result.supplyEntry = { version: 1, expiryVersion: 1 };
+  result.supplyEvents = supplyEvents_(ss);
+  result.supplies = supplyInventory_(supplyCatalog_(ss), result.supplyEvents);
   return result;
+}
+
+// Reading a newly upgraded deployment needs no setupOnce or sheet mutation.
+// The first explicit supply write creates the new tables inside the same lock.
+function supplyCatalog_(ss) {
+  var sheet = ss.getSheetByName(SHEETS.supplyCatalog), seen = Object.create(null);
+  var rows = sheet && sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues() : [];
+  var supplies = rows.filter(function (row) { return row[0] || row[1]; }).map(function (row) {
+    var id = String(row[0]), kind = String(row[2]), name = text_(row[1], 80), unit = String(row[3]);
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(id) || seen[id] || !name || ['noodle','toner'].indexOf(kind) < 0 || ['杯','碗','盒'].indexOf(unit) < 0) throw new Error('Invalid supply catalog');
+    var known = INITIAL_SUPPLIES.filter(function (item) { return item.id === id; })[0];
+    if (known && (known.kind !== kind || known.unit !== unit)) throw new Error('Invalid confirmed supply unit');
+    if (kind === 'toner' && !INITIAL_SUPPLIES.some(function (item) { return item.kind === 'toner' && item.id === id && item.unit === unit; })) throw new Error('Invalid toner color');
+    seen[id] = true;
+    return { id: id, name: name, kind: kind, unit: unit, active: row[4] !== false && String(row[4]).toLowerCase() !== 'false' };
+  });
+  INITIAL_SUPPLIES.forEach(function (item) { if (!seen[item.id]) supplies.push({ id: item.id, name: item.name, kind: item.kind, unit: item.unit, active: item.active }); });
+  return supplies;
+}
+
+function ensureSupplyStorage_(ss) {
+  var catalog = ensureSheet_(ss, SHEETS.supplyCatalog, SUPPLY_CATALOG_HEADERS);
+  websiteAppendMissing_(catalog, INITIAL_SUPPLIES.map(function (item) { return [item.id, item.name, item.kind, item.unit, true]; }));
+  var history = ss.getSheetByName(SHEETS.supplyHistory);
+  if (history && history.getLastRow() > 0) {
+    var first = history.getRange(1, 1, 1, 9).getValues()[0];
+    if (!SUPPLY_HISTORY_HEADERS.slice(0,9).every(function (label,index) { return first[index] === label; })) throw new Error('SupplyHistory schema conflict');
+  }
+  history = ensureSheet_(ss, SHEETS.supplyHistory, SUPPLY_HISTORY_HEADERS);
+  history.getRange(1, 10, 1, 2).setValues([['保存期限', '原入庫事件 ID']]);
+}
+
+function supplyToday_(stamp) { return new Date(Date.parse(stamp) + 8 * 3600000).toISOString().slice(0, 10); }
+function validSupplyExpiry_(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  var time = Date.parse(value + 'T00:00:00Z');
+  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value ? value : null;
+}
+
+function supplyEvents_(ss) {
+  var sheet = ss.getSheetByName(SHEETS.supplyHistory);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues().filter(function (row) { return row[8] === '採計'; }).map(function (row) {
+    var type = String(row[2]), quantity = quantity_(row[5], type !== 'restock'), stamp = iso_(row[1]);
+    var expiry = row[9] instanceof Date ? supplyToday_(row[9].toISOString()) : String(row[9] || '');
+    if (['count','restock','expiry-close'].indexOf(type) < 0 || quantity === null || !stamp || (expiry && !validSupplyExpiry_(expiry)) || (type === 'expiry-close' && (!row[10] || quantity !== 0))) throw new Error('Invalid supply history');
+    return { id: String(row[0]), supplyId: String(row[3]), type: type, quantity: quantity, createdAt: stamp, note: text_(row[6], 500), recorder: text_(row[7], 80), expiresOn: expiry || null, batchId: String(row[10] || '') || null };
+  });
+}
+
+function openSupplyBatches_(supplyId, events) {
+  var batches = [];
+  events.map(function (event,index) { return {event:event,index:index}; }).filter(function (entry) { return entry.event.supplyId === supplyId; })
+    .sort(function (a,b) { return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt) || a.index - b.index; }).forEach(function (entry) {
+      var event = entry.event;
+      if (event.type === 'count' && event.quantity === 0) batches = [];
+      else if (event.type === 'restock') batches.push(event);
+      else if (event.type === 'expiry-close') batches = batches.filter(function (batch) { return batch.id !== event.batchId; });
+    });
+  return batches;
+}
+
+function supplyInventory_(supplies, events) {
+  return supplies.map(function (item) {
+    var stock = null, lastCountAt = null;
+    events.map(function (event, index) { return { event: event, index: index }; }).filter(function (entry) { return entry.event.supplyId === item.id; })
+      .sort(function (a,b) { return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt) || a.index - b.index; })
+      .forEach(function (entry) { var event = entry.event; if (event.type === 'count') { stock = event.quantity; lastCountAt = event.createdAt; } else if (event.type === 'restock' && stock !== null) stock += event.quantity; });
+    if (stock !== null && (!Number.isSafeInteger(stock) || stock > 999999)) throw new Error('Invalid supply balance');
+    return { id: item.id, name: item.name, kind: item.kind, unit: item.unit, active: item.active, stock: stock, lastCountAt: lastCountAt };
+  });
+}
+
+function renderSupplyWarehouse_(ss) {
+  var sheet = ensureSheet_(ss, SHEETS.supplyWarehouse);
+  var events = supplyEvents_(ss), inventory = supplyInventory_(supplyCatalog_(ss), events);
+  var headers = ['品項 ID','品項名稱','分類','單位','目前庫存','最近實際盤點','入庫批次保存期限'];
+  // Do not replace an unrelated existing sheet with a coinciding name.
+  if (sheet.getLastRow() > 0) {
+    var first = sheet.getRange(1, 1, 1, 6).getValues()[0];
+    if (!headers.slice(0,6).every(function (label,index) { return first[index] === label; })) return;
+  }
+  // Generated view only; the source catalog and history are never cleared.
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (inventory.length) sheet.getRange(2, 1, inventory.length, headers.length).setValues(inventory.map(function (item) {
+    return [item.id, sheetText_(item.name), item.kind === 'noodle' ? '泡麵' : '碳粉', item.unit, item.stock === null ? '待盤點' : item.stock, item.lastCountAt || '', item.kind === 'noodle' ? openSupplyBatches_(item.id,events).map(function (event) { return (event.expiresOn || '效期待補') + '｜入庫 ' + event.quantity + ' ' + item.unit; }).join('\n') : ''];
+  }));
+  styleHeader_(sheet, 1, headers.length); sheet.setFrozenRows(1);
 }
 
 function publicRecorder_(value) {
