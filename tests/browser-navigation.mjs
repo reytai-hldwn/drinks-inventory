@@ -85,8 +85,9 @@ try{
     held.release();await finishPoll();assert.doesNotMatch(await page.locator('#connection-status').innerText(),/中斷/);
 
     await menu();await page.locator('#auth-button').click();await page.waitForSelector('.admin-grid');
-    const warehouseReads=reads.filter(action=>action==='warehouse').length;assert.equal(warehouseReads,1);
-    for(const view of ['count','restock','products','history'])await nav(view);
+    assert.equal(reads.filter(action=>action==='warehouse').length,0,'admin entry uses its lightweight summary');
+    await nav('count');const warehouseReads=reads.filter(action=>action==='warehouse').length;assert.equal(warehouseReads,1);
+    for(const view of ['restock','products','history'])await nav(view);
     assert.equal(reads.filter(action=>action==='warehouse').length,warehouseReads,'management tabs reuse the loaded warehouse');
 
     await nav('count');held=holdNext();await menu();await page.locator('#refresh-button').click();await held.started;

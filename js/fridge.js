@@ -9,7 +9,7 @@ const FRIDGE_OPEN_DURATION = 850;
 const OFFICE_OPEN_DURATION = 650;
 const OFFICE_SCENES = {
   wide: {
-    src: './assets/pantry-office-wide.png', width: 1672, height: 941,
+    src: './assets/pantry-office-wide.webp', width: 1672, height: 941,
     hit: [443, 188, 210, 506], guide: [225, 250, 330, 140], guideTip: [505, 335],
     recess: [[452, 199], [641, 210], [641, 663], [452, 687]],
     doors: [
@@ -20,7 +20,7 @@ const OFFICE_SCENES = {
     ],
   },
   portrait: {
-    src: './assets/pantry-office-portrait.png', width: 1122, height: 1402,
+    src: './assets/pantry-office-portrait.webp', width: 1122, height: 1402,
     hit: [286, 438, 177, 490], guide: [65, 495, 300, 140], guideTip: [340, 580],
     recess: [[298, 454], [449, 464], [449, 897], [298, 919]],
     doors: [

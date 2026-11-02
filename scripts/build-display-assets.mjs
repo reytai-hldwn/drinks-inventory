@@ -14,6 +14,7 @@ image('assets/holdwin-mark.png','-resize','160x160','-define','webp:lossless=tru
 image('assets/holdwin-mark.png','-resize','64x64','assets/holdwin-icon.png');
 image('assets/pantry-scene-approved.png','-crop','347x475+1388+388','+repage','-define','webp:lossless=true','assets/pantry-mobile.webp');
 image('assets/pantry-scene-approved.png','-crop','218x252+47+584','+repage','-define','webp:lossless=true','assets/pantry-coffee.webp');
+for(const variant of ['wide','portrait']) image(`assets/pantry-office-${variant}.png`,'-quality','90',`assets/pantry-office-${variant}.webp`);
 for(const photo of PRODUCT_PHOTOS.filter(photo=>photo.enabled!==false)){
   const height=photo.crop?.[3]||photo.height,scale=Math.min(1,396/height);
   image(photo.src,'-resize',`${(scale*100).toFixed(3)}%`,'-quality','91',resolve(root,photo.displaySrc));

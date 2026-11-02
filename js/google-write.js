@@ -5,7 +5,7 @@ export function submitGoogleWebsiteCommand(endpoint, command, options = {}) {
   if (url.protocol !== 'https:' || url.hostname !== 'script.google.com' || url.username || url.password || url.port || url.search || url.hash ||
       !/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url.pathname)) throw new Error('Google 儲存網址不正確。');
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(command?.requestId || '') ||
-      !['wish', 'vote', 'stocktake', 'arrival', 'new-arrival', 'product', 'supply-arrival', 'supply-stocktake', 'supply-expiry-close', 'supply-expiry-set', 'restock-preference'].includes(command?.operation)) throw new Error('送出資料格式不正確。');
+      !['wish', 'vote', 'stocktake', 'arrival', 'new-arrival', 'product', 'supply-arrival', 'supply-stocktake', 'supply-expiry-close', 'supply-expiry-set', 'restock-preference', 'archive-wish', 'supply-recorder-correction'].includes(command?.operation)) throw new Error('送出資料格式不正確。');
   const pageDocument = options.document || globalThis.document;
   const schedule = options.setTimeout || globalThis.setTimeout;
   const cancel = options.clearTimeout || globalThis.clearTimeout;
@@ -16,7 +16,7 @@ export function submitGoogleWebsiteCommand(endpoint, command, options = {}) {
     const frame = pageDocument.createElement('iframe');
     const form = pageDocument.createElement('form');
     const field = pageDocument.createElement('input');
-    let settled = false, timeoutTimer, pollTimer;
+    let settled = false, timeoutTimer, pollTimer, polling = false, checkAfterPoll = false;
     frame.name = `holdwin_write_${command.requestId}`;
     frame.hidden = true;
     frame.title = '儲存共用資料';
@@ -37,12 +37,16 @@ export function submitGoogleWebsiteCommand(endpoint, command, options = {}) {
       settled = true;
       cancel(timeoutTimer);
       cancel(pollTimer);
+      frame.removeEventListener?.('load', onFrameLoad);
       form.remove();
       frame.remove();
       if (error) reject(error); else resolve(receipt.result || {});
     };
     const poll = async () => {
       if (settled) return;
+      if (polling) { checkAfterPoll = true; return; }
+      polling = true;
+      cancel(pollTimer);
       try {
         const receipt = await readReceipt(command.requestId);
         if (settled) return;
@@ -57,8 +61,21 @@ export function submitGoogleWebsiteCommand(endpoint, command, options = {}) {
           return;
         }
       } catch { /* A delayed or lost read is not evidence that a POST failed. */ }
-      if (!settled) pollTimer = schedule(poll, options.pollInterval ?? 2500);
+      polling = false;
+      if (!settled) {
+        const delay = checkAfterPoll ? 0 : (options.pollInterval ?? 2500);
+        checkAfterPoll = false;
+        pollTimer = schedule(poll, delay);
+      }
     };
+    const onFrameLoad = () => {
+      // about:blank is not a POST response. Cross-origin load is only a hint:
+      // success still requires an accepted receipt with the exact request ID.
+      try { if (frame.contentWindow?.location?.href === 'about:blank') return; }
+      catch { /* The submitted Google page is normally cross-origin. */ }
+      if (!settled) { cancel(pollTimer); poll(); }
+    };
+    frame.addEventListener?.('load', onFrameLoad);
     timeoutTimer = schedule(() => {
       const error = new Error('尚未確認儲存結果。請保留原內容重試，系統會沿用同一筆送出，避免重複入庫。');
       error.code = 'pending';
