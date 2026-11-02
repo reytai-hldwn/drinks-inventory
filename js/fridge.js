@@ -6,6 +6,30 @@ const FRIDGE_DOOR_TIMERS = new WeakMap();
 const FRIDGE_CONTENT_ID = 'pantry-fridge-content';
 const PANTRY_SCENE_ASSET = './assets/pantry-scene-approved.png';
 const FRIDGE_OPEN_DURATION = 850;
+let fridgeSceneObserver;
+
+/** Keep the illustration and its door hit area in the same coordinate system
+ *  when the available height changes, including after fonts load or a resize. */
+export function syncFridgeScene(stage) {
+  fridgeSceneObserver?.disconnect();
+  fridgeSceneObserver = null;
+  if (!stage) return;
+  const fit = () => {
+    const width = stage.clientWidth, height = stage.clientHeight;
+    if (!stage.isConnected || !width || !height) return;
+    const scale = Math.max(width / 1074, height / 560);
+    const sceneWidth = 1074 * scale, sceneHeight = 560 * scale;
+    const left = Math.min(0, Math.max(width - sceneWidth, width / 2 - sceneWidth * .342));
+    for (const [name, value] of Object.entries({ width: sceneWidth, height: sceneHeight, left, top: (height - sceneHeight) / 2 })) {
+      stage.style.setProperty(`--scene-${name}`, `${value}px`);
+    }
+  };
+  fit();
+  if (typeof ResizeObserver === 'function') {
+    fridgeSceneObserver = new ResizeObserver(fit);
+    fridgeSceneObserver.observe(stage);
+  }
+}
 
 // Browser viewBoxes crop the approved illustration without regenerating its
 // furniture, lettering or logos. The controls and product photos remain HTML.

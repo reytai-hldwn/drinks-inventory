@@ -1,7 +1,7 @@
 import { escapeHtml as h, safeUrl, uid, number, restockQuantity, stocktakeQuantities, getConsumption, stockStatus } from './domain.js';
 import { InventoryStore } from './store.js';
 import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE } from './catalog.js';
-import { drinkPack, renderFridge, syncFridgeDoor } from './fridge.js';
+import { drinkPack, renderFridge, syncFridgeDoor, syncFridgeScene } from './fridge.js';
 import { GoogleInventoryStore } from './google-store.js';
 import { wishSupportDetails, wishSupportPreview } from './wish-support.js';
 import { renderDrinkInformation } from './drink-information.js';
@@ -104,7 +104,7 @@ function inventoryToolbar(warehouse = false) {
 
 function renderOverview() {
   main.innerHTML = `<div class="pantry-heading">${heading('OPEN A LITTLE HAPPINESS', '今天，喝點什麼？', '果汁、茶品與各項飲料，為你補充工作所需的燃料')}</div>` +
-    `<section aria-label="飲料冰箱"><div class="inventory-panel fridge-panel${fridgeOpen ? ' is-browsing' : ''}">${inventoryToolbar()}<div id="inventory-table"></div></div></section>`;
+    `<section class="pantry-overview" aria-label="飲料冰箱"><div class="inventory-panel fridge-panel${fridgeOpen ? ' is-browsing' : ''}">${inventoryToolbar()}<div id="inventory-table"></div></div></section>`;
   $('.fridge-panel > .toolbar').hidden = !fridgeOpen;
   renderInventoryTable();
 }
@@ -126,6 +126,7 @@ function renderInventoryTable() {
   if (!drinks.length && warehouse) { target.innerHTML = empty('這一格還沒有飲料', '換個分類或關鍵字看看。'); return; }
   if (!warehouse) {
     target.innerHTML = renderFridge(drinks, { isOpen: fridgeOpen, lastInventoryAt: store.data.lastInventoryAt, formatDate, showQuantities: false });
+    syncFridgeScene(target.querySelector('.pantry-stage'));
     return;
   }
   const copyBar = filter === 'low' ? `<div class="refill-copy-bar"><span>把需要補給的品項，整理給老闆娘。</span>${button('⧉ 複製補貨清單', 'copy-low', '', 'button-small button-outline')}</div>` : '';
@@ -260,6 +261,7 @@ function renderAdmin() {
 }
 
 function render() {
+  syncFridgeScene(null);
   store.preview = !adminViews.has(view);
   dirty = false;
   updateChrome();
