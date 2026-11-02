@@ -50,7 +50,7 @@ const formatDate = (value, time = false) => value ? new Intl.DateTimeFormat('zh-
 }).format(new Date(value)) : '尚未盤點';
 const daysAgo = (date) => date ? Math.max(0, Math.floor((Date.now() - Date.parse(date)) / 86400000)) : null;
 const total = (items, field) => items.reduce((sum, item) => sum + item[field], 0);
-const stockEvents = () => [...store.data.events,...(store.supplyEvents || [])].filter((event) => ['count', 'restock','expiry-close'].includes(event.type));
+const stockEvents = () => [...store.data.events,...(store.supplyEvents || [])].filter((event) => ['count', 'restock','expiry-close','expiry-set'].includes(event.type));
 const supplyItems = () => store.supportsSupplies ? store.supplies : initialSupplies();
 const supplyById = id => supplyItems().find(item=>item.id===id);
 const eventItem = event => event.supplyId ? supplyById(event.supplyId) : drinkById(event.drinkId);
@@ -133,7 +133,7 @@ function renderWarehouse() {
     main.innerHTML+=`<div class="admin-summary"><span>${activeDrinks().length} 種供應中</span><span class="warehouse-alert">${low} 種需要確認補貨</span><span>最近完整盤點 ${formatDate(store.data.lastInventoryAt)}</span></div><div class="inventory-panel">${inventoryToolbar(true)}<div id="inventory-table"></div></div>`;
     renderInventoryTable();
   }else{
-    main.innerHTML+=supplyUpgradeNotice(warehouseKind)+`<div class="supply-intro"><p>${warehouseKind==='toner'?'固定黑、黃、紅、藍四色，單位為盒。':'依品項使用杯或碗。入庫必填保存期限，分批保留；30 天內到期會提醒。'}直接填寫數量，不做整箱換算；未盤點不當作 0。</p><label class="search-field">搜尋品項<input id="supply-search" type="search" maxlength="80" value="${h(supplyQuery)}" placeholder="搜尋${SUPPLY_KINDS[warehouseKind]}…"></label></div><div class="inventory-panel" id="supply-inventory"></div>`;
+    main.innerHTML+=supplyUpgradeNotice(warehouseKind)+(warehouseKind==='noodle'?supplyExpirySetNotice():'')+`<div class="supply-intro"><p>${warehouseKind==='toner'?'固定黑、黃、紅、藍四色，單位為盒。':'依品項使用杯或碗。入庫必填保存期限，分批保留；30 天內到期會提醒。'}直接填寫數量，不做整箱換算；未盤點不當作 0。</p><label class="search-field">搜尋品項<input id="supply-search" type="search" maxlength="80" value="${h(supplyQuery)}" placeholder="搜尋${SUPPLY_KINDS[warehouseKind]}…"></label></div><div class="inventory-panel" id="supply-inventory"></div>`;
     renderSupplyInventory();
   }
 }
@@ -145,7 +145,7 @@ function renderSupplyInventory(){
     const arrival=(store.supplyEvents||[]).filter(event=>event.supplyId===item.id&&event.type==='restock').sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt))[0];
     const color=item.kind==='toner'?item.id.split('-').pop():'';
     const canArrive=store.supportsSupplies&&(item.kind!=='noodle'||store.supportsSupplyExpiry);
-    return `<tr data-supply-id="${h(item.id)}"><td class="supply-col-name"><div class="supply-name">${color?`<span class="toner-swatch toner-${h(color)}" aria-hidden="true"></span>`:'<span class="noodle-mark" aria-hidden="true">♨</span>'}<strong>${h(item.name)}</strong></div><span class="cell-note">單位：${h(item.unit)}</span></td><td class="supply-col-stock" data-label="庫存數量"><div class="stock-value">${item.stock===null?'待盤點':item.stock}<small>${item.stock===null?'':h(item.unit)}</small></div></td>${item.kind==='noodle'?`<td class="supply-col-expiry" data-label="保存期限／入庫批次">${renderSupplyBatches(item)}</td>`:''}<td class="cell-note supply-col-count" data-label="最近盤點">${formatDate(item.lastCountAt,true)}</td><td class="cell-note supply-col-arrival" data-label="最近入庫">${arrival?`${formatDate(arrival.createdAt,true)} · ＋${arrival.quantity} ${h(item.unit)}`:'尚無紀錄'}</td><td class="supply-col-actions"><div class="inline-actions">${button('＋ 快速入庫','supply-arrival',`data-id="${h(item.id)}"${canArrive?'':' disabled'}`,'button-small button-outline')}${button('盤點','supply-count',`data-id="${h(item.id)}"${store.supportsSupplies?'':' disabled'}`,'button-small button-plain')}</div></td></tr>`;
+    return `<tr data-supply-id="${h(item.id)}"><td class="supply-col-name"><div class="supply-name">${color?`<span class="toner-swatch toner-${h(color)}" aria-hidden="true"></span>`:'<span class="noodle-mark" aria-hidden="true">♨</span>'}<strong>${h(item.name)}</strong></div><span class="cell-note">單位：${h(item.unit)}</span></td><td class="supply-col-stock" data-label="庫存數量"><div class="stock-value">${item.stock===null?'待盤點':item.stock}<small>${item.stock===null?'':h(item.unit)}</small></div></td>${item.kind==='noodle'?`<td class="supply-col-expiry" data-label="保存期限／入庫批次">${renderSupplyBatches(item)}</td>`:''}<td class="cell-note supply-col-count" data-label="最近盤點">${formatDate(item.lastCountAt,true)}</td><td class="cell-note supply-col-arrival" data-label="最近入庫">${arrival?`${formatDate(arrival.createdAt,true)} · ＋${arrival.quantity} ${h(item.unit)}`:'尚無紀錄'}</td><td class="supply-col-actions"><div class="inline-actions">${button('＋ 快速入庫','supply-arrival',`data-id="${h(item.id)}"${canArrive?'':' disabled'}`,'button-small button-outline')}${item.kind==='noodle'?button('補登效期','supply-expiry-set',`data-id="${h(item.id)}"${store.supportsSupplyExpirySet&&item.lastCountAt&&item.stock>0?'':' disabled'}`,'button-small button-outline'):''}${button('盤點','supply-count',`data-id="${h(item.id)}"${store.supportsSupplies?'':' disabled'}`,'button-small button-plain')}</div></td></tr>`;
   }).join('')}</tbody></table></div><div class="table-bottom">顯示 ${items.length} 種${SUPPLY_KINDS[warehouseKind]} · 每次登記保留時間與登記人</div>`:empty('找不到這個品項','換個關鍵字看看。');
 }
 
@@ -155,8 +155,32 @@ function renderSupplyBatches(item){
   const first=batches[0],status=supplyExpiryStatus(first.expiresOn);
   return `<details class="supply-batches"><summary><span class="expiry-badge expiry-${status.kind}">${h(first.expiresOn||'未登記日期')} · ${status.label}</span><small>${batches.length} 個批次</small></summary><ul>${batches.map(batch=>{
     const state=supplyExpiryStatus(batch.expiresOn);
-    return `<li data-batch-id="${h(batch.id)}"><span class="expiry-badge expiry-${state.kind}">${h(batch.expiresOn||'未登記日期')} · ${state.label}</span><span>入庫 ${batch.quantity} ${h(item.unit)} · ${formatDate(batch.createdAt,true)}</span>${button('此批已用完','supply-expiry-close',`data-id="${h(batch.id)}"${store.supportsSupplyExpiry?'':' disabled'}`,'button-small button-plain')}</li>`;
-  }).join('')}</ul><p>數量為原入庫量，剩餘請實際核對。標記用完可解除提醒；盤點為 0 會結束之前批次。</p></details>${supplyHasUntrackedExpiry(item.id,store.supplyEvents||[])?'<p class="cell-note">既有或調整的庫存尚未附效期，請核對現場。</p>':''}`;
+    return `<li data-batch-id="${h(batch.id)}"><span class="expiry-badge expiry-${state.kind}">${h(batch.expiresOn||'未登記日期')} · ${state.label}</span><span>${batch.type==='expiry-set'?'效期核對':'入庫'} ${batch.quantity} ${h(item.unit)} · ${formatDate(batch.createdAt,true)}</span>${button('此批已用完','supply-expiry-close',`data-id="${h(batch.id)}"${store.supportsSupplyExpiry?'':' disabled'}`,'button-small button-plain')}</li>`;
+  }).join('')}</ul><p>數量為入庫或效期核對時的記錄，剩餘請實際確認。標記用完可解除提醒；盤點為 0 會結束之前批次。</p></details>${supplyHasUntrackedExpiry(item.id,store.supplyEvents||[])?'<p class="cell-note">既有或調整的庫存尚未附效期，請核對現場。</p>':''}`;
+}
+
+function supplyExpirySetNotice() {
+  return store.supportsSupplyExpiry&&!store.supportsSupplyExpirySet?'<div class="info-box">補登既有庫存保存期限需先更新 Apps Script 部署；原盤點與入庫可繼續使用。<a href="https://github.com/reytai-hldwn/pantry/blob/main/docs/SUPPLIES-SETUP.md" target="_blank" rel="noopener noreferrer">查看更新步驟 ↗</a></div>':'';
+}
+
+function expiryEditorRow(unit, quantity='') {
+  const id=uid();
+  return `<div class="expiry-edit-row" data-expiry-row="${id}"><label class="field">這批數量（${h(unit)}）<input name="batchQuantity" data-expiry-quantity type="number" min="1" max="999999" step="1" inputmode="numeric" required value="${quantity}"></label><label class="field">保存期限<input name="batchExpiresOn" data-expiry-date type="date" required></label>${button('移除','supply-expiry-remove',`type="button" data-id="${id}"`,'button-small button-plain')}</div>`;
+}
+
+function updateExpiryEditorSummary() {
+  const form=$('#supply-expiry-set-form');if(!form||!modal.open)return;
+  const inputs=[...form.querySelectorAll('[data-expiry-quantity]')],total=inputs.reduce((sum,input)=>sum+(Number(input.value)||0),0),expected=Number(form.dataset.expectedStock);
+  inputs[0]?.setCustomValidity(total===expected?'':'各批數量合計須等於目前庫存；數量不同請先重新盤點。');
+  form.querySelector('[data-expiry-total]').textContent=`各批合計 ${total} ${form.dataset.unit} ／ 目前庫存 ${expected} ${form.dataset.unit}${total===expected?'':'，請調整至一致'}`;
+}
+
+function openSupplyExpiryEditor(id) {
+  const item=supplyById(id);
+  if(!store.supportsSupplyExpirySet||!item||item.kind!=='noodle'||item.active===false||!item.lastCountAt||!(item.stock>0))throw new Error('請先更新 Google 部署並完成實際盤點，再補登保存期限。');
+  const last=(store.supplyEvents||[]).filter(event=>event.supplyId===id).at(-1);
+  showModal('補登保存期限',`${h(item.name)} · 目前庫存 ${item.stock} ${h(item.unit)}`,`<form id="supply-expiry-set-form" data-id="${h(id)}" data-unit="${h(item.unit)}" data-expected-stock="${item.stock}" data-expected-event-id="${h(last?.id||'')}"><p class="subtle">依現場各批次填寫，合計須等於目前庫存。這次只補登效期，不增減數量；會依本次核對結果更新全部效期提醒，原紀錄仍保留。若現場數量不同，請先重新盤點。</p>${recorderField()}<div class="expiry-edit-rows">${expiryEditorRow(item.unit,item.stock)}</div>${button('＋ 新增一批','supply-expiry-add','type="button"','button-small button-outline')}<p class="subtle">不同期限請分批填寫。既有庫存可如實填入已過期日期，系統會顯示到期狀態。</p><div class="order-summary" data-expiry-total aria-live="polite"></div><label class="field">備註<input name="note" maxlength="500" placeholder="選填，例如初次盤點補登"></label><div class="form-actions"><button type="submit" class="button">儲存保存期限</button>${button('取消','close-modal','type="button"','button-outline')}</div></form>`);
+  updateExpiryEditorSummary();
 }
 
 function supplyUpgradeNotice(kind) {
@@ -214,7 +238,7 @@ function openSupplyForm(action,id){
     showModal(`${h(item.name)}｜快速入庫`,`單位為${item.unit}，請填寫本次實際到貨數量。`,`<form id="supply-arrival-form" data-id="${h(item.id)}">${supplyArrivalFields(item)}<div class="form-actions"><button class="button" type="submit">確認入庫</button>${button('取消','close-modal','type="button"','button-outline')}</div></form>`);
     updateSupplyArrivalSummary();
   }else if(action==='supply-expiry-close'){
-    const batch=(store.supplyEvents||[]).find(event=>event.id===id&&event.type==='restock'),item=batch&&supplyById(batch.supplyId);
+    const batch=(store.supplyEvents||[]).find(event=>event.id===id&&['restock','expiry-set'].includes(event.type)),item=batch&&supplyById(batch.supplyId);
     if(!store.supportsSupplyExpiry||!item||item.kind!=='noodle')throw new Error('找不到可標記的泡麵批次。');
     showModal('確認此批已用完',`${h(item.name)} · 保存期限 ${h(batch.expiresOn||'未登記')}`,`<form id="supply-expiry-close-form" data-batch-id="${h(batch.id)}"><p class="subtle">確認這一批已全部用完或移除後，可解除該批效期提醒。總庫存仍需以實際盤點校正。</p>${recorderField()}<label class="field">備註<input name="note" maxlength="500" placeholder="選填，例如已用完或過期移除"></label><div class="form-actions"><button class="button" type="submit">確認此批已用完</button>${button('取消','close-modal','type="button"','button-outline')}</div></form>`);
   }else{
@@ -397,8 +421,8 @@ function renderHistory() {
   const events = stockEvents().sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   main.innerHTML = heading('EVERY LITTLE CHANGE', '每一次補給，都有跡可循', '保留飲料、泡麵與碳粉的實際盤點及入庫紀錄。', button('↓ 匯出紀錄', 'export-history', '', 'button-outline')) +
     `<div class="panel">${events.length ? `<div class="table-scroll"><table><thead><tr><th>時間</th><th>品項</th><th>異動</th><th>數量</th><th>登記人</th><th>備註</th></tr></thead><tbody>${events.slice(0, 200).map((event) => {
-      const drink = drinkById(event.drinkId);
-      const type = event.type === 'count' ? '盤點' : event.type==='expiry-close'?'批次用完':'入庫';
+      const drink = eventItem(event);
+      const type = event.type === 'count' ? '盤點' : event.type==='expiry-close'?'批次用完':event.type==='expiry-set'?'效期補登':'入庫';
       return `<tr><td class="cell-note">${formatDate(event.createdAt, true)}</td><td>${h(drink?.name || '已封存品項')}</td><td><span class="history-type history-${h(event.type)}">${type}</span></td><td class="history-number">${event.type==='expiry-close'?'—':`${event.type === 'restock' ? '＋' : ''}${event.quantity} ${h(drink?.unit || '個')}`}</td><td class="subtle">${h(event.recorder || '未記錄')}</td><td class="subtle">${h(event.note || '—')}${eventExpiry(event)?`<br>保存期限 ${h(eventExpiry(event))}`:''}</td></tr>`;
     }).join('')}</tbody></table></div><div class="table-bottom"><span>顯示最近 ${Math.min(events.length, 200)} 筆，共 ${events.length} 筆</span><span>匯出可取得完整紀錄</span></div>` : empty('還沒有異動紀錄', '第一次盤點或補貨之後，紀錄會自動留在這裡。')}</div>`;
 }
@@ -541,6 +565,15 @@ function addEvent(next, type, drink, quantity, createdAt, note, recorder) {
 
 async function submitForm(form) {
   const values = new FormData(form);
+  if(form.id==='supply-expiry-set-form'){
+    const recorder=String(values.get('recorder')||'').trim();
+    if(!store.canManage||!recorder||recorder.length>80)throw new Error('請從管理入口填寫登記人，最多 80 字。');
+    const batches=[...form.querySelectorAll('[data-expiry-row]')].map(row=>({quantity:number(row.querySelector('[data-expiry-quantity]').value),expiresOn:row.querySelector('[data-expiry-date]').value}));
+    const expectedStock=Number(form.dataset.expectedStock);
+    if(!batches.length||batches.length>20||batches.some(batch=>batch.quantity<1||batch.quantity>999999||!validSupplyExpiry(batch.expiresOn))||batches.reduce((sum,batch)=>sum+batch.quantity,0)!==expectedStock)throw new Error('請填寫有效日期與正整數數量；各批合計須等於目前庫存。');
+    await store.setSupplyExpiry({supplyId:form.dataset.id,batches,expectedStock,expectedEventId:form.dataset.expectedEventId,recorder,note:String(values.get('note')||'').trim()});
+    modalDirty=false;modal.close();render();googleWriteToast('已補登保存期限，庫存數量未變。');return;
+  }
   const newKind=form.id==='restock-form'&&values.get('drinkId')===NEW_ARRIVAL_VALUE?'drink':form.id==='supply-restock-form'&&values.get('supplyId')===NEW_ARRIVAL_VALUE?'noodle':null;
   if(newKind){
     if(!store.canManage||!store.supportsNewArrivals)throw new Error('請先更新 Apps Script 部署，才能登記新品到貨。');
@@ -700,6 +733,19 @@ async function submitForm(form) {
 }
 
 async function runAction(action, id) {
+  if(action==='supply-expiry-set'){if(view==='products'&&store.canManage)openSupplyExpiryEditor(id);return;}
+  if(['supply-expiry-add','supply-expiry-remove'].includes(action)){
+    const form=$('#supply-expiry-set-form');if(!modal.open||!form)return;
+    const rows=form.querySelectorAll('[data-expiry-row]');
+    if(action==='supply-expiry-add'){
+      if(rows.length>=20)throw new Error('一次最多填寫 20 個效期批次。');
+      form.querySelector('.expiry-edit-rows').insertAdjacentHTML('beforeend',expiryEditorRow(form.dataset.unit));
+    }else{
+      if(rows.length<=1)throw new Error('請保留至少一個效期批次。');
+      [...rows].find(row=>row.dataset.expiryRow===id)?.remove();
+    }
+    modalDirty=true;inputSequence++;updateExpiryEditorSummary();return;
+  }
   if(action==='warehouse-kind'){
     if(view!=='products'||!['drink','noodle','toner'].includes(id))return;
     warehouseKind=id;supplyQuery='';renderWarehouse();return;
@@ -763,7 +809,7 @@ function exportCSV(historyExport = false) {
   const rows = historyExport ? [
     ['時間（台北）', '品項', '類型', '數量', '原帳面庫存', '單位', '登記人', '備註', '保存期限'],
     ...stockEvents().map((event) => [formatDate(event.createdAt, true), eventItem(event)?.name || event.supplyId || event.drinkId,
-      event.type === 'count' ? '盤點' : event.type === 'expiry-close' ? '批次用完' : '入庫',
+      event.type === 'count' ? '盤點' : event.type === 'expiry-close' ? '批次用完' : event.type === 'expiry-set' ? '效期補登' : '入庫',
       event.type === 'expiry-close' ? '' : event.quantity, event.previousStock, eventItem(event)?.unit || '', event.recorder || '未記錄', event.note, eventExpiry(event) || '']),
   ] : view==='products'&&warehouseKind!=='drink' ? [
     ['品項','分類','庫存數量','單位','最近盤點（台北）'],
@@ -818,7 +864,7 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   if (action) {
     event.preventDefault();
-    if (['warehouse-kind','supply-arrival','supply-count','supply-count-kind','supply-expiry-close','close-modal', 'quick-add-drink', 'new-drink', 'new-wish', 'edit-drink', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-popularity', 'retry-route'].includes(action.dataset.action)) {
+    if (['supply-expiry-set','supply-expiry-add','supply-expiry-remove','warehouse-kind','supply-arrival','supply-count','supply-count-kind','supply-expiry-close','close-modal', 'quick-add-drink', 'new-drink', 'new-wish', 'edit-drink', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-popularity', 'retry-route'].includes(action.dataset.action)) {
       if (!busy) runAction(action.dataset.action, action.dataset.id).catch((error) => toast(error.message, true));
     } else withBusy(() => runAction(action.dataset.action, action.dataset.id), action);
   }
@@ -846,6 +892,7 @@ document.addEventListener('click', (event) => {
 document.addEventListener('input', (event) => {
   inputSequence += 1;
   if (event.target.closest('dialog form')) modalDirty = true;
+  if (event.target.closest('#supply-expiry-set-form')) updateExpiryEditorSummary();
   if(event.target.id==='supply-search'){supplyQuery=event.target.value.trim();renderSupplyInventory();}
   else if (event.target.id === 'search') { query = event.target.value.trim(); renderInventoryTable(); }
   else if (event.target.closest('main form')) { dirty = true; }

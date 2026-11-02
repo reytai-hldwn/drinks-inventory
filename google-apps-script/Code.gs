@@ -309,7 +309,7 @@ var INITIAL_SUPPLIES = [
   { id: 'supply-toner-blue', name: '藍色碳粉', kind: 'toner', unit: '盒', active: true }
 ];
 var SUPPLY_CATALOG_HEADERS = ['id', 'name', 'kind', 'unit', 'active'];
-var SUPPLY_HISTORY_HEADERS = ['事件 ID', 'Google 收件時間', '類型', '品項 ID', '品項名稱', '數量', '備註', '登記人', '採計狀態', '保存期限', '原入庫事件 ID'];
+var SUPPLY_HISTORY_HEADERS = ['事件 ID', 'Google 收件時間', '類型', '品項 ID', '品項名稱', '數量', '備註', '登記人', '採計狀態', '保存期限', '批次／效期核對 ID'];
 var WEBSITE_REQUEST_HEADERS = ['請求代號', '收件時間', '操作', '資料指紋', '處理狀態', '結果', '處理內容 1', '處理內容 2', '處理內容 3', '處理內容 4', '處理內容 5', '處理內容 6', '處理內容 7', '處理內容 8'];
 var PRODUCT_CATEGORIES = ['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料'];
 var PRODUCT_PACKAGING = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
@@ -611,7 +611,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     }
     effects.result.id = id;
     effects.result.quantity = quantity;
-  } else if (operation === 'supply-stocktake' || operation === 'supply-arrival' || operation === 'supply-expiry-close') {
+  } else if (operation === 'supply-stocktake' || operation === 'supply-arrival' || operation === 'supply-expiry-close' || operation === 'supply-expiry-set') {
     var recorder = websiteText_(data.recorder, '登記人', 80, true);
     var supplies = supplyCatalog_(ss);
     effects.supplyHistory = [];
@@ -620,9 +620,27 @@ function prepareWebsiteRequest_(ss, request, stamp) {
       if (!item) throw websiteInputError_('這個泡麵或碳粉品項目前不可登記，請重新整理。');
       return item;
     }
-    if (operation === 'supply-expiry-close') {
+    if (operation === 'supply-expiry-set') {
+      var item = activeSupply(data.supplyId), events = supplyEvents_(ss);
+      var current = supplyInventory_(supplies, events).filter(function (entry) { return entry.id === item.id; })[0];
+      if (item.kind !== 'noodle' || !current.lastCountAt || !(current.stock > 0)) throw websiteInputError_('請先完成實際盤點，再補登現有泡麵的保存期限。');
+      var ownEvents = events.filter(function (event) { return event.supplyId === item.id; });
+      if (data.expectedStock !== current.stock || data.expectedEventId !== ownEvents[ownEvents.length - 1].id) throw websiteInputError_('這個品項已有新紀錄，請重新整理後核對數量與效期。');
+      if (!Array.isArray(data.batches) || !data.batches.length || data.batches.length > 20) throw websiteInputError_('請填寫 1 到 20 批現有庫存的保存期限。');
+      var note = websiteText_(data.note || '', '效期備註', 500, false), total = 0;
+      data.batches.forEach(function (batch,index) {
+        if (!batch || typeof batch !== 'object') throw websiteInputError_('效期批次資料格式不正確。');
+        var quantity = quantity_(batch.quantity, false), expiresOn = validSupplyExpiry_(batch.expiresOn);
+        if (quantity === null || !expiresOn) throw websiteInputError_('請填寫有效日期與正整數數量。');
+        total += quantity;
+        effects.supplyHistory.push(['website:' + request.requestId + ':' + item.id + ':' + index, stamp, 'expiry-set', item.id, sheetText_(item.name), quantity, sheetText_(note || '既有庫存效期補登，不異動數量'), sheetText_(recorder), '採計', expiresOn, 'expiry-set:' + request.requestId]);
+      });
+      if (total !== current.stock) throw websiteInputError_('各批數量合計須等於目前庫存；數量不同請先重新盤點。');
+      effects.result.quantity = current.stock;
+      effects.result.batchCount = data.batches.length;
+    } else if (operation === 'supply-expiry-close') {
       var events = supplyEvents_(ss);
-      var batch = events.filter(function (event) { return event.id === data.batchId && event.type === 'restock'; })[0];
+      var batch = events.filter(function (event) { return event.id === data.batchId && ['restock','expiry-set'].indexOf(event.type) >= 0; })[0];
       if (!batch || activeSupply(batch.supplyId).kind !== 'noodle') throw websiteInputError_('找不到可標記的泡麵入庫批次。');
       var open = openSupplyBatches_(batch.supplyId, events).some(function (event) { return event.id === batch.id; });
       effects.result.alreadyClosed = !open;
@@ -815,7 +833,7 @@ function warehouseData_() {
   var active = result.drinks.filter(function (drink) { return drink.active; });
   result.lastInventoryAt = active.length && active.every(function (drink) { return drink.lastCountAt; })
     ? active.map(function (drink) { return drink.lastCountAt; }).sort()[0] : null;
-  result.supplyEntry = { version: 1, expiryVersion: 1 };
+  result.supplyEntry = { version: 1, expiryVersion: 1, expirySetVersion: 1 };
   result.supplyEvents = supplyEvents_(ss);
   result.supplies = supplyInventory_(supplyCatalog_(ss), result.supplyEvents);
   return result;
@@ -848,7 +866,7 @@ function ensureSupplyStorage_(ss) {
     if (!SUPPLY_HISTORY_HEADERS.slice(0,9).every(function (label,index) { return first[index] === label; })) throw new Error('SupplyHistory schema conflict');
   }
   history = ensureSheet_(ss, SHEETS.supplyHistory, SUPPLY_HISTORY_HEADERS);
-  history.getRange(1, 10, 1, 2).setValues([['保存期限', '原入庫事件 ID']]);
+  history.getRange(1, 10, 1, 2).setValues([SUPPLY_HISTORY_HEADERS.slice(9)]);
 }
 
 function supplyToday_(stamp) { return new Date(Date.parse(stamp) + 8 * 3600000).toISOString().slice(0, 10); }
@@ -862,20 +880,24 @@ function supplyEvents_(ss) {
   var sheet = ss.getSheetByName(SHEETS.supplyHistory);
   if (!sheet || sheet.getLastRow() < 2) return [];
   return sheet.getRange(2, 1, sheet.getLastRow() - 1, 11).getValues().filter(function (row) { return row[8] === '採計'; }).map(function (row) {
-    var type = String(row[2]), quantity = quantity_(row[5], type !== 'restock'), stamp = iso_(row[1]);
+    var type = String(row[2]), quantity = quantity_(row[5], ['restock','expiry-set'].indexOf(type) < 0), stamp = iso_(row[1]);
     var expiry = row[9] instanceof Date ? supplyToday_(row[9].toISOString()) : String(row[9] || '');
-    if (['count','restock','expiry-close'].indexOf(type) < 0 || quantity === null || !stamp || (expiry && !validSupplyExpiry_(expiry)) || (type === 'expiry-close' && (!row[10] || quantity !== 0))) throw new Error('Invalid supply history');
+    if (['count','restock','expiry-close','expiry-set'].indexOf(type) < 0 || quantity === null || !stamp || (expiry && !validSupplyExpiry_(expiry)) || (type === 'expiry-close' && (!row[10] || quantity !== 0)) || (type === 'expiry-set' && (!expiry || !row[10]))) throw new Error('Invalid supply history');
     return { id: String(row[0]), supplyId: String(row[3]), type: type, quantity: quantity, createdAt: stamp, note: text_(row[6], 500), recorder: text_(row[7], 80), expiresOn: expiry || null, batchId: String(row[10] || '') || null };
   });
 }
 
 function openSupplyBatches_(supplyId, events) {
-  var batches = [];
+  var batches = [], expiryGroup = null;
   events.map(function (event,index) { return {event:event,index:index}; }).filter(function (entry) { return entry.event.supplyId === supplyId; })
     .sort(function (a,b) { return Date.parse(a.event.createdAt) - Date.parse(b.event.createdAt) || a.index - b.index; }).forEach(function (entry) {
       var event = entry.event;
       if (event.type === 'count' && event.quantity === 0) batches = [];
       else if (event.type === 'restock') batches.push(event);
+      else if (event.type === 'expiry-set') {
+        if (event.batchId !== expiryGroup) { batches = []; expiryGroup = event.batchId; }
+        batches.push(event);
+      }
       else if (event.type === 'expiry-close') batches = batches.filter(function (batch) { return batch.id !== event.batchId; });
     });
   return batches;
@@ -905,7 +927,7 @@ function renderSupplyWarehouse_(ss) {
   sheet.clearContents();
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   if (inventory.length) sheet.getRange(2, 1, inventory.length, headers.length).setValues(inventory.map(function (item) {
-    return [item.id, sheetText_(item.name), item.kind === 'noodle' ? '泡麵' : '碳粉', item.unit, item.stock === null ? '待盤點' : item.stock, item.lastCountAt || '', item.kind === 'noodle' ? openSupplyBatches_(item.id,events).map(function (event) { return (event.expiresOn || '效期待補') + '｜入庫 ' + event.quantity + ' ' + item.unit; }).join('\n') : ''];
+    return [item.id, sheetText_(item.name), item.kind === 'noodle' ? '泡麵' : '碳粉', item.unit, item.stock === null ? '待盤點' : item.stock, item.lastCountAt || '', item.kind === 'noodle' ? openSupplyBatches_(item.id,events).map(function (event) { return (event.expiresOn || '效期待補') + (event.type === 'expiry-set' ? '｜效期核對 ' : '｜入庫 ') + event.quantity + ' ' + item.unit; }).join('\n') : ''];
   }));
   styleHeader_(sheet, 1, headers.length); sheet.setFrozenRows(1);
 }

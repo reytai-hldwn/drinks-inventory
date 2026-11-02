@@ -38,10 +38,14 @@ export function supplyExpiryStatus(value,now=new Date()) {
 export function supplyBatches(supplyId,events) {
   const timeline=events.map((event,index)=>({event,index})).filter(entry=>entry.event.supplyId===supplyId)
     .sort((a,b)=>Date.parse(a.event.createdAt)-Date.parse(b.event.createdAt)||a.index-b.index).map(entry=>entry.event);
-  let batches=[];
+  let batches=[],expiryGroup=null;
   for(const event of timeline){
     if(event.type==='count'&&event.quantity===0)batches=[];
     else if(event.type==='restock')batches.push({...event});
+    else if(event.type==='expiry-set'){
+      if(event.batchId!==expiryGroup){batches=[];expiryGroup=event.batchId;}
+      batches.push({...event});
+    }
     else if(event.type==='expiry-close')batches=batches.filter(batch=>batch.id!==event.batchId);
   }
   return batches.sort((a,b)=>(a.expiresOn||'9999').localeCompare(b.expiresOn||'9999'));
@@ -57,12 +61,13 @@ export function supplyHasUntrackedExpiry(supplyId,events) {
       else if(stock===null||event.quantity>stock)unknown=true;
       stock=event.quantity;
     }else if(event.type==='restock'&&stock!==null)stock+=event.quantity;
+    else if(event.type==='expiry-set')unknown=false;
   }
   return unknown;
 }
 
 export function normalizeSupplyWarehouse(payload) {
-  if (payload.supplyEntry?.version !== 1) return { supplies: [], supplyEvents: [], supplyEntryVersion: 0, supplyExpiryVersion:0 };
+  if (payload.supplyEntry?.version !== 1) return { supplies: [], supplyEvents: [], supplyEntryVersion: 0, supplyExpiryVersion:0, supplyExpirySetVersion:0 };
   if (!Array.isArray(payload.supplies) || payload.supplies.length>1000 || !Array.isArray(payload.supplyEvents) || payload.supplyEvents.length>100000) throw new Error('泡麵與碳粉庫存資料格式不正確。');
   const ids=new Set(),eventIds=new Set();
   const validCount=value=>Number.isSafeInteger(value)&&value>=0&&value<=999999;
@@ -79,16 +84,17 @@ export function normalizeSupplyWarehouse(payload) {
     return {id:item.id,name:item.name.trim(),kind:item.kind,unit:item.unit,active:item.active,stock:item.stock,lastCountAt:item.lastCountAt};
   });
   const supplyEvents=payload.supplyEvents.map(event=>{
-    if(!event||typeof event.id!=='string'||!event.id||event.id.length>240||eventIds.has(event.id)||!ids.has(event.supplyId)||!['count','restock','expiry-close'].includes(event.type)||!validCount(event.quantity)||(event.type==='restock'&&event.quantity===0)||(event.type==='expiry-close'&&event.quantity!==0)||!validDate(event.createdAt)||event.accepted===false||typeof event.recorder!=='string'||!event.recorder.trim()||event.recorder.length>80||typeof event.note!=='string'||event.note.length>500)throw new Error('泡麵與碳粉異動紀錄不正確。');
+    if(!event||typeof event.id!=='string'||!event.id||event.id.length>240||eventIds.has(event.id)||!ids.has(event.supplyId)||!['count','restock','expiry-close','expiry-set'].includes(event.type)||!validCount(event.quantity)||(['restock','expiry-set'].includes(event.type)&&event.quantity===0)||(event.type==='expiry-close'&&event.quantity!==0)||!validDate(event.createdAt)||event.accepted===false||typeof event.recorder!=='string'||!event.recorder.trim()||event.recorder.length>80||typeof event.note!=='string'||event.note.length>500)throw new Error('泡麵與碳粉異動紀錄不正確。');
     const expiresOn=event.expiresOn||null,batchId=event.batchId||null;
     if(expiresOn!==null&&!validSupplyExpiry(expiresOn))throw new Error('保存期限格式不正確。');
-    if(event.type==='expiry-close'&&(typeof batchId!=='string'||batchId.length>240||!batchId))throw new Error('效期批次代號不正確。');
+    if(['expiry-close','expiry-set'].includes(event.type)&&(typeof batchId!=='string'||batchId.length>240||!batchId))throw new Error('效期批次代號不正確。');
+    if(event.type==='expiry-set'&&(!expiresOn||supplies.find(item=>item.id===event.supplyId)?.kind!=='noodle'))throw new Error('效期補登資料不正確。');
     eventIds.add(event.id);
     return {id:event.id,supplyId:event.supplyId,type:event.type,quantity:event.quantity,createdAt:event.createdAt,recorder:event.recorder,note:event.note,expiresOn,batchId};
   });
   for(const event of supplyEvents.filter(event=>event.type==='expiry-close')){
-    const batch=supplyEvents.find(batch=>batch.id===event.batchId&&batch.type==='restock'&&batch.supplyId===event.supplyId);
+    const batch=supplyEvents.find(batch=>batch.id===event.batchId&&['restock','expiry-set'].includes(batch.type)&&batch.supplyId===event.supplyId);
     if(!batch||supplies.find(item=>item.id===event.supplyId)?.kind!=='noodle')throw new Error('效期批次來源不正確。');
   }
-  return {supplies,supplyEvents,supplyEntryVersion:1,supplyExpiryVersion:payload.supplyEntry.expiryVersion===1?1:0};
+  return {supplies,supplyEvents,supplyEntryVersion:1,supplyExpiryVersion:payload.supplyEntry.expiryVersion===1?1:0,supplyExpirySetVersion:payload.supplyEntry.expirySetVersion===1?1:0};
 }

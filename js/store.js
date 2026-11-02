@@ -43,6 +43,7 @@ export class InventoryStore {
   get canManage() { return this.mode === 'demo' || this.canEdit; }
   get supportsSupplies() { return this.mode === 'demo'; }
   get supportsSupplyExpiry() { return this.supportsSupplies; }
+  get supportsSupplyExpirySet() { return this.supportsSupplyExpiry; }
   get supportsNewArrivals() { return this.mode === 'demo'; }
   get supplies() { return this.data.supplies || initialSupplies(); }
   get supplyEvents() { return this.data.supplyEvents || []; }
@@ -275,11 +276,26 @@ export class InventoryStore {
   }
 
   async closeSupplyBatch({batchId,recorder,note=''}) {
-    const batch=this.supplyEvents.find(event=>event.id===batchId&&event.type==='restock');
+    const batch=this.supplyEvents.find(event=>event.id===batchId&&['restock','expiry-set'].includes(event.type));
     if(!batch||!this.supplies.some(item=>item.id===batch.supplyId&&item.kind==='noodle'))throw new Error('找不到可標記的泡麵入庫批次。');
     if(!supplyBatches(batch.supplyId,this.supplyEvents).some(event=>event.id===batchId))return {alreadyClosed:true};
     await this.saveSupplyEvents([{supplyId:batch.supplyId,type:'expiry-close',quantity:0,batchId,note:note||'此批已用完或移除；總庫存請另行盤點'}],recorder);
     return {alreadyClosed:false};
+  }
+
+  async setSupplyExpiry({supplyId,batches,expectedStock,expectedEventId,recorder,note=''}) {
+    if(!this.supportsSupplyExpirySet||!this.canEdit)throw new Error('請從支援效期補登的管理入口登記。');
+    const item=this.supplies.find(item=>item.id===supplyId&&item.kind==='noodle'&&item.active!==false);
+    if(!item||!item.lastCountAt||!(item.stock>0))throw new Error('請先完成實際盤點，再補登現有泡麵的保存期限。');
+    const last=this.supplyEvents.filter(event=>event.supplyId===supplyId).at(-1);
+    if(expectedStock!==item.stock||expectedEventId!==last?.id)throw new Error('這個品項已有新紀錄，請重新整理後核對數量與效期。');
+    if(typeof recorder!=='string'||!recorder.trim()||recorder.trim().length>80)throw new Error('請填寫登記人，最多 80 字。');
+    if(typeof note!=='string'||note.length>500)throw new Error('備註最多 500 字。');
+    if(!Array.isArray(batches)||!batches.length||batches.length>20||batches.some(batch=>!batch||!Number.isSafeInteger(batch.quantity)||batch.quantity<1||batch.quantity>999999||!validSupplyExpiry(batch.expiresOn))||batches.reduce((sum,batch)=>sum+batch.quantity,0)!==item.stock)throw new Error('請填寫有效日期與正整數數量；各批合計須等於目前庫存。');
+    const next=structuredClone(this.data),stamp=new Date().toISOString(),group=uid();
+    next.supplyEvents ||= [];
+    for(const batch of batches)next.supplyEvents.push({id:uid(),supplyId,type:'expiry-set',quantity:batch.quantity,createdAt:stamp,recorder:recorder.trim(),note:note||'既有庫存效期補登，不異動數量',expiresOn:batch.expiresOn,batchId:group});
+    await this.save(next);return{quantity:item.stock,batchCount:batches.length};
   }
 
   async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {
