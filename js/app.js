@@ -1,7 +1,7 @@
-import { escapeHtml as h, safeUrl, uid, number, restockQuantity, stocktakeQuantities, getConsumption, stockStatus } from './domain.js';
+import { escapeHtml as h, safeUrl, uid, number, restockQuantity, stocktakeQuantities, getConsumption, getWeeklyPopularity, stockStatus } from './domain.js';
 import { InventoryStore } from './store.js';
 import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE } from './catalog.js';
-import { drinkPack, renderFridge, syncFridgeDoor, syncFridgeScene } from './fridge.js';
+import { drinkPack, renderFridge, renderFridgePopularity, syncFridgeDoor, syncFridgeScene } from './fridge.js';
 import { GoogleInventoryStore } from './google-store.js';
 import { wishSupportDetails, wishSupportPreview } from './wish-support.js';
 import { renderDrinkInformation } from './drink-information.js';
@@ -37,6 +37,8 @@ let inputSequence = 0;
 let ready = false;
 let toastTimer;
 let routeSequence = 0;
+let popularityLoading = false;
+let popularityError = false;
 
 const formatDate = (value, time = false) => value ? new Intl.DateTimeFormat('zh-TW', {
   timeZone: 'Asia/Taipei', ...(time ? { year: 'numeric' } : {}), month: '2-digit', day: '2-digit', ...(time ? { hour: '2-digit', minute: '2-digit', hour12: false } : {}),
@@ -75,7 +77,7 @@ function updateChrome() {
     if (element.dataset.view === view) element.setAttribute('aria-current', 'page');
     else element.removeAttribute('aria-current');
   });
-  $('#connection-status').textContent = `${store.mode === 'demo' ? '本機示範' : store.mode === 'google' ? 'Google 共用資料' : '共用資料'} · ${inAdmin ? '管理後台' : '前台瀏覽'}`;
+  $('#connection-status').textContent = store.revalidateOnStart ? `上次讀取的資料${refreshing ? ' · 更新中…' : ''}` : `${store.mode === 'demo' ? '本機示範' : store.mode === 'google' ? 'Google 共用資料' : '共用資料'} · ${inAdmin ? '管理後台' : '前台瀏覽'}`;
   $('#auth-button').textContent = inAdmin ? '返回前台' : '管理後台';
   $('#logout-button').hidden = !store.user;
   const banner = $('#mode-banner');
@@ -128,12 +130,27 @@ function renderInventoryTable() {
   const target = $('#inventory-table');
   if (!drinks.length && warehouse) { target.innerHTML = empty('這一格還沒有飲料', '換個分類或關鍵字看看。'); return; }
   if (!warehouse) {
-    target.innerHTML = renderFridge(drinks, { isOpen: fridgeOpen, lastInventoryAt: store.data.lastInventoryAt, formatDate, showQuantities: false });
+    target.innerHTML = renderFridge(drinks, { isOpen: fridgeOpen, lastInventoryAt: store.data.lastInventoryAt, formatDate, showQuantities: false,
+      popularity: store.mode === 'google' ? store.popularity : getWeeklyPopularity(store.data.drinks, store.data.events), popularityLoading, popularityError });
     syncFridgeScene(target.querySelector('.pantry-stage'));
+    if (fridgeOpen) loadFridgePopularity();
     return;
   }
   const copyBar = filter === 'low' ? `<div class="refill-copy-bar"><span>把需要補給的品項，整理給老闆娘。</span>${button('⧉ 複製補貨清單', 'copy-low', '', 'button-small button-outline')}</div>` : '';
   target.innerHTML = copyBar + `<div class="table-scroll"><table><thead><tr><th>飲料品項</th><th>分類／包裝</th><th>庫存餘量</th><th>補貨狀態</th><th>最近盤點</th><th>管理</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="category-label">${h(drink.category)}</span><p class="cell-note">${h(drink.packaging || drink.unit)}</p></td><td><div class="stock-value ${stockStatus(drink) === 'low' && drink.active !== false ? 'low warehouse-low' : ''}">${drink.lastCountAt ? drink.stock : '—'}<small>${h(drink.unit)}</small></div></td><td>${drink.active === false ? '<span class="pill pill-muted">已停買，可重新上架</span>' : stockPill(drink)}</td><td><span class="cell-note">${formatDate(drink.lastCountAt)}</span></td><td>${store.canEdit ? `<button class="cell-action" data-action="edit-drink" data-id="${h(drink.id)}" aria-label="編輯${h(drink.name)}">編輯 ↗</button>` : '<a class="text-link" href="#restock">登記入庫 ↗</a>'}</td></tr>`).join('')}</tbody></table></div><div class="table-bottom"><span>顯示 ${drinks.length} 種飲料</span><span>歷史品項保留原本數量與紀錄</span></div>`;
+}
+
+async function loadFridgePopularity() {
+  if (store.mode !== 'google' || popularityLoading) return;
+  popularityLoading = true; popularityError = false;
+  const update = () => {
+    const target = document.querySelector('.fridge-popularity');
+    if (view === 'overview' && target) target.innerHTML = renderFridgePopularity(store.popularity, { loading: popularityLoading, error: popularityError });
+  };
+  update();
+  try { await store.readPopularity(); }
+  catch { popularityError = true; }
+  finally { popularityLoading = false; update(); }
 }
 
 function renderArchive() {
@@ -163,12 +180,12 @@ function openDrinkDetails(id) {
   const drink = drinkById(id);
   if (!drink) return;
   if (!store.canEdit) {
-    showModal(h(drink.name), '查看成分、過敏原與營養標示，資料來源與核對日期列於下方。', `<div class="drink-detail-hero">${drinkPack(drink)}<div><span class="category-label">${h(drink.category)}</span><p class="subtle">${h(drink.packaging || drink.unit)}</p></div></div>${renderDrinkInformation(drink)}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
+    showModal(h(drink.name), '查看成分、過敏原與營養標示，資料來源與核對日期列於下方。', `<div class="drink-detail-hero">${drinkPack(drink, { fullSize: true })}<div><span class="category-label">${h(drink.category)}</span><p class="subtle">${h(drink.packaging || drink.unit)}</p></div></div>${renderDrinkInformation(drink)}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
     return;
   }
   const arrival = store.data.events.filter((event) => event.type === 'restock' && event.drinkId === id)
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
-  showModal(h(drink.name), '庫存以最近一次盤點與後續入庫為準，日常取用尚未扣除。', `<div class="drink-detail-hero">${drinkPack(drink)}<div><span class="subtle">目前紀錄庫存</span><div class="stat-number">${drink.lastCountAt ? drink.stock : '待盤點'}<small>${h(drink.unit)}</small></div>${stockPill(drink)}</div></div><dl class="drink-facts"><div><dt>最近實際盤點</dt><dd>${formatDate(drink.lastCountAt, true)}</dd></div><div><dt>最近到貨入庫</dt><dd>${arrival ? `${formatDate(arrival.createdAt, true)} · ＋${arrival.quantity} ${h(drink.unit)}` : '尚無紀錄'}</dd></div><div><dt>包裝換算</dt><dd>每箱 ${drink.perCase} ${h(drink.unit)}</dd></div><div><dt>補貨提醒</dt><dd>低於 ${drink.threshold} ${h(drink.unit)}</dd></div><div><dt>消耗與補貨估算</dt><dd>${forecast(drink)}</dd></div></dl>${renderDrinkInformation(drink)}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}${store.canEdit ? button('編輯品項', 'edit-drink', `data-id="${h(drink.id)}" type="button"`) : ''}</div>`);
+  showModal(h(drink.name), '庫存以最近一次盤點與後續入庫為準，日常取用尚未扣除。', `<div class="drink-detail-hero">${drinkPack(drink, { fullSize: true })}<div><span class="subtle">目前紀錄庫存</span><div class="stat-number">${drink.lastCountAt ? drink.stock : '待盤點'}<small>${h(drink.unit)}</small></div>${stockPill(drink)}</div></div><dl class="drink-facts"><div><dt>最近實際盤點</dt><dd>${formatDate(drink.lastCountAt, true)}</dd></div><div><dt>最近到貨入庫</dt><dd>${arrival ? `${formatDate(arrival.createdAt, true)} · ＋${arrival.quantity} ${h(drink.unit)}` : '尚無紀錄'}</dd></div><div><dt>包裝換算</dt><dd>每箱 ${drink.perCase} ${h(drink.unit)}</dd></div><div><dt>補貨提醒</dt><dd>低於 ${drink.threshold} ${h(drink.unit)}</dd></div><div><dt>消耗與補貨估算</dt><dd>${forecast(drink)}</dd></div></dl>${renderDrinkInformation(drink)}<div class="form-actions">${button('關閉', 'close-modal', 'type="button"', 'button-outline')}${store.canEdit ? button('編輯品項', 'edit-drink', `data-id="${h(drink.id)}" type="button"`) : ''}</div>`);
 }
 
 async function copyLowStock() {
@@ -547,7 +564,8 @@ async function runAction(action, id) {
     return;
   }
   if (action === 'copy-low') { if (!store.canManage && !store.canEdit) throw new Error('請從倉庫管理產生補貨清單。'); await copyLowStock(); return; }
-  if (action === 'toggle-door') { fridgeOpen = !fridgeOpen; syncFridgeDoor($('.fridge'), fridgeOpen); return; }
+  if (action === 'toggle-door') { fridgeOpen = !fridgeOpen; syncFridgeDoor($('.fridge'), fridgeOpen); if (fridgeOpen) loadFridgePopularity(); return; }
+  if (action === 'retry-popularity') { loadFridgePopularity(); return; }
   if (action === 'new-wish') { openWish(); return; }
   if (action === 'export' || action === 'export-history') {
     if (!store.canManage && !store.canEdit) throw new Error('請從管理入口匯出紀錄。');
@@ -620,7 +638,7 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   if (action) {
     event.preventDefault();
-    if (['close-modal', 'quick-add-drink', 'new-drink', 'edit-drink', 'new-wish', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-route'].includes(action.dataset.action)) {
+    if (['close-modal', 'quick-add-drink', 'new-drink', 'new-wish', 'edit-drink', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-popularity', 'retry-route'].includes(action.dataset.action)) {
       if (!busy) runAction(action.dataset.action, action.dataset.id).catch((error) => toast(error.message, true));
     } else withBusy(() => runAction(action.dataset.action, action.dataset.id), action);
   }
@@ -691,6 +709,7 @@ async function refreshCurrentView(manual = false) {
   const sequence = routeSequence, inputs = inputSequence, currentView = view, revision = store.revision;
   const button = $('#refresh-button');
   refreshing = true;
+  if (store.revalidateOnStart) updateChrome();
   if (manual) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
   try {
     await store.read();
@@ -724,7 +743,8 @@ setInterval(() => refreshCurrentView(), 60000);
 try {
   await store.init();
   ready = true;
-  route();
+  await route();
+  if (store.revalidateOnStart && !store.inWarehouse) refreshCurrentView();
 } catch (error) {
   $('#connection-status').textContent = '資料尚未載入';
   $('#auth-button').hidden = true;

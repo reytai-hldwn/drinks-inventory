@@ -1,6 +1,6 @@
 /* Approved white, champagne and coffee palette. Illustration stays inside the
    public refrigerator stage; navigation and inventory remain real controls. */
-@font-face{font-family:"Pantry Hand";src:url('./assets/pantry-hand.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"Pantry Hand";src:url('./assets/pantry-ui.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap}
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/pantry-hand-complete.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap}
 :root{--heading-font:"Pantry Hand","Pantry Hand Complete",serif}
 :root[data-theme=gold]{--bg:#fff;--paper:#fff;--ink:#4d3027;--muted:#897568;--green:#8e6841;--green-soft:#f6f0e7;--line:#e9dfd3;--orange:#aa713a;--orange-soft:#fbf1e6;--shadow:0 3px 18px #65452b06}
@@ -18,7 +18,7 @@ input:focus,select:focus,textarea:focus{border-color:#b48b5c}
 #navigation a:hover{background:#faf5ee}
 #navigation a.active{background:#fffdfa;color:#5a382a;border-color:#c49560;box-shadow:inset 0 0 0 3px #fff,0 0 0 1px #eed8bb;font-weight:650}
 .sidebar-note{margin-top:auto;padding:42px 0 6px}
-.sidebar-note svg{display:block;width:100%;height:auto;max-height:270px}
+.sidebar-note svg,.sidebar-note img{display:block;width:100%;height:auto;max-height:270px}
 .main-shell{margin-left:248px;width:calc(100% - 248px)}
 .topbar{height:56px;padding:0 34px;background:#fff;border-bottom:1px solid #eadcc9}
 .breadcrumb,.breadcrumb strong,.connection-status{color:#8a7565}
@@ -105,6 +105,16 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
 .pantry-stage .fridge-light{background:#fffdf5;box-shadow:0 0 7px #fff,0 3px 16px #ffefce}
 .pantry-stage .fridge-product-edit{color:#9b7851;border-color:#d7c5ac;background:#fffdf8e6}
 .fridge-scroll-cue,.fridge-caption{color:#a0876a}
+.fridge-popularity{margin:0 0 24px;padding:16px 18px;border:1px solid #e2ceb0;border-radius:17px 12px 18px 13px;background:#fffdf7;color:#70523e}
+.popularity-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}
+.popularity-eyebrow{font-size:8px;letter-spacing:1.5px;color:#a18b6a}.popularity-heading h2{font-size:19px;line-height:1.5;margin:3px 0 0}
+.popularity-period{font-size:10px;white-space:nowrap;color:#9b805c}
+.popularity-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.popular-drink{position:relative;min-width:0;display:grid;grid-template-columns:24px 1fr;gap:6px 9px;padding:12px;text-align:left;color:#70523e;border:1px solid #e8dac4;border-radius:11px 14px 10px 12px;background:#fff;box-shadow:0 2px 0 #b58c4a0b}
+.popular-drink:hover{background:#fbf5e9}.popularity-rank{grid-row:span 2;display:grid;place-items:center;align-self:start;width:24px;height:26px;border:1px solid #c5a673;border-radius:48% 55% 43% 52%;font-family:var(--heading-font);font-size:17px;color:#9b7546;background:#faf4e7}
+.popularity-name{font-size:12px;line-height:1.5;overflow-wrap:anywhere}.popularity-amount{font-size:10px;color:#997c54;line-height:1.6}.popularity-amount strong{font-size:19px;font-weight:600;color:#775031;font-variant-numeric:tabular-nums}
+.popularity-bar{grid-column:1/-1;height:3px;margin-top:4px;background:#f1e7d5;border-radius:4px;overflow:hidden}.popularity-bar i{display:block;height:100%;background:#c7a36c;border-radius:4px}
+.popularity-note,.popularity-status{font-size:10px;line-height:1.8;color:#9a8467;margin:12px 0 0}.popularity-status{padding:2px 0 5px;font-size:12px}.popularity-status .text-link{border:0;background:none;margin-left:8px;color:#795436}
 @media(min-width:901px){
   body[data-view=overview] .main-shell{display:flex;flex-direction:column;min-height:100dvh}
   body[data-view=overview] .topbar,body[data-view=overview] .mode-banner{flex:none}
@@ -148,6 +158,7 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
   .fridge-panel>.toolbar{max-width:480px;margin:auto;padding-bottom:15px}
   .fridge-panel .search-controls{flex-direction:column;align-items:stretch;gap:8px}.fridge-panel .search-field{width:100%;flex:auto}.fridge-panel .search-field input{font-size:12px;padding-top:11px;padding-bottom:11px}.fridge-panel #category-filter{width:100%;max-width:none;font-size:12px;padding:10px 13px}
   .pantry-stage .fridge-window>.fridge-interior{padding:68px 16px 16px;transform-origin:center}
+  .fridge-popularity{padding:13px 12px;margin-bottom:20px}.popularity-heading h2{font-size:18px}.popularity-cards{grid-auto-flow:column;grid-auto-columns:minmax(180px,78%);grid-template-columns:none;overflow-x:auto;padding-bottom:5px;scroll-snap-type:x proximity}.popular-drink{scroll-snap-align:start}.popularity-note{font-size:9px}
   .pantry-stage .fridge-crown{padding:8px 10px}.pantry-stage .fridge-maker{font-size:12px;gap:5px}.pantry-stage .fridge-maker-logo{width:23px;height:23px}.pantry-stage .fridge-close{font-size:10px;padding:6px 9px}
   .page-footer{padding:18px 16px;font-size:9px;letter-spacing:0}
   .sticky-actions{bottom:12px}#toast{left:50%;bottom:20px}

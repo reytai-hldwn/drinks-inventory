@@ -4,7 +4,7 @@ import { findProductPhoto } from './product-photos.js';
 
 const FRIDGE_DOOR_TIMERS = new WeakMap();
 const FRIDGE_CONTENT_ID = 'pantry-fridge-content';
-const PANTRY_SCENE_ASSET = './assets/pantry-scene-approved.png';
+const PANTRY_SCENE_ASSET = './assets/pantry-mobile.webp';
 const FRIDGE_OPEN_DURATION = 850;
 const OFFICE_OPEN_DURATION = 650;
 const OFFICE_SCENES = {
@@ -83,7 +83,7 @@ export function syncFridgeScene(stage) {
 // The original mobile illustration keeps its approved crop; desktop artwork
 // has its own native image and coordinates. Controls and product photos are HTML.
 function sceneCrop(viewBox, className = '') {
-  return `<svg class="${className}" viewBox="${viewBox}" aria-hidden="true" focusable="false"><image href="${h(PANTRY_SCENE_ASSET)}" width="1774" height="887"/></svg>`;
+  return `<svg class="${className}" viewBox="${viewBox}" aria-hidden="true" focusable="false"><image href="${h(PANTRY_SCENE_ASSET)}" width="347" height="475"/></svg>`;
 }
 
 function officePart(scene, points) {
@@ -104,7 +104,7 @@ function renderOfficeRecess(variant, drinks) {
       const [originalWidth, originalHeight] = photo.originalSize || [84, photo.height];
       const clipId = `pantry-recess-${variant}-${row}-${index}`;
       const clip = photo.outline ? `<defs><clipPath id="${clipId}"><polygon points="${photo.outline.map(point => point.join(',')).join(' ')}"/></clipPath></defs>` : '';
-      return `<svg x="${24 + index * 41}" y="${31 + row * 84}" width="30" height="61" viewBox="${x} ${y} ${width} ${height}" preserveAspectRatio="xMidYMax meet">${clip}<image data-scene-src="${h(photo.src)}" width="${originalWidth}" height="${originalHeight}"${clip ? ` clip-path="url(#${clipId})"` : ''}/></svg>`;
+      return `<svg x="${24 + index * 41}" y="${31 + row * 84}" width="30" height="61" viewBox="${x} ${y} ${width} ${height}" preserveAspectRatio="xMidYMax meet">${clip}<image data-scene-src="${h(photo.displaySrc || photo.src)}" width="${originalWidth}" height="${originalHeight}"${clip ? ` clip-path="url(#${clipId})"` : ''}/></svg>`;
     }).join('');
     return `${products}<path class="pantry-recess-shelf" d="M13 ${94 + row * 84} H148" stroke="#bca67e" stroke-width="6"/><path d="M15 ${91 + row * 84} H146" stroke="#fffdf1" stroke-width="2"/>`;
   }).join('');
@@ -122,7 +122,7 @@ function renderOfficeScene(variant, scene, drinks) {
 }
 
 function renderPantryScene(drinks) {
-  return `<div class="pantry-room" aria-hidden="true">${Object.entries(OFFICE_SCENES).map(([variant, scene]) => renderOfficeScene(variant, scene, drinks)).join('')}<div class="pantry-mobile-scene">${sceneCrop('1388 388 347 475', 'pantry-scene-art')}<span class="pantry-door-recess"></span><span class="pantry-painted-door pantry-painted-door-mobile">${sceneCrop('1473 485 176 304')}</span></div></div>`;
+  return `<div class="pantry-room" aria-hidden="true">${Object.entries(OFFICE_SCENES).map(([variant, scene]) => renderOfficeScene(variant, scene, drinks)).join('')}<div class="pantry-mobile-scene">${sceneCrop('0 0 347 475', 'pantry-scene-art')}<span class="pantry-door-recess"></span><span class="pantry-painted-door pantry-painted-door-mobile">${sceneCrop('85 97 176 304')}</span></div></div>`;
 }
 
 function syncGuideArrow(svg, endX, endY) {
@@ -183,8 +183,10 @@ function fridgeIconFor(category) {
 }
 
 /** Packaging is visual: a drawing never represents a number of containers. */
-export function drinkPack(drink) {
+export function drinkPack(drink, { defer = false, fullSize = false } = {}) {
   const photo = findProductPhoto(drink.name);
+  const source = photo ? h(fullSize ? photo.src : photo.displaySrc || photo.src) : '';
+  const sourceAttribute = `${defer ? 'data-product-src' : 'src'}="${source}"`;
   const photoScale = drink.packaging === '小型鐵罐' ? 0.8 : 1;
   if (photo?.crop && photo.originalSize) {
     const [x, y, width, height] = photo.crop;
@@ -194,9 +196,9 @@ export function drinkPack(drink) {
     const clip = photo.outline ? `;clip-path:polygon(${photo.outline.map(([pointX, pointY]) => `${((pointX - x) / width * 100).toFixed(4)}% ${((pointY - y) / height * 100).toFixed(4)}%`).join(',')})` : '';
     // The silhouette removes the background while the original pixels retain
     // white labels, silver cans and every printed detail inside the product.
-    return `<div class="drink-pack-group drink-pack-group-photo"><span class="drink-photo-viewport" style="width:${px(width)};height:${px(height)}${clip}"><img class="drink-product-photo drink-product-photo-original" style="width:${px(originalWidth)};height:${px(originalHeight)};left:-${px(x)};top:-${px(y)}" src="${h(photo.src)}" alt="" aria-hidden="true" width="${originalWidth}" height="${originalHeight}" loading="lazy" decoding="async"></span></div>`;
+    return `<div class="drink-pack-group drink-pack-group-photo"><span class="drink-photo-viewport" style="width:${px(width)};height:${px(height)}${clip}"><img class="drink-product-photo drink-product-photo-original" style="width:${px(originalWidth)};height:${px(originalHeight)};left:-${px(x)};top:-${px(y)}" ${sourceAttribute} alt="" aria-hidden="true" width="${originalWidth}" height="${originalHeight}" loading="lazy" decoding="async"></span></div>`;
   }
-  if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo${photo.height === 113 ? ' drink-product-photo-carton' : ''}" style="width:${84 * photoScale}px;height:${photo.height * photoScale}px" src="${h(photo.src)}" alt="" aria-hidden="true" width="${Math.round(84 * photoScale)}" height="${Math.round(photo.height * photoScale)}" loading="lazy" decoding="async"></div>`;
+  if (photo) return `<div class="drink-pack-group drink-pack-group-photo"><img class="drink-product-photo${photo.height === 113 ? ' drink-product-photo-carton' : ''}" style="width:${84 * photoScale}px;height:${photo.height * photoScale}px" ${sourceAttribute} alt="" aria-hidden="true" width="${Math.round(84 * photoScale)}" height="${Math.round(photo.height * photoScale)}" loading="lazy" decoding="async"></div>`;
   let colors = ['#749b75', '#f2eedb', '#35513c'];
   if (/紅茶|蜜茶|烏龍/.test(drink.name)) colors = ['#a96740', '#f1e1bb', '#6b382c'];
   if (/奶|乳|豆|米漿/.test(drink.name)) colors = ['#dfc79e', '#fff6dc', '#7f5d3e'];
@@ -221,18 +223,27 @@ export function drinkPack(drink) {
   return `<div class="drink-pack-group" style="--pack-color:${colors[0]};--pack-label:${colors[1]};--pack-ink:${colors[2]}"><div class="drink-pack ${packagingClass}" aria-hidden="true"><span class="pack-cap"></span><span class="pack-fold"></span><span class="pack-label">${fridgePackName(drink.name)}<b>${h(drink.icon || fridgeIconFor(drink.category))}</b></span></div></div>`;
 }
 
-function renderFridgeProduct(drink, showQuantities, dateLabel) {
+function renderFridgeProduct(drink, showQuantities, dateLabel, defer) {
   const status = showQuantities ? stockStatus(drink) : null;
   const classes = showQuantities
     ? `${status === 'low' ? ' is-low' : ''}${status === 'unknown' ? ' is-unknown' : ''}${status !== 'unknown' && drink.stock === 0 ? ' is-empty' : ''}`
     : '';
   const quantity = !showQuantities ? '' : `<span class="fridge-stock-badge">${status === 'unknown' ? '—' : drink.stock}<small>${h(drink.unit)}</small></span>`;
   const inventory = !showQuantities ? '' : `<span class="fridge-product-status">${status === 'unknown' ? '等待首次盤點' : status === 'low' ? '需要補貨' : '庫存充足'}</span><p>盤點 ${h(dateLabel(drink.lastCountAt))}</p>`;
-  return `<article class="fridge-product${classes}" data-drink-id="${h(drink.id)}"><div class="fridge-product-stage">${drinkPack(drink)}${quantity}</div><div class="fridge-product-info"><h4>${h(drink.name)}</h4><p class="fridge-product-packaging">${h(drink.packaging || '飲料包裝')}</p>${inventory}</div><button type="button" class="fridge-product-edit" data-action="view-drink" data-id="${h(drink.id)}" aria-label="查看${h(drink.name)}飲料資訊"><span class="fridge-detail-arrow" aria-hidden="true"></span></button></article>`;
+  return `<article class="fridge-product${classes}" data-drink-id="${h(drink.id)}"><div class="fridge-product-stage">${drinkPack(drink, { defer })}${quantity}</div><div class="fridge-product-info"><h4>${h(drink.name)}</h4><p class="fridge-product-packaging">${h(drink.packaging || '飲料包裝')}</p>${inventory}</div><button type="button" class="fridge-product-edit" data-action="view-drink" data-id="${h(drink.id)}" aria-label="查看${h(drink.name)}飲料資訊"><span class="fridge-detail-arrow" aria-hidden="true"></span></button></article>`;
+}
+
+export function renderFridgePopularity(summary, { loading = false, error = false } = {}) {
+  const header = '<div class="popularity-heading"><div><span class="popularity-eyebrow">PANTRY FAVORITES</span><h2>大家最近愛喝什麼？</h2></div><span class="popularity-period">平均每週</span></div>';
+  if (!summary) return header + `<p class="popularity-status" role="status">${error ? '人氣統計暫時讀取不到。<button type="button" data-action="retry-popularity" class="text-link">再試一次</button>' : '正在整理飲用紀錄…'}</p>`;
+  if (!summary.rows.length) return header + `<p class="popularity-status">${summary.observedProducts ? '這段期間尚未觀察到飲用量，下次盤點後再來看看。' : '累積盤點中：同品項至少兩次盤點、間隔一天，就能開始估算。'}</p>`;
+  const maximum = summary.rows[0].weeklyRate;
+  const formatter = new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 1 });
+  return header + `<div class="popularity-cards">${summary.rows.map((row, index) => `<button type="button" class="popular-drink" data-action="view-drink" data-id="${h(row.id)}"><span class="popularity-rank">${index + 1}</span><span class="popularity-name">${h(row.name)}</span><span class="popularity-amount">約 <strong>${row.weeklyRate < .1 ? '少於 0.1' : formatter.format(row.weeklyRate)}</strong> ${h(row.unit)}／週</span><span class="popularity-bar" aria-hidden="true"><i style="width:${(row.weeklyRate / maximum * 100).toFixed(1)}%"></i></span></button>`).join('')}</div><p class="popularity-note">依實際盤點與入庫紀錄估算${loading ? ' · 更新中' : error ? ' · 更新暫時中斷' : ''}，不是即時取用數量。</p>`;
 }
 
 /** A bounded public display; inventory quantities are deliberately opt-in. */
-export function renderFridge(drinks, { isOpen = false, lastInventoryAt = null, showQuantities = false, formatDate } = {}) {
+export function renderFridge(drinks, { isOpen = false, lastInventoryAt = null, showQuantities = false, formatDate, popularity = null, popularityLoading = false, popularityError = false } = {}) {
   const dateLabel = typeof formatDate === 'function' ? formatDate : (value) => value || '尚未盤點';
   const shelfCategories = [...new Set([...CATEGORIES_ORDER, ...drinks.map((drink) => drink.category)])];
   const shelves = shelfCategories.map((name) => ({ name, drinks: drinks.filter((drink) => drink.category === name) })).filter((shelf) => shelf.drinks.length);
@@ -241,7 +252,7 @@ export function renderFridge(drinks, { isOpen = false, lastInventoryAt = null, s
 
   return `<div class="pantry-stage${isOpen ? ' is-open' : ''}">${renderPantryScene(drinks)}<div class="fridge${isOpen ? ' is-open is-ready' : ''}" data-door-state="${isOpen ? 'open' : 'closed'}" aria-label="飲料冰箱">
     <header class="fridge-crown"><div class="fridge-maker">${logo('fridge-maker-logo', 30)}<span>Holdwin Capital</span></div><button type="button" class="fridge-close" data-action="toggle-door" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}"${isOpen ? '' : ' hidden'}>關上冰箱 <span aria-hidden="true">↶</span></button></header>
-    <div class="fridge-window"><div class="fridge-interior" id="${FRIDGE_CONTENT_ID}" role="region" aria-label="飲料展示層架，可向下捲動" aria-hidden="${!isOpen}" tabindex="${isOpen ? '0' : '-1'}"${isOpen ? '' : ' inert'}><div class="fridge-light" aria-hidden="true"></div>${shelves.map((shelf, index) => `<section class="fridge-shelf" aria-label="${h(shelf.name)}飲料架"><div class="fridge-shelf-heading"><span class="shelf-index">0${index + 1}</span><h3>${h(shelf.name)}</h3>${showQuantities ? `<span class="shelf-count">${shelf.drinks.length} 種飲料</span>` : ''}</div><div class="fridge-products">${shelf.drinks.map((drink) => renderFridgeProduct(drink, showQuantities, dateLabel)).join('')}</div><div class="fridge-shelf-rail"><span>${h(FRIDGE_SHELF_LABELS[shelf.name] || 'PANTRY FAVORITES')}</span><i aria-hidden="true"></i><span class="shelf-rail-note">喜歡的，留一瓶給同事。</span></div></section>`).join('') || '<div class="empty-state"><h2>這一格還沒有飲料</h2><p>換個分類或關鍵字看看。</p></div>'}</div>
+    <div class="fridge-window"><div class="fridge-interior" id="${FRIDGE_CONTENT_ID}" role="region" aria-label="飲料展示層架，可向下捲動" aria-hidden="${!isOpen}" tabindex="${isOpen ? '0' : '-1'}"${isOpen ? '' : ' inert'}><div class="fridge-light" aria-hidden="true"></div><section class="fridge-popularity" aria-label="熱門飲料與每週平均飲用量">${renderFridgePopularity(popularity, { loading: popularityLoading, error: popularityError })}</section>${shelves.map((shelf, index) => `<section class="fridge-shelf" aria-label="${h(shelf.name)}飲料架"><div class="fridge-shelf-heading"><span class="shelf-index">0${index + 1}</span><h3>${h(shelf.name)}</h3>${showQuantities ? `<span class="shelf-count">${shelf.drinks.length} 種飲料</span>` : ''}</div><div class="fridge-products">${shelf.drinks.map((drink) => renderFridgeProduct(drink, showQuantities, dateLabel, !isOpen)).join('')}</div><div class="fridge-shelf-rail"><span>${h(FRIDGE_SHELF_LABELS[shelf.name] || 'PANTRY FAVORITES')}</span><i aria-hidden="true"></i><span class="shelf-rail-note">喜歡的，留一瓶給同事。</span></div></section>`).join('') || '<div class="empty-state"><h2>這一格還沒有飲料</h2><p>換個分類或關鍵字看看。</p></div>'}</div>
     <button type="button" class="fridge-door" data-action="toggle-door" aria-label="點擊打開冰箱門" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}" aria-hidden="${isOpen}" tabindex="${isOpen ? '-1' : '0'}"${isOpen ? ' inert' : ''}><span class="sr-only">點我打開冰箱，看看今天，想喝哪一瓶。</span></button>${renderFridgeGuide(isOpen)}</div>
     </div></div><p class="fridge-scroll-cue"${isOpen ? '' : ' hidden'}>↓ 在冰箱裡往下滑，看更多飲料</p><p class="fridge-caption"${isOpen ? '' : ' hidden'}>點飲料可查看品項介紹。${showQuantities ? ` 最近完整盤點：${h(dateLabel(lastInventoryAt))}。` : ''}</p>`;
 }
@@ -257,6 +268,10 @@ export function syncFridgeDoor(element, isOpen) {
   const closeButton = element.querySelector('.fridge-close');
   const guide = element.querySelector('.fridge-open-guide');
   if (!interior || !door || !closeButton) return;
+  if (isOpen) for (const image of interior.querySelectorAll('img[data-product-src]')) {
+    image.src = image.dataset.productSrc;
+    image.removeAttribute('data-product-src');
+  }
   const cue = (element.closest('.fridge-panel') || element.parentElement)?.querySelector('.fridge-scroll-cue');
   const active = document.activeElement;
   const focusWasInside = interior.contains(active) || active === closeButton || active === door || active === guide;

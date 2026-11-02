@@ -1,4 +1,4 @@
-import { blankData, safeUrl } from './domain.js';
+import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
 
 let googleCallbackSequence = 0;
@@ -276,13 +276,35 @@ export class GoogleInventoryStore {
     this.pendingStorage = options.pendingStorage;
     this.submitWebsiteCommand = options.submitWebsiteCommand || submitGoogleWebsiteCommand;
     this.readReceipt = options.readReceipt || ((requestId) => fetchGooglePublicData(this.url, { action: 'receipt', requestId }));
+    this.publicStorage = options.publicStorage;
+    this.now = options.now || Date.now;
+    this.revalidateOnStart = false;
+    this.popularity = null;
+    this.popularityReadAt = 0;
+    this.popularityRequest = null;
   }
 
   get canEdit() { return false; }
   get canManage() { return true; }
   get supportsWebsiteEntry() { return this.websiteEntryVersion === 1; }
 
-  async init() { await this.read(); }
+  async init() {
+    // Reuse only a validated public display. Warehouse counts are never cached.
+    try {
+      const endpoint = validateGoogleScriptUrl(this.url);
+      const saved = (this.publicStorage || globalThis.localStorage)?.getItem(`holdwin-public-cache-v1:${endpoint}`);
+      if (saved && saved.length < 750000) {
+        const cached = JSON.parse(saved), age = this.now() - cached.savedAt;
+        if (cached.version === 1 && age >= 0 && age < 86400000) {
+          const result = normalizeGooglePublicData(cached.payload);
+          this.applyGoogleView(result, false);
+          this.revalidateOnStart = true;
+          return;
+        }
+      }
+    } catch { /* A missing, expired, or invalid cache falls back to Google. */ }
+    await this.read();
+  }
 
   async read() { return this.readGoogleView(this.inWarehouse); }
 
@@ -307,6 +329,21 @@ export class GoogleInventoryStore {
     const result = normalizeGooglePublicData(payload, { warehouse });
     // Assign only after the full response validates; preserve the last valid
     // view on errors and never seed demo data or accept remote role flags.
+    this.applyGoogleView(result, warehouse);
+    this.revalidateOnStart = false;
+    if (!warehouse) {
+      try {
+        const payload = { ok: true, provider: 'google', drinks: result.data.drinks, wishes: result.data.wishes,
+          formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm,
+          adminUrl: result.adminUrl, updatedAt: result.updatedAt, websiteEntry: { version: result.websiteEntryVersion } };
+        const saved = JSON.stringify({ version: 1, savedAt: this.now(), payload });
+        if (saved.length < 750000) (this.publicStorage || globalThis.localStorage)?.setItem(`holdwin-public-cache-v1:${endpoint}`, saved);
+      } catch { /* Storage is optional; fresh Google data still works. */ }
+    }
+    return this.data;
+  }
+
+  applyGoogleView(result, warehouse) {
     this.data = result.data;
     this.formUrls = result.formUrls;
     this.forms = this.formUrls;
@@ -318,7 +355,22 @@ export class GoogleInventoryStore {
     this.updatedAt = result.updatedAt;
     this.websiteEntryVersion = result.websiteEntryVersion;
     this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion });
-    return this.data;
+  }
+
+  async readPopularity() {
+    if (this.popularity && this.now() - this.popularityReadAt < 300000) return this.popularity;
+    if (this.popularityRequest) return this.popularityRequest;
+    this.popularityRequest = (async () => {
+      // This separate read never changes the current route or public catalog.
+      // It uses the existing deployment and retains only aggregate rates.
+      const payload = await this.readPublicData(validateGoogleScriptUrl(this.url), { action: 'warehouse' });
+      const result = normalizeGooglePublicData(payload, { warehouse: true });
+      this.popularity = getWeeklyPopularity(result.data.drinks, result.data.events, new Date(this.now()));
+      this.popularityReadAt = this.now();
+      return this.popularity;
+    })();
+    try { return await this.popularityRequest; }
+    finally { this.popularityRequest = null; }
   }
 
   getWishUrl(kind = 'drink') {
@@ -410,6 +462,7 @@ export class GoogleInventoryStore {
     catch (error) { if (error.code === 'rejected') acknowledge('rejected'); throw error; }
     // A confirmed write stays a success even if the following read fails.
     acknowledge('accepted', result);
+    if (['stocktake', 'arrival', 'product'].includes(operation)) this.popularityReadAt = -Infinity;
     try { await this.read(); } catch { this.lastWriteNeedsRefresh = true; }
     return result;
   }

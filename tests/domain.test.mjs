@@ -1,13 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  applyInitialStocktake, blankData, escapeHtml, getConsumption, number, restockQuantity, stocktakeQuantities, safeUrl, sampleData, stockStatus, uid,
+  applyInitialStocktake, blankData, escapeHtml, getConsumption, getWeeklyPopularity, number, restockQuantity, stocktakeQuantities, safeUrl, sampleData, stockStatus, uid,
 } from '../js/domain.js';
 
 const event = (type, quantity, day, drinkId = 'tea') => ({
   id: uid(), type, quantity, drinkId, createdAt: `2026-10-${String(day).padStart(2, '0')}T00:00:00Z`,
 });
 const now = new Date('2026-10-30T00:00:00Z');
+
+test('weekly popularity ranks measured consumption including arrivals and excludes unmeasured or invalid intervals', () => {
+  const drinks = ['tea','milk','new','short','bad','old','zero'].map(id=>({id,name:id,unit:id==='milk'?'包':'瓶',active:id!=='old'}));
+  const events = [event('count',20,1),event('restock',24,3),event('count',12,8),
+    event('count',40,1,'milk'),event('count',30,8,'milk'),event('count',40,15,'milk'),
+    event('count',20,1,'new'),event('count',10,1,'short'),{...event('count',0,1,'short'),createdAt:'2026-10-01T01:00:00Z'},
+    event('count',10,1,'bad'),event('count',20,8,'bad'),event('count',100,1,'old'),event('count',0,8,'old'),
+    event('count',5,1,'zero'),event('count',5,8,'zero'),{...event('count',0,9),accepted:false}];
+  const result=getWeeklyPopularity(drinks,events,now);
+  assert.deepEqual(result.rows.map(row=>[row.id,row.weeklyRate]),[['tea',32]]);
+  assert.equal(result.observedProducts,2); // tea and zero; milk has an unrecorded increase.
+  assert.equal(result.countedProducts,6);
+  const measured=getWeeklyPopularity(drinks,[event('count',20,1,'milk'),event('restock',24,3,'milk'),event('count',16,8,'milk')],now);
+  assert.equal(measured.rows[0].weeklyRate,28);assert.equal(measured.rows[0].unit,'包');
+  assert.deepEqual(getWeeklyPopularity(drinks,[],now).rows,[]);
+});
 
 test('counts arrivals between stocktakes when estimating consumption', () => {
   const result = getConsumption('tea', [

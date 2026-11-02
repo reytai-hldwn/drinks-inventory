@@ -51,7 +51,7 @@ try{
       await ready();const data=await geometry();assert.ok(data.pageWidth<=page.viewportSize().width+1);
       if(page.viewportSize().width<=900){
         assert.equal(data.kind,'mobile');assert.equal(await page.locator('.fridge-open-guide').isVisible(),false);
-        assert.equal(await page.locator('.pantry-mobile-scene > svg').getAttribute('viewBox'),'1388 388 347 475');
+        assert.equal(await page.locator('.pantry-mobile-scene > svg').getAttribute('viewBox'),'0 0 347 475');
         assert.ok(requests.every(url=>!url.includes('pantry-office-')),'phone does not download desktop artwork');
         return;
       }

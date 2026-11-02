@@ -31,6 +31,36 @@ function warehousePayload() {
   return value;
 }
 
+test('a validated public cache opens immediately, expires, isolates endpoints and never retains warehouse observations', async () => {
+  const values=new Map(),storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};
+  let stamp=Date.parse('2026-11-02T00:00:00Z'),reads=0;
+  const options={publicStorage:storage,now:()=>stamp,readPublicData:async(_url,{action})=>{reads++;return action==='warehouse'?warehousePayload():payload();}};
+  const first=new GoogleInventoryStore({googleScriptUrl:ENDPOINT},options);await first.init();assert.equal(reads,1);
+  await first.readWarehouse();
+  const cached=JSON.parse(values.get(`holdwin-public-cache-v1:${ENDPOINT}`));
+  assert.equal(cached.payload.drinks[0].stock,0);assert.equal(cached.payload.drinks[0].lastCountAt,null);assert.equal(cached.payload.events,undefined);
+  const warm=new GoogleInventoryStore({googleScriptUrl:ENDPOINT},options);await warm.init();
+  assert.equal(reads,2,'warm startup does not wait for another read');assert.equal(warm.revalidateOnStart,true);assert.equal(warm.inWarehouse,false);
+  assert.equal(warm.data.drinks[0].name,'光泉牛乳');await warm.read();assert.equal(warm.revalidateOnStart,false);
+  stamp+=86400001;const expired=new GoogleInventoryStore({googleScriptUrl:ENDPOINT},options);await expired.init();assert.equal(reads,4);
+  const other=new GoogleInventoryStore({googleScriptUrl:ENDPOINT.replace('/exec','_OTHER/exec')},options);await other.init();assert.equal(reads,5);
+  values.set(`holdwin-public-cache-v1:${ENDPOINT}`,'broken');await new GoogleInventoryStore({googleScriptUrl:ENDPOINT},options).init();assert.equal(reads,6);
+});
+
+test('popularity reads are lazy and deduplicated, preserve the public view, and cache only aggregate rates', async () => {
+  let reads=0,release;
+  const pending=new Promise(resolve=>{release=resolve;});
+  const store=new GoogleInventoryStore({googleScriptUrl:ENDPOINT},{readPublicData:async(_url,{action})=>{
+    if(action==='public')return payload();reads++;await pending;
+    const value=warehousePayload();value.events.push({id:'count-02',drinkId:value.drinks[0].id,type:'count',quantity:6,createdAt:'2026-11-06T00:00:00Z'});return value;
+  },now:()=>Date.parse('2026-11-07T00:00:00Z')});
+  await store.init();assert.equal(reads,0);const data=store.data,revision=store.revision;
+  const one=store.readPopularity(),two=store.readPopularity();assert.equal(reads,1);release();await Promise.all([one,two]);
+  assert.equal(store.data,data);assert.equal(store.revision,revision);assert.equal(store.inWarehouse,false);
+  assert.equal(store.popularity.rows[0].weeklyRate,14);assert.equal(store.popularity.events,undefined);
+  await store.readPopularity();assert.equal(reads,1);
+});
+
 function addVoteForm(value = payload()) {
   value.formUrls.vote = VOTE_URL;
   value.voteForm = { url: VOTE_URL, wishEntryId: '12345', voterEntryId: '67890', voterNameEntryId: '13579' };

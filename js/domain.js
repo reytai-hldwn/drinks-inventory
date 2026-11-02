@@ -167,6 +167,29 @@ export function getConsumption(drinkId, events, now = new Date()) {
   return result;
 }
 
+/** Rank observed weekly container consumption, never stock levels or clicks. */
+export function getWeeklyPopularity(drinks, events, now = new Date()) {
+  const grouped = new Map();
+  for (const event of events || []) {
+    if (event.accepted === false) continue;
+    if (!grouped.has(event.drinkId)) grouped.set(event.drinkId, []);
+    grouped.get(event.drinkId).push(event);
+  }
+  let countedProducts = 0, observedProducts = 0;
+  const rows = [];
+  for (const drink of drinks.filter(item => item.active !== false)) {
+    const timeline = grouped.get(drink.id) || [];
+    if (timeline.some(event => event.type === 'count' && Number.isSafeInteger(event.quantity) && event.quantity >= 0 && Date.parse(event.createdAt) <= +new Date(now))) countedProducts += 1;
+    const result = getConsumption(drink.id, timeline, now);
+    // A few minutes between counts cannot support a useful weekly estimate.
+    if (result.anomaly || result.dailyRate === null || result.days < 1) continue;
+    observedProducts += 1;
+    if (result.dailyRate > 0) rows.push({ id: drink.id, name: drink.name, unit: drink.unit, weeklyRate: result.dailyRate * 7, days: result.days, samples: result.samples });
+  }
+  rows.sort((left, right) => right.weeklyRate - left.weeklyRate || left.name.localeCompare(right.name, 'zh-Hant'));
+  return { rows: rows.slice(0, 3), countedProducts, observedProducts, calculatedAt: new Date(now).toISOString() };
+}
+
 /** Fictional examples only; never load these into a configured shared database. */
 export function sampleData() {
   const now = Date.now();

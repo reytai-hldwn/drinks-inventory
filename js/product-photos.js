@@ -40,7 +40,7 @@ export const PRODUCT_PHOTOS = Object.freeze([
   {"src":"./assets/apple-sidra.png","enabled":true,"originalSize":[600,337],"crop":[227,57,149,214],"height":132,"names":["蘋果西打"],"outline":[[300,64],[326,65],[349,66],[357,68],[359,70],[359,74],[357,77],[359,86],[362,94],[365,105],[366,242],[364,248],[358,252],[356,258],[348,261],[326,263],[300,264],[274,262],[254,260],[247,258],[243,253],[238,250],[235,245],[234,106],[236,96],[240,86],[243,77],[241,73],[242,69],[248,67],[272,65]]},
   {"src":"./assets/klim-strawberry-yogurt.webp","enabled":true,"originalSize":[1000,1000],"crop":[132,152,336,698],"height":113,"names":["克寧草莓優酪乳"],"outline":[[139,161],[387,161],[464,196],[464,838],[212,841],[139,795]]},
   {"src":"./assets/agv-barley-drink.jpeg","enabled":true,"originalSize":[1000,1000],"crop":[227,121,466,768],"height":113,"names":["愛之味麥仔茶"],"outline":[[239,161],[619,132],[679,158],[674,831],[624,878],[237,849]]},
-].map((photo) => Object.freeze({ ...photo, names: Object.freeze(photo.names), outline: photo.outline ? Object.freeze(photo.outline.map((point) => Object.freeze(point))) : undefined })));
+].map((photo) => Object.freeze({ ...photo, displaySrc: photo.displaySrc || `./assets/display/${photo.src.split('/').pop().replace(/\.[^.]+$/, '')}.webp`, names: Object.freeze(photo.names), outline: photo.outline ? Object.freeze(photo.outline.map((point) => Object.freeze(point))) : undefined })));
 
 const productPhotosByName = new Map(PRODUCT_PHOTOS.filter((photo) => photo.enabled !== false).flatMap((photo) => photo.names.map((name) => [name, photo])));
 
