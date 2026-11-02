@@ -1,6 +1,6 @@
 import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
-import { normalizeSupplyWarehouse } from './supplies.js';
+import { normalizeSupplyWarehouse, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, supplyToday, validSupplyExpiry } from './supplies.js';
 import { normalizeRestockPreferences } from './restock-preferences.js';
 
 let googleCallbackSequence = 0;
@@ -326,6 +326,7 @@ export class GoogleInventoryStore {
     this.supplies = [];
     this.supplyEvents = [];
     this.supplyEntryVersion = 0;
+    this.supplySnackVersion = 0;
     this.supplyExpiryVersion = 0;
     this.supplyExpirySetVersion = 0;
     this.restockPreferences = [];
@@ -338,6 +339,7 @@ export class GoogleInventoryStore {
   get supportsArchiveWishes() { return this.supportsWebsiteEntry && this.archiveWishVersion === 1; }
   get supportsNewArrivals() { return this.supportsWebsiteEntry && this.newArrivalVersion === 1; }
   get supportsSupplies() { return this.supportsWebsiteEntry && this.supplyEntryVersion === 1; }
+  get supportsSnacks() { return this.supportsSupplies && this.supplySnackVersion===1; }
   get supportsSupplyExpiry() { return this.supportsSupplies && this.supplyExpiryVersion===1; }
   get supportsSupplyExpirySet() { return this.supportsSupplyExpiry && this.supplyExpirySetVersion===1; }
   get supportsRestockPreferences() { return this.supportsWebsiteEntry && this.restockPreferenceVersion===1; }
@@ -444,11 +446,12 @@ export class GoogleInventoryStore {
     this.supplies = result.supplies || [];
     this.supplyEvents = result.supplyEvents || [];
     this.supplyEntryVersion = result.supplyEntryVersion || 0;
+    this.supplySnackVersion = result.supplySnackVersion || 0;
     this.supplyExpiryVersion = result.supplyExpiryVersion || 0;
     this.supplyExpirySetVersion = result.supplyExpirySetVersion || 0;
     this.restockPreferences = result.restockPreferences || [];
     this.restockPreferenceVersion = result.restockPreferenceVersion || 0;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplySnackVersion:this.supplySnackVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
   }
 
   applyWishReceipt(operation, data, result, requestId) {
@@ -495,18 +498,18 @@ export class GoogleInventoryStore {
         const legacy = normalizeGooglePublicData(await this.readPublicData(validateGoogleScriptUrl(this.url), {action:'warehouse'}),{warehouse:true});
         const items = [...legacy.data.drinks.map(item=>({...item,kind:'drink'})),...legacy.supplies];
         value = {ok:true,version:1,totalDrinks:legacy.data.drinks.length,pendingWishes:legacy.data.wishes.filter(wish=>wish.status==='pending').length,
-          lowItems:items.filter(item=>item.active!==false&&item.lastCountAt&&item.stock!==null&&item.stock<=10).map(item=>({kind:item.kind,id:item.id,name:item.name,unit:item.unit,stock:item.stock,mode:legacy.restockPreferences.find(entry=>entry.kind===item.kind&&entry.itemId===item.id)?.mode||'normal'}))};
+          lowItems:items.filter(item=>item.kind!=='snack'&&item.active!==false&&item.lastCountAt&&item.stock!==null&&item.stock<=10).map(item=>({kind:item.kind,id:item.id,name:item.name,unit:item.unit,stock:item.stock,mode:legacy.restockPreferences.find(entry=>entry.kind===item.kind&&entry.itemId===item.id)?.mode||'normal'}))};
       }
       if (value?.ok !== true || value.version !== 1 || !Number.isSafeInteger(value.totalDrinks) || value.totalDrinks < 0 || value.totalDrinks > 1000 ||
           !Number.isSafeInteger(value.pendingWishes) || value.pendingWishes < 0 || value.pendingWishes > 5000 || !Array.isArray(value.lowItems) || value.lowItems.length > 2000) throw new Error('後台摘要格式不正確，請稍後重新讀取。');
       const ids = new Set();
       const lowItems = value.lowItems.map(row=>{
-        if (!row || !['drink','noodle','toner'].includes(row.kind) || !['normal','hold','replace'].includes(row.mode) ||
-            !(row.kind==='drink'?['包','瓶','罐']:row.kind==='noodle'?['杯','碗']:['盒']).includes(row.unit) || !Number.isSafeInteger(row.stock) || row.stock < 0 || row.stock > 10) throw new Error('後台低庫存摘要格式不正確。');
+        if (!row || !['drink','snack','noodle','toner'].includes(row.kind) || !['normal','hold','replace'].includes(row.mode) ||
+            !(row.kind==='drink'?['包','瓶','罐']:row.kind==='snack'?SNACK_UNITS:row.kind==='noodle'?['杯','碗']:['盒']).includes(row.unit) || !Number.isSafeInteger(row.stock) || row.stock < 0 || row.stock > 10) throw new Error('後台低庫存摘要格式不正確。');
         const id=textField(row.id,'品項代號',160),name=textField(row.name,'品項名稱',80),key=`${row.kind}:${id}`;
         if(ids.has(key))throw new Error('後台摘要有重複品項。');ids.add(key);
         return {id,name,kind:row.kind,unit:row.unit,stock:row.stock,mode:row.mode};
-      }).sort((a,b)=>a.stock-b.stock);
+      }).filter(item=>item.kind!=='snack').sort((a,b)=>a.stock-b.stock);
       if(writeSequence!==this.confirmedWriteSequence)throw new Error('庫存剛更新，請重新讀取摘要。');
       this.adminSummary={totalDrinks:value.totalDrinks,pendingWishes:value.pendingWishes,lowItems};this.adminSummaryReadAt=this.now();
       return this.adminSummary;
@@ -667,32 +670,47 @@ export class GoogleInventoryStore {
 
   async submitNewArrival(data) {
     if (!this.supportsNewArrivals) throw new Error('請先更新 Apps Script 部署，才能在入庫時登記新品。');
-    if (data.kind === 'noodle' && !this.supportsSupplyExpiry) throw new Error('請更新 Apps Script 部署，啟用泡麵保存期限。');
+    if (data.kind==='snack') {
+      if(!this.supportsSnacks)throw new Error('請先更新 Apps Script 部署，才能登記零食庫存。');
+      if(!SNACK_CATEGORIES.includes(data.category)||!SNACK_UNITS.includes(data.unit))throw new Error('請選擇有效的零食分類與單位。');
+      if(!validSupplyExpiry(data.expiresOn)||data.expiresOn<supplyToday(new Date(this.now())))throw new Error('零食入庫請填寫有效的保存期限，不能早於今天。');
+    }
+    if (supplyNeedsExpiry(data.kind) && !this.supportsSupplyExpiry) throw new Error('請更新 Apps Script 部署，啟用食品保存期限。');
     return this.sendWebsiteCommand('new-arrival', data);
   }
 
   async submitSupplyArrival(data) {
-    if (!this.supportsSupplies) throw new Error('請先更新 Apps Script 部署，才能儲存泡麵與碳粉庫存。');
-    if (this.supplies.find(item=>item.id===data.supplyId)?.kind==='noodle'&&!this.supportsSupplyExpiry)throw new Error('請更新 Apps Script 部署，啟用泡麵保存期限登記。');
+    if (!this.supportsSupplies) throw new Error('請先更新 Apps Script 部署，才能儲存零食、泡麵與碳粉庫存。');
+    if(this.isSnackSupply(data.supplyId)&&!this.supportsSnacks)throw new Error('請先更新 Apps Script 部署，才能登記零食庫存。');
+    if(this.isSnackSupply(data.supplyId)&&(!validSupplyExpiry(data.expiresOn)||data.expiresOn<supplyToday(new Date(this.now()))))throw new Error('零食入庫請填寫有效的保存期限，不能早於今天。');
+    if (supplyNeedsExpiry(this.supplies.find(item=>item.id===data.supplyId)?.kind)&&!this.supportsSupplyExpiry)throw new Error('請更新 Apps Script 部署，啟用食品保存期限登記。');
     return this.sendWebsiteCommand('supply-arrival', data);
   }
 
+  isSnackSupply(id) { return this.supplies.some(item=>item.id===id&&item.kind==='snack') || (typeof id==='string'&&id.startsWith('supply-snack-')); }
+
   async submitSupplyStocktake(entries, recorder) {
-    if (!this.supportsSupplies) throw new Error('請先更新 Apps Script 部署，才能儲存泡麵與碳粉庫存。');
+    if(entries?.some(entry=>this.isSnackSupply(entry.supplyId))&&!this.supportsSnacks)throw new Error('請先更新 Apps Script 部署，才能登記零食庫存。');
+    if (!this.supportsSupplies) throw new Error('請先更新 Apps Script 部署，才能儲存零食、泡麵與碳粉庫存。');
     return this.sendWebsiteCommand('supply-stocktake', {entries,recorder});
   }
 
   async closeSupplyBatch(data) {
+    const batch=this.supplyEvents.find(event=>event.id===data.batchId);
+    if(this.isSnackSupply(batch?.supplyId)&&!this.supportsSnacks)throw new Error('請先更新 Apps Script 部署，才能登記零食效期。');
     if(!this.supportsSupplyExpiry)throw new Error('請先更新 Apps Script 部署，才能標記效期批次。');
     return this.sendWebsiteCommand('supply-expiry-close',data);
   }
 
   async setSupplyExpiry(data) {
+    if(this.isSnackSupply(data.supplyId)&&!this.supportsSnacks)throw new Error('請先更新 Apps Script 部署，才能登記零食效期。');
     if(!this.supportsSupplyExpirySet)throw new Error('請先更新 Apps Script 部署，才能補登既有庫存的保存期限。');
     return this.sendWebsiteCommand('supply-expiry-set',data);
   }
 
   async setRestockPreference(data) {
+    if(data.kind==='snack'&&(data.mode!=='normal'||!this.restockPreferences.some(entry=>entry.kind==='snack'&&entry.itemId===data.itemId&&entry.mode!=='normal')))throw new Error('零食依庫存排序，不設定低庫存補貨提醒。');
+    if(data.kind==='snack'&&!this.supportsSnacks)throw new Error('請先更新 Apps Script 部署，才能設定零食補貨提醒。');
     if(!this.supportsRestockPreferences)throw new Error('請先更新 Apps Script 部署，才能儲存暫不補貨設定。');
     const result=await this.sendWebsiteCommand('restock-preference',data);
     if(this.lastWriteNeedsRefresh){
