@@ -59,6 +59,10 @@ npm run dev
 
 插畫／開門、原生表單與慢速連線下切換頁面的瀏覽器整合測試另見 `tests/browser-scene.mjs`、`tests/browser-native-google.mjs`、`tests/browser-navigation.mjs`；需 Chromium 與 Playwright Core，端點攔截至模擬的 Apps Script／試算表，不會寫入正式 Google 資料。
 
+`tests/browser-release-cache.mjs` 需先建置 `dist/`；它用保留舊 CSS 與模組的真實瀏覽器快取驗證更新，並由本機伺服器提供示範設定，不連線 Google。
+
 正式站以 `GOOGLE_SCRIPT_URL` 設定已發布的 `/exec` 網址，再執行 `npm run build:site`。建置只輸出網站必要檔案到 `dist/`，不包含試用檔、設定腳本、測試或截圖；沒有共用網址會拒絕建置，不會發布各手機獨立的本機示範。
+
+正式建置會依 HTML、CSS、JavaScript 與公開設定產生一致的版本參數，套用到入口及所有本機模組匯入，避免新版頁面沿用舊樣式或 `fridge.js`。版本資訊放在 HTML 的 `pantry-release` metadata；原始檔與單檔示範不受改寫。
 
 `supabase/` 與舊設定文件保留為選配介接參考，目前的正式上線流程以 Google 為準。

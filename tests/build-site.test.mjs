@@ -100,6 +100,39 @@ test('rebuilding replaces old output without retaining accidentally copied demo 
   assert.equal((await readdir(root)).some((name) => name.startsWith('.dist-build-')), false);
 });
 
+test('releases bypass stale CSS and every cached module dependency without changing source files', async (t) => {
+  const root = await fixture(t);
+  const html = '<!doctype html><head><link rel="stylesheet" href="./pantry.css"><script src="./theme.js"></script><script src="./config.js"></script><script type="module" src="./js/app.js"></script></head>';
+  const app = "import { hint } from './fridge.js';\nimport './domain.js';\nwindow.pantryReady = hint;";
+  const fridge = "export { color } from './domain.js';\nexport const hint='new';";
+  await writeFile(join(root, 'index.html'), html);
+  await writeFile(join(root, 'js/app.js'), app);
+  await writeFile(join(root, 'js/fridge.js'), fridge);
+  await writeFile(join(root, 'js/domain.js'), "export const color='brown';");
+  const first = await buildSite({ root, env: publicEnv });
+  const check = async revision => {
+    const built = await readFile(join(root, 'dist/index.html'), 'utf8');
+    for (const name of ['pantry.css', 'theme.js', 'config.js', 'js/app.js']) assert.ok(built.includes(`./${name}?v=${revision}`));
+    assert.ok(built.includes(`name="pantry-release" content="${revision}"`));
+    const modules = await readFile(join(root, 'dist/js/app.js'), 'utf8');
+    for (const name of ['fridge.js', 'domain.js']) assert.ok(modules.includes(`./${name}?v=${revision}`));
+    assert.ok((await readFile(join(root, 'dist/js/fridge.js'), 'utf8')).includes(`./domain.js?v=${revision}`));
+    assert.equal(await readFile(join(root, 'index.html'), 'utf8'), html);
+    assert.equal(await readFile(join(root, 'js/app.js'), 'utf8'), app);
+    assert.equal(await readFile(join(root, 'js/fridge.js'), 'utf8'), fridge);
+  };
+  await check(first.revision);
+  assert.equal((await buildSite({ root, env: publicEnv })).revision, first.revision, 'identical source keeps the same cache key');
+  await writeFile(join(root, 'pantry.css'), '.guide-arrow{stroke:brown}');
+  const second = await buildSite({ root, env: publicEnv });
+  assert.notEqual(second.revision, first.revision);await check(second.revision);
+  await writeFile(join(root, 'js/domain.js'), "export const color='cream';");
+  const third = await buildSite({ root, env: publicEnv });
+  assert.notEqual(third.revision, second.revision);await check(third.revision);
+  const configured = await buildSite({ root, env: { ...publicEnv, SUPABASE_URL: 'https://new.example.supabase.co' } });
+  assert.notEqual(configured.revision, third.revision, 'public configuration changes also refresh the release');
+});
+
 test('symbolic links cannot smuggle arbitrary files into the production artifact', async (t) => {
   const root = await fixture(t);
   await symlink(join(root, 'supabase/schema.sql'), join(root, 'js/linked.js'));

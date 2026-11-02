@@ -1,6 +1,6 @@
-import { copyFile, lstat, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
-import { dirname, extname, join, resolve } from 'node:path';
+import { copyFile, lstat, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { validateGoogleScriptUrl } from '../js/google-store.js';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -51,6 +51,7 @@ export async function buildSite({ root = projectRoot, env = process.env } = {}) 
   const config = sharedConfig(env);
   const output = join(root, 'dist');
   const staging = join(root, `.dist-build-${randomUUID()}`);
+  const runtimeFiles = [];
   let copied = 0;
 
   async function copyStatic(source, target) {
@@ -58,6 +59,7 @@ export async function buildSite({ root = projectRoot, env = process.env } = {}) 
     if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('Static inputs must be regular files, not links.');
     await mkdir(dirname(target), { recursive: true });
     await copyFile(source, target);
+    if (['.html', '.css', '.js'].includes(extname(target))) runtimeFiles.push(relative(staging, target).split(sep).join('/'));
     copied += 1;
   }
 
@@ -87,10 +89,29 @@ export async function buildSite({ root = projectRoot, env = process.env } = {}) 
     await writeFile(join(staging, 'config.js'),
       '// Generated production browser configuration. Public values only.\n' +
       `window.DRINKS_CONFIG = ${JSON.stringify(config, null, 2)};\n`);
+    runtimeFiles.push('config.js');
+    // Version the complete module graph, not only app.js: browsers otherwise
+    // reuse cached dependencies such as fridge.js and mix old/new UI styles.
+    const sourceFiles = await Promise.all(runtimeFiles.sort().map(async name => [name, await readFile(join(staging, name), 'utf8')]));
+    const hash = createHash('sha256').update('pantry-runtime-v1\0');
+    for (const [name, source] of sourceFiles) hash.update(name).update('\0').update(source).update('\0');
+    const revision = hash.digest('hex').slice(0, 16);
+    for (const [name, source] of sourceFiles) {
+      let versioned = source;
+      if (extname(name) === '.html') {
+        versioned = source.replace(/\b(src|href)=(["'])(\.\/[^"'?#]+\.(?:css|js))\2/g,
+          (_, attribute, quote, url) => `${attribute}=${quote}${url}?v=${revision}${quote}`)
+          .replace('</head>', `  <meta name="pantry-release" content="${revision}">\n</head>`);
+      } else if (extname(name) === '.js') {
+        versioned = source.replace(/(\b(?:from\s+|import\s*(?:\(\s*)?)["'])(\.\.?\/[^"'\s?#]+\.js)(["'])/g,
+          (_, before, url, quote) => `${before}${url}?v=${revision}${quote}`);
+      }
+      if (versioned !== source) await writeFile(join(staging, name), versioned);
+    }
     await writeFile(join(staging, '.nojekyll'), '');
     await rm(output, { recursive: true, force: true });
     await rename(staging, output);
-    return { output, files: copied + 2 };
+    return { output, files: copied + 2, revision };
   } finally {
     await rm(staging, { recursive: true, force: true });
   }
