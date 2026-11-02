@@ -23,4 +23,5 @@ const names=(await readdir('js')).filter(name=>name.endsWith('.js')).sort();
 const text=(await Promise.all(['index.html',...names.map(name=>`js/${name}`)].map(name=>readFile(name,'utf8')))).join('\n');
 await writeFile('/tmp/pantry-font-characters.txt',[...new Set(text+'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz')].join(''));
 execFileSync('pyftsubset',['assets/pantry-hand-complete.woff2','--text-file=/tmp/pantry-font-characters.txt','--flavor=woff2','--output-file=assets/pantry-ui.woff2','--layout-features=*','--name-IDs=*','--name-legacy','--name-languages=*'],{stdio:'inherit'});
+execFileSync('python3',['scripts/build-font-fallbacks.py'],{stdio:'inherit'});
 console.log('Generated display assets from preserved originals.');
