@@ -20,7 +20,7 @@ export function validateGoogleScriptUrl(value) {
 export function fetchGooglePublicData(endpoint, options = {}) {
   const url = new URL(validateGoogleScriptUrl(endpoint));
   const action = options.action ?? 'public';
-  if (!['public', 'warehouse', 'receipt'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
+  if (!['public', 'warehouse', 'receipt', 'popularity', 'admin'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
   if (action === 'receipt' && !/^[A-Za-z0-9_-]{20,100}$/.test(options.requestId || '')) throw new Error('儲存回條代號不正確。');
   const pageWindow = options.window || globalThis.window;
   const pageDocument = options.document || globalThis.document;
@@ -142,6 +142,32 @@ function googleProductForm(value) {
   return url;
 }
 
+function normalizeGoogleWish(row) {
+  if (!row || typeof row !== 'object') throw new Error('Google 許願清單格式不正確。');
+  const url = row.url ? safeUrl(row.url) : '';
+  if ((row.url && !url) || url.length > 2000) throw new Error('Google 許願連結格式不正確。');
+  if (!['pending', 'purchased', 'declined'].includes(row.status)) throw new Error('Google 願望狀態格式不正確。');
+  if (typeof row.createdAt !== 'string' || !Number.isFinite(Date.parse(row.createdAt))) throw new Error('Google 願望日期格式不正確。');
+  const id = textField(row.id, '願望代號', 160);
+  const kind = row.kind === undefined ? 'drink' : row.kind;
+  if (!['drink', 'snack'].includes(kind)) throw new Error('Google 願望分類格式不正確。');
+  const votes = row.votes === undefined ? 0 : googleQuantityField(row.votes, '贊同人數');
+  const supporters = row.supporters === undefined ? [] : row.supporters;
+  if (!Array.isArray(supporters) || supporters.length > 5000 || supporters.length > votes) throw new Error('Google 贊同名單格式不正確。');
+  return {
+    id,
+    kind,
+    name: textField(row.name, '願望名稱', 80),
+    url,
+    note: row.note === undefined ? '' : textField(row.note, '願望備註', 500, false),
+    status: row.status,
+    createdAt: row.createdAt,
+    votes,
+    supporters: supporters.map((name) => textField(name, '贊同姓名', 80)),
+    ...(row.sourceDrinkId ? {sourceDrinkId:textField(row.sourceDrinkId,'歷史品項代號',160)} : {}),
+  };
+}
+
 /** Select display fields, including observed stock only for the warehouse view. */
 export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
   if (!payload || payload.error || payload.ok === false ||
@@ -181,30 +207,10 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
   });
   const wishIds = new Set();
   const wishes = payload.wishes.map((row) => {
-    if (!row || typeof row !== 'object') throw new Error('Google 許願清單格式不正確。');
-    const url = row.url ? safeUrl(row.url) : '';
-    if ((row.url && !url) || url.length > 2000) throw new Error('Google 許願連結格式不正確。');
-    if (!['pending', 'purchased', 'declined'].includes(row.status)) throw new Error('Google 願望狀態格式不正確。');
-    if (typeof row.createdAt !== 'string' || !Number.isFinite(Date.parse(row.createdAt))) throw new Error('Google 願望日期格式不正確。');
-    const id = textField(row.id, '願望代號', 160);
-    if (wishIds.has(id)) throw new Error('Google 許願清單出現重複願望代號。');
-    wishIds.add(id);
-    const kind = row.kind === undefined ? 'drink' : row.kind;
-    if (!['drink', 'snack'].includes(kind)) throw new Error('Google 願望分類格式不正確。');
-    const votes = row.votes === undefined ? 0 : googleQuantityField(row.votes, '贊同人數');
-    const supporters = row.supporters === undefined ? [] : row.supporters;
-    if (!Array.isArray(supporters) || supporters.length > 5000 || supporters.length > votes) throw new Error('Google 贊同名單格式不正確。');
-    return {
-      id,
-      kind,
-      name: textField(row.name, '願望名稱', 80),
-      url,
-      note: row.note === undefined ? '' : textField(row.note, '願望備註', 500, false),
-      status: row.status,
-      createdAt: row.createdAt,
-      votes,
-      supporters: supporters.map((name) => textField(name, '贊同姓名', 80)),
-    };
+    const wish = normalizeGoogleWish(row);
+    if (wishIds.has(wish.id)) throw new Error('Google 許願清單出現重複願望代號。');
+    wishIds.add(wish.id);
+    return wish;
   });
   const eventIds = new Set();
   const events = warehouse ? (() => {
@@ -246,11 +252,30 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     wishForm,
     adminUrl,
     updatedAt,
+    snapshotAt: googleDateField(payload.snapshotAt, '資料讀取時間', true),
+    archiveWishVersion: payload.websiteEntry?.archiveWishVersion === 1 ? 1 : 0,
+    popularityVersion: payload.websiteEntry?.popularityVersion === 1 ? 1 : 0,
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
     newArrivalVersion: warehouse && payload.websiteEntry?.newArrivalVersion === 1 ? 1 : 0,
     ...(warehouse ? normalizeSupplyWarehouse(payload) : {supplies:[],supplyEvents:[],supplyEntryVersion:0,supplyExpiryVersion:0,supplyExpirySetVersion:0}),
     ...(warehouse ? normalizeRestockPreferences(payload) : {restockPreferences:[],restockPreferenceVersion:0}),
   };
+}
+
+function normalizeGooglePopularity(payload) {
+  const value = payload?.popularity;
+  if (payload?.ok !== true || payload.version !== 1 || !value || !Array.isArray(value.rows) || value.rows.length > 3 ||
+      !Number.isSafeInteger(value.countedProducts) || value.countedProducts < 0 || value.countedProducts > 1000 ||
+      !Number.isSafeInteger(value.observedProducts) || value.observedProducts < 0 || value.observedProducts > value.countedProducts ||
+      value.rows.length > value.observedProducts) throw new Error('Google 熱門品項格式不正確。');
+  const ids = new Set();
+  return {countedProducts:value.countedProducts,observedProducts:value.observedProducts,calculatedAt:googleDateField(value.calculatedAt,'統計時間'),rows:value.rows.map(row=>{
+    const id = textField(row?.id,'品項代號',160);
+    if (ids.has(id) || !['包','瓶','罐'].includes(row.unit) || !Number.isFinite(row.weeklyRate) || row.weeklyRate <= 0 ||
+        !Number.isFinite(row.days) || row.days < 1 || !Number.isSafeInteger(row.samples) || row.samples < 1) throw new Error('Google 熱門品項格式不正確。');
+    ids.add(id);
+    return {id,name:textField(row.name,'飲料名稱',80),unit:row.unit,weeklyRate:row.weeklyRate,days:row.days,samples:row.samples};
+  })};
 }
 
 export class GoogleInventoryStore {
@@ -271,6 +296,16 @@ export class GoogleInventoryStore {
     this.updatedAt = null;
     this.revision = '';
     this.googleReadSequence = 0;
+    this.confirmedWriteSequence = 0;
+    this.pendingGoogleReads = new Map();
+    this.wishSnapshotTimes = new Map();
+    this.snapshotAt = null;
+    this.popularityVersion = 0;
+    this.archiveWishVersion = 0;
+    this.googleViewLoaded = false;
+    this.adminSummary = null;
+    this.adminSummaryReadAt = -Infinity;
+    this.adminSummaryRequest = null;
     this.websiteEntryVersion = 0;
     this.newArrivalVersion = 0;
     this.lastWriteNeedsRefresh = false;
@@ -300,6 +335,7 @@ export class GoogleInventoryStore {
   get canEdit() { return false; }
   get canManage() { return true; }
   get supportsWebsiteEntry() { return this.websiteEntryVersion === 1; }
+  get supportsArchiveWishes() { return this.supportsWebsiteEntry && this.archiveWishVersion === 1; }
   get supportsNewArrivals() { return this.supportsWebsiteEntry && this.newArrivalVersion === 1; }
   get supportsSupplies() { return this.supportsWebsiteEntry && this.supplyEntryVersion === 1; }
   get supportsSupplyExpiry() { return this.supportsSupplies && this.supplyExpiryVersion===1; }
@@ -328,19 +364,47 @@ export class GoogleInventoryStore {
 
   async readWarehouse() { return this.readGoogleView(true); }
 
+  async openPublic() {
+    if (!this.googleViewLoaded) return this.readPublic();
+    if (!this.inWarehouse) return this.data;
+    // Reuse already validated display fields when returning from administration.
+    // Quantities and private histories are discarded before rendering or caching.
+    const result = normalizeGooglePublicData({ok:true,drinks:this.data.drinks,wishes:this.data.wishes,
+      formUrls:this.formUrls,voteForm:this.voteForm,wishForm:this.wishForm,adminUrl:this.adminUrl,
+      updatedAt:this.updatedAt,snapshotAt:this.snapshotAt,
+      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion}});
+    ++this.googleReadSequence;
+    this.pendingGoogleReads.delete('public');
+    this.applyGoogleView(result, false);
+    this.revalidateOnStart = true;
+    return this.data;
+  }
+
+  cancelOtherViewReads(warehouse) {
+    const other=warehouse?'public':'warehouse';
+    if(this.pendingGoogleReads.has(other)){++this.googleReadSequence;this.pendingGoogleReads.delete(other);}
+  }
+
   async readPublic() { return this.readGoogleView(false); }
 
   async readGoogleView(warehouse) {
-    const sequence = ++this.googleReadSequence;
+    const sequence = ++this.googleReadSequence, writeSequence = this.confirmedWriteSequence;
     const endpoint = validateGoogleScriptUrl(this.url);
     let payload;
     try {
-      payload = await this.readPublicData(endpoint, { action: warehouse ? 'warehouse' : 'public' });
+      const action = warehouse ? 'warehouse' : 'public';
+      let request = this.pendingGoogleReads.get(action);
+      if (!request) {
+        request = this.readPublicData(endpoint, { action });
+        this.pendingGoogleReads.set(action, request);
+      }
+      try { payload = await request; }
+      finally { if (this.pendingGoogleReads.get(action) === request) this.pendingGoogleReads.delete(action); }
     } catch (error) {
-      if (sequence !== this.googleReadSequence) return this.data;
+      if (sequence !== this.googleReadSequence || writeSequence !== this.confirmedWriteSequence) return this.data;
       throw error;
     }
-    if (sequence !== this.googleReadSequence) return this.data;
+    if (sequence !== this.googleReadSequence || writeSequence !== this.confirmedWriteSequence) return this.data;
     if (warehouse && payload?.error === 'unsupported_action') {
       throw new Error('目前 Google 程式還不支援免登入倉庫，請更新 Code.gs 並重新部署。');
     }
@@ -353,7 +417,7 @@ export class GoogleInventoryStore {
       try {
         const payload = { ok: true, provider: 'google', drinks: result.data.drinks, wishes: result.data.wishes,
           formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm,
-          adminUrl: result.adminUrl, updatedAt: result.updatedAt, websiteEntry: { version: result.websiteEntryVersion } };
+          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion } };
         const saved = JSON.stringify({ version: 1, savedAt: this.now(), payload });
         if (saved.length < 750000) (this.publicStorage || globalThis.localStorage)?.setItem(`holdwin-public-cache-v1:${endpoint}`, saved);
       } catch { /* Storage is optional; fresh Google data still works. */ }
@@ -362,6 +426,7 @@ export class GoogleInventoryStore {
   }
 
   applyGoogleView(result, warehouse) {
+    this.googleViewLoaded = true;
     this.data = result.data;
     this.formUrls = result.formUrls;
     this.forms = this.formUrls;
@@ -371,6 +436,9 @@ export class GoogleInventoryStore {
     this.adminUrl = result.adminUrl;
     this.warehouseUrl = this.adminUrl;
     this.updatedAt = result.updatedAt;
+    this.snapshotAt = result.snapshotAt;
+    this.popularityVersion = result.popularityVersion;
+    this.archiveWishVersion = result.archiveWishVersion;
     this.websiteEntryVersion = result.websiteEntryVersion;
     this.newArrivalVersion = result.newArrivalVersion || 0;
     this.supplies = result.supplies || [];
@@ -383,15 +451,81 @@ export class GoogleInventoryStore {
     this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
   }
 
+  applyWishReceipt(operation, data, result, requestId) {
+    if (!['wish', 'vote', 'archive-wish'].includes(operation) || result?.operation !== operation ||
+        typeof result.snapshotAt !== 'string' || !Number.isFinite(Date.parse(result.snapshotAt))) return false;
+    try {
+      const wish = normalizeGoogleWish(result.wish);
+      const expectedId = operation === 'wish' ? `wish-web-${requestId}` : operation === 'archive-wish' ? result.id : data.wishId;
+      if (operation === 'archive-wish' && wish.sourceDrinkId !== data.drinkId) return false;
+      if (wish.id !== expectedId || (operation === 'wish' && result.id !== wish.id)) return false;
+      const stamp = Date.parse(result.snapshotAt);
+      const current = this.data.wishes.find(entry => entry.id === wish.id);
+      // Replaying an older accepted receipt must not roll back a newer read/vote.
+      if (stamp < Math.max(Date.parse(this.snapshotAt) || 0, this.wishSnapshotTimes.get(wish.id) || 0) ||
+          (current && current.votes > wish.votes)) return true;
+      this.wishSnapshotTimes.set(wish.id, stamp);
+      this.data.wishes = [...this.data.wishes.filter(entry => entry.id !== wish.id), wish];
+      this.revision = JSON.stringify({data:this.data,wishReceipt:result.snapshotAt});
+      // Keep the cache's original freshness: a wish receipt does not refresh drinks.
+      try {
+        const storage = this.publicStorage || globalThis.localStorage;
+        const key = `holdwin-public-cache-v1:${validateGoogleScriptUrl(this.url)}`;
+        const raw = storage?.getItem(key);
+        if (raw && raw.length < 750000) {
+          const saved = JSON.parse(raw);
+          if (saved.version === 1) {
+            const cached = normalizeGooglePublicData(saved.payload);
+            saved.payload.wishes = [...cached.data.wishes.filter(entry => entry.id !== wish.id), wish];
+            storage.setItem(key, JSON.stringify(saved));
+          }
+        }
+      } catch { /* Optional cache failures never undo a confirmed write. */ }
+      return true;
+    } catch { return false; }
+  }
+
+  async readAdminSummary() {
+    if (this.adminSummary && this.now() - this.adminSummaryReadAt < 15000) return this.adminSummary;
+    if (this.adminSummaryRequest) return this.adminSummaryRequest;
+    this.adminSummaryRequest = (async () => {
+      const writeSequence=this.confirmedWriteSequence;
+      let value = await this.readPublicData(validateGoogleScriptUrl(this.url), {action:'admin'});
+      if (value?.error === 'unsupported_action') {
+        const legacy = normalizeGooglePublicData(await this.readPublicData(validateGoogleScriptUrl(this.url), {action:'warehouse'}),{warehouse:true});
+        const items = [...legacy.data.drinks.map(item=>({...item,kind:'drink'})),...legacy.supplies];
+        value = {ok:true,version:1,totalDrinks:legacy.data.drinks.length,pendingWishes:legacy.data.wishes.filter(wish=>wish.status==='pending').length,
+          lowItems:items.filter(item=>item.active!==false&&item.lastCountAt&&item.stock!==null&&item.stock<=10).map(item=>({kind:item.kind,id:item.id,name:item.name,unit:item.unit,stock:item.stock,mode:legacy.restockPreferences.find(entry=>entry.kind===item.kind&&entry.itemId===item.id)?.mode||'normal'}))};
+      }
+      if (value?.ok !== true || value.version !== 1 || !Number.isSafeInteger(value.totalDrinks) || value.totalDrinks < 0 || value.totalDrinks > 1000 ||
+          !Number.isSafeInteger(value.pendingWishes) || value.pendingWishes < 0 || value.pendingWishes > 5000 || !Array.isArray(value.lowItems) || value.lowItems.length > 2000) throw new Error('後台摘要格式不正確，請稍後重新讀取。');
+      const ids = new Set();
+      const lowItems = value.lowItems.map(row=>{
+        if (!row || !['drink','noodle','toner'].includes(row.kind) || !['normal','hold','replace'].includes(row.mode) ||
+            !(row.kind==='drink'?['包','瓶','罐']:row.kind==='noodle'?['杯','碗']:['盒']).includes(row.unit) || !Number.isSafeInteger(row.stock) || row.stock < 0 || row.stock > 10) throw new Error('後台低庫存摘要格式不正確。');
+        const id=textField(row.id,'品項代號',160),name=textField(row.name,'品項名稱',80),key=`${row.kind}:${id}`;
+        if(ids.has(key))throw new Error('後台摘要有重複品項。');ids.add(key);
+        return {id,name,kind:row.kind,unit:row.unit,stock:row.stock,mode:row.mode};
+      }).sort((a,b)=>a.stock-b.stock);
+      if(writeSequence!==this.confirmedWriteSequence)throw new Error('庫存剛更新，請重新讀取摘要。');
+      this.adminSummary={totalDrinks:value.totalDrinks,pendingWishes:value.pendingWishes,lowItems};this.adminSummaryReadAt=this.now();
+      return this.adminSummary;
+    })();
+    try { return await this.adminSummaryRequest; } finally { this.adminSummaryRequest=null; }
+  }
+
   async readPopularity() {
     if (this.popularity && this.now() - this.popularityReadAt < 300000) return this.popularity;
     if (this.popularityRequest) return this.popularityRequest;
     this.popularityRequest = (async () => {
       // This separate read never changes the current route or public catalog.
       // It uses the existing deployment and retains only aggregate rates.
-      const payload = await this.readPublicData(validateGoogleScriptUrl(this.url), { action: 'warehouse' });
-      const result = normalizeGooglePublicData(payload, { warehouse: true });
-      this.popularity = getWeeklyPopularity(result.data.drinks, result.data.events, new Date(this.now()));
+      const payload = await this.readPublicData(validateGoogleScriptUrl(this.url), { action: this.popularityVersion === 1 ? 'popularity' : 'warehouse' });
+      if (this.popularityVersion === 1) this.popularity = normalizeGooglePopularity(payload);
+      else {
+        const result = normalizeGooglePublicData(payload, { warehouse: true });
+        this.popularity = getWeeklyPopularity(result.data.drinks, result.data.events, new Date(this.now()));
+      }
       this.popularityReadAt = this.now();
       return this.popularity;
     })();
@@ -488,6 +622,10 @@ export class GoogleInventoryStore {
     catch (error) { if (error.code === 'rejected') acknowledge('rejected'); throw error; }
     // A confirmed write stays a success even if the following read fails.
     acknowledge('accepted', result);
+    this.confirmedWriteSequence += 1;
+    this.pendingGoogleReads.clear();
+    this.adminSummaryReadAt = -Infinity;
+    if (this.applyWishReceipt(operation, data, result, pending.requestId)) return result;
     if (['stocktake', 'arrival', 'product', 'new-arrival'].includes(operation)) this.popularityReadAt = -Infinity;
     try { await this.read(); } catch { this.lastWriteNeedsRefresh = true; }
     return result;
@@ -499,6 +637,15 @@ export class GoogleInventoryStore {
     const link = url ? safeUrl(url) : '';
     if (url && !link) throw new Error('請填寫有效的 http 或 https 連結。');
     return this.sendWebsiteCommand('wish', { kind, name: name.trim(), url: link, note: note.trim() });
+  }
+
+  async supportArchivedDrink(drinkId, voterName) {
+    if (!this.supportsArchiveWishes) throw new Error('請先更新 Google 部署，才能登記歷史品項的回購願望。');
+    if (!this.data.drinks.some(drink=>drink.id===drinkId&&drink.active===false)) throw new Error('找不到這個歷史品項。');
+    if (typeof voterName !== 'string' || !voterName.trim() || voterName.trim().length > 80) throw new Error('請填寫姓名，最多 80 字。');
+    const result=await this.sendWebsiteCommand('archive-wish',{drinkId,voterName:voterName.trim(),voterId:this.getVoterId()});
+    if (typeof result.id === 'string') try { (this.voteStorage || globalThis.localStorage).setItem(`holdwin-google-voted-v1:${this.url}:${result.id}`,'true'); } catch { /* Server deduplication still applies. */ }
+    return result;
   }
 
   async voteWish(wishId, voterName) {

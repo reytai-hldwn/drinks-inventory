@@ -43,6 +43,7 @@ try{
   const {page,context}=await connect(),done=async()=>{await page.waitForFunction(()=>!document.querySelector('iframe[name^=holdwin_write_]')&&!document.querySelector('[data-restock-control][aria-busy=true]'));};
   const row=id=>page.locator(`[data-stock-drink-id=${id}]`),supply=id=>page.locator(`[data-supply-id=${id}]`);
   await page.goto(`${base}/index.html#products`);await page.waitForSelector('[data-stock-drink-id]');
+  await page.locator('[data-filter=all]').click();
   assert.deepEqual(await page.locator('[data-stock-drink-id]').evaluateAll(rows=>rows.map(row=>row.dataset.stockDrinkId)),['zero','few','ten','high','unknown']);
   assert.equal(await row('high').locator('[data-restock-toggle]').count(),0);assert.equal(await row('unknown').locator('[data-restock-toggle]').count(),0);
   await page.locator('[data-filter=low]').click();assert.equal(await page.locator('[data-stock-drink-id]').count(),3);
@@ -59,7 +60,7 @@ try{
   await page.screenshot({path:`/tmp/restock-preferences-drinks-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await row('zero').locator('[data-restock-toggle]').uncheck();await done();assert.equal(await row('zero').locator('.warehouse-low').count(),1);
   rejectNext=true;await row('few').locator('[data-restock-toggle]').check();await done();assert.equal(await row('few').locator('[data-restock-toggle]').isChecked(),false);assert.equal(await row('few').locator('.warehouse-low').count(),1);assert.match(await page.locator('#toast').innerText(),/設定不正確/);
-  await page.locator('[data-action=warehouse-kind][data-id=noodle]').click();
+  await page.locator('[data-action=warehouse-kind][data-id=noodle]').click();await page.locator('[data-action=supply-stock-filter][data-id=all]').click();
   assert.deepEqual((await page.locator('[data-supply-id]').evaluateAll(rows=>rows.map(row=>row.dataset.supplyId))).slice(0,3),['supply-noodle-02','supply-noodle-01','supply-noodle-03']);
   await page.locator('[data-action=supply-stock-filter][data-id=low]').click();assert.equal(await page.locator('[data-supply-id]').count(),2);
   await supply('supply-noodle-01').locator('[data-restock-toggle]').check();await done();assert.equal(await page.locator('[data-supply-id]').count(),2);assert.ok(await supply('supply-noodle-01').locator('.expiry-expired').count()>0,'stock preference never suppresses expiry');

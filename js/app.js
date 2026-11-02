@@ -26,7 +26,7 @@ let wishFilter = 'all';
 const wishKind = (wish) => wish?.kind === 'snack' ? 'snack' : 'drink';
 const wishKindLabel = (kind) => kind === 'snack' ? '零食' : '飲料';
 const wishKindOptions = (kind = '') => `<option value=""${kind ? '' : ' selected'} disabled>請選擇許願類型</option>${[['drink', '飲料許願'], ['snack', '零食許願']].map(([value, label]) => `<option value="${value}"${kind === value ? ' selected' : ''}>${label}</option>`).join('')}`;
-let filter = 'all';
+let filter = 'low';
 let query = '';
 let category = '';
 let display = 'fridge';
@@ -43,7 +43,7 @@ let toastTimer;
 let routeSequence = 0;
 let warehouseKind = 'drink';
 let supplyQuery = '';
-let supplyFilter = 'all';
+let supplyFilter = 'low';
 let popularityLoading = false;
 let popularityError = false;
 
@@ -116,7 +116,7 @@ function restockControls(item,kind='drink') {
   const mode=preferenceMode(kind,item.id),paused=mode!=='normal';
   if(item.active===false||(!isLowStockItem(item)&&!paused))return '';
   const nextMode=mode==='replace'?'hold':'replace';
-  return `<div class="restock-control" data-restock-control data-restock-kind="${kind}" data-restock-id="${h(item.id)}"><label class="restock-toggle${paused?' is-paused':''}"><input type="checkbox" data-restock-toggle data-restock-kind="${kind}" data-restock-id="${h(item.id)}"${paused?' checked':''}${store.supportsRestockPreferences?'':' disabled'}><span>${paused?RESTOCK_MODES[mode]:'暫不需要補貨'}</span></label>${paused?`<button type="button" class="restock-reason-button" data-restock-mode="${nextMode}" data-restock-kind="${kind}" data-restock-id="${h(item.id)}"${store.supportsRestockPreferences?'':' disabled'}>${nextMode==='replace'?'改標為準備替換新品項':'改標為暫不需要補貨'}</button>`:''}<span class="restock-save-status" data-restock-progress role="status"></span></div>`;
+  return `<div class="restock-control" data-restock-control data-restock-kind="${kind}" data-restock-id="${h(item.id)}"><label class="restock-toggle${paused?' is-paused':''}"><input type="checkbox" data-restock-toggle data-restock-kind="${kind}" data-restock-id="${h(item.id)}"${paused?' checked':''}${store.supportsRestockPreferences?'':' disabled'}><span>${paused?RESTOCK_MODES[mode]:'暫不需要補貨'}</span></label>${paused?`<button type="button" class="restock-reason-button" data-restock-mode="${nextMode}" data-restock-kind="${kind}" data-restock-id="${h(item.id)}"${store.supportsRestockPreferences?'':' disabled'}>${nextMode==='replace'?'非長青品項，可以換成新品試試看！':'改標為暫不需要補貨'}</button>`:''}<span class="restock-save-status" data-restock-progress role="status"></span></div>`;
 }
 
 function restockState(item,kind='drink') {
@@ -157,7 +157,7 @@ function forecast(drink) {
 }
 
 function inventoryToolbar(warehouse = false) {
-  return `<div class="toolbar">${warehouse ? `<div class="filter-tabs" role="group" aria-label="倉庫篩選">${[['all', '供應中'], ['low', '10 以內'], ['archived', '歷史品項']].map(([value, label]) => `<button class="filter-tab ${filter === value ? 'selected' : ''}" data-filter="${value}" aria-pressed="${filter === value}">${label}</button>`).join('')}</div>` : `<span class="fridge-browse-label">${activeDrinks().length} 款辦公室小補給</span>`}<div class="search-controls"><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" type="search" maxlength="80" placeholder="找找喜歡的飲料…" aria-label="搜尋飲料" value="${h(query)}"></label><select id="category-filter" aria-label="篩選飲料分類"><option value="">所有分類</option>${categoryNames().map((name) => `<option value="${h(name)}"${category === name ? ' selected' : ''}>${h(name)}</option>`).join('')}</select></div></div>`;
+  return `<div class="toolbar">${warehouse ? `<div class="filter-tabs" role="group" aria-label="倉庫篩選">${[['low', '10 以內'], ['all', '供應中'], ['archived', '歷史品項']].map(([value, label]) => `<button class="filter-tab ${filter === value ? 'selected' : ''}" data-filter="${value}" aria-pressed="${filter === value}">${label}</button>`).join('')}</div>` : `<span class="fridge-browse-label">${activeDrinks().length} 款辦公室小補給</span>`}<div class="search-controls"><label class="search-field"><span aria-hidden="true">⌕</span><input id="search" type="search" maxlength="80" placeholder="找找喜歡的飲料…" aria-label="搜尋飲料" value="${h(query)}"></label><select id="category-filter" aria-label="篩選飲料分類"><option value="">所有分類</option>${categoryNames().map((name) => `<option value="${h(name)}"${category === name ? ' selected' : ''}>${h(name)}</option>`).join('')}</select></div></div>`;
 }
 
 function renderOverview() {
@@ -176,7 +176,7 @@ function renderWarehouse() {
     main.innerHTML+=`<div class="admin-summary"><span>${activeDrinks().length} 種供應中</span><span class="warehouse-alert">${low} 種需要確認補貨</span><span>${activeDrinks().filter(drink=>isLowStockItem(drink)&&restockPaused('drink',drink.id)).length} 種暫不補貨</span><span>最近完整盤點 ${formatDate(store.data.lastInventoryAt)}</span></div><div class="inventory-panel">${inventoryToolbar(true)}<div id="inventory-table"></div></div>`;
     renderInventoryTable();
   }else{
-    main.innerHTML+=supplyUpgradeNotice(warehouseKind)+(warehouseKind==='noodle'?supplyExpirySetNotice():'')+`<div class="supply-intro"><p>${warehouseKind==='toner'?'固定黑、黃、紅、藍四色，單位為盒。':'依品項使用杯或碗。入庫必填保存期限，分批保留；30 天內到期會提醒。'}直接填寫數量，不做整箱換算；未盤點不當作 0。</p><label class="search-field">搜尋品項<input id="supply-search" type="search" maxlength="80" value="${h(supplyQuery)}" placeholder="搜尋${SUPPLY_KINDS[warehouseKind]}…"></label></div><div class="supply-stock-filters filter-tabs" role="group" aria-label="庫存範圍">${[['all','供應中'],['low','10 以內']].map(([value,label])=>`<button type="button" class="filter-tab${supplyFilter===value?' selected':''}" data-action="supply-stock-filter" data-id="${value}" aria-pressed="${supplyFilter===value}">${label}</button>`).join('')}</div><div class="inventory-panel" id="supply-inventory"></div>`;
+    main.innerHTML+=supplyUpgradeNotice(warehouseKind)+(warehouseKind==='noodle'?supplyExpirySetNotice():'')+`<div class="supply-intro"><p>${warehouseKind==='toner'?'固定黑、黃、紅、藍四色，單位為盒。':'依品項使用杯或碗。入庫必填保存期限，分批保留；30 天內到期會提醒。'}直接填寫數量，不做整箱換算；未盤點不當作 0。</p><label class="search-field">搜尋品項<input id="supply-search" type="search" maxlength="80" value="${h(supplyQuery)}" placeholder="搜尋${SUPPLY_KINDS[warehouseKind]}…"></label></div><div class="supply-stock-filters filter-tabs" role="group" aria-label="庫存範圍">${[['low','10 以內'],['all','供應中']].map(([value,label])=>`<button type="button" class="filter-tab${supplyFilter===value?' selected':''}" data-action="supply-stock-filter" data-id="${value}" aria-pressed="${supplyFilter===value}">${label}</button>`).join('')}</div><div class="inventory-panel" id="supply-inventory"></div>`;
     renderSupplyInventory();
   }
 }
@@ -321,8 +321,11 @@ async function loadFridgePopularity() {
 
 function renderArchive() {
   const archived = store.data.drinks.filter((drink) => drink.active === false);
-  main.innerHTML = heading('ONCE IN OUR PANTRY', '那些曾經喝過的', '曾經買過、目前暫停供應的飲料。想再喝到，可以到許願池留個願望。', '<a href="#wishes" class="button button-outline">♡ 我想許願</a>') +
-    `<div class="archive-grid">${archived.length ? archived.map((drink) => `<article class="panel archive-card">${drinkPack(drink)}<h2>${h(drink.name)}</h2><p>${h(drink.category)} · ${h(drink.packaging || drink.unit)}</p><span class="pill pill-muted">歷史品項</span><div class="form-actions">${button('查看飲料資訊', 'view-drink', `type="button" data-id="${h(drink.id)}"`, 'button-small button-outline')}</div></article>`).join('') : `<div class="panel">${empty('每一款喜歡，都值得被記得', '品項停買後會收進這裡，不會刪掉以前的紀錄。')}</div>`}</div>`;
+  main.innerHTML = heading('ONCE IN OUR PANTRY', '那些曾經喝過的', '曾經買過、目前暫停供應的飲料。還想喝的話，留下你的回購願望。') +
+    `<div class="archive-grid">${archived.length ? archived.map((drink) => {
+      const wish=store.data.wishes.find(item=>item.sourceDrinkId===drink.id),voted=wish&&store.hasVoted(wish.id);
+      return `<article class="panel archive-card" data-archived-drink-id="${h(drink.id)}">${drinkPack(drink)}<h2>${h(drink.name)}</h2><p>${h(drink.category)} · ${h(drink.packaging || drink.unit)}</p><span class="pill pill-muted">歷史品項</span><div class="form-actions">${button('查看飲料資訊', 'view-drink', `type="button" data-id="${h(drink.id)}"`, 'button-small button-outline')}</div><div class="archive-wish-actions"><button type="button" class="wish-vote-button${voted?' is-voted':''}" data-action="archive-wish" data-id="${h(drink.id)}" aria-pressed="${!!voted}"${voted||!store.supportsArchiveWishes?' disabled':''}>${voted?'♥ 已記下你的回購願望':'♡ 我還想喝，希望有機會可以再買'}</button>${wish?`<button type="button" class="wish-vote-count" data-action="view-wish-supporters" data-id="${h(wish.id)}">${wish.votes||0} 人還想喝</button>`:''}${!store.supportsArchiveWishes?'<small class="subtle">更新 Google 部署後即可登記回購願望。</small>':''}</div></article>`;
+    }).join('') : `<div class="panel">${empty('每一款喜歡，都值得被記得', '品項停買後會收進這裡，不會刪掉以前的紀錄。')}</div>`}</div>`;
 }
 
 function renderGoogleLink(url, label) {
@@ -466,17 +469,33 @@ function renderHistory() {
     }).join('')}</tbody></table></div><div class="table-bottom"><span>顯示最近 ${Math.min(events.length, 200)} 筆，共 ${events.length} 筆</span><span>匯出可取得完整紀錄</span></div>` : empty('還沒有異動紀錄', '第一次盤點或補貨之後，紀錄會自動留在這裡。')}</div>`;
 }
 
+let adminSummaryLoading = false;
+async function loadAdminSummary() {
+  if (adminSummaryLoading) return;
+  adminSummaryLoading=true;
+  try {
+    const summary = store.mode==='google' ? await store.readAdminSummary() : {
+      totalDrinks:store.data.drinks.length,pendingWishes:store.data.wishes.filter(wish=>wish.status==='pending').length,
+      lowItems:sortInventoryItems([...store.data.drinks.map(item=>({...item,kind:'drink'})),...supplyItems()].filter(item=>item.active!==false&&isLowStockItem(item))).map(item=>({...item,mode:preferenceMode(item.kind,item.id)}))};
+    if (view!=='admin')return;
+    const target=$('#admin-low-stock');if(!target)return;
+    const needs=summary.lowItems.filter(item=>item.mode==='normal');
+    target.innerHTML=`<div class="admin-low-heading"><div><span class="eyebrow">LOW STOCK</span><h2>10 以內，先看看這些</h2><p class="subtle">${needs.length} 種可確認補貨 · ${summary.totalDrinks} 種飲料 · ${summary.pendingWishes} 個願望待評估</p></div><a class="text-link" href="#products">查看庫存與補貨設定 ↗</a></div>${summary.lowItems.length?`<ul class="admin-low-list">${summary.lowItems.map(item=>`<li class="${item.mode==='normal'?'needs-restock':'is-paused'}"><span><small>${item.kind==='drink'?'飲料':SUPPLY_KINDS[item.kind]}</small><strong>${h(item.name)}</strong>${item.mode!=='normal'?`<small>${h(RESTOCK_MODES[item.mode])}</small>`:''}</span><b>${item.stock}<small>${h(item.unit)}</small></b></li>`).join('')}</ul>`:'<p class="subtle">目前沒有已盤點、庫存在 10 以內的品項。</p>'}`;
+  } catch (error) {
+    if(view==='admin'&&$('#admin-low-stock'))$('#admin-low-stock').innerHTML=`<p class="subtle">${h(error.message)}</p>${button('重新讀取摘要','retry-admin-summary','type="button"','button-small button-outline')}`;
+  } finally { adminSummaryLoading=false; }
+}
+
 function renderAdmin() {
-  const low = activeDrinks().filter((drink) => needsRestock(drink)).length;
-  const pending = store.data.wishes.filter((wish) => wish.status === 'pending').length;
   main.innerHTML = heading('PANTRY MANAGEMENT', '把補給的小事，整理好', '免登入管理。每次盤點或登記到貨，請填寫登記人，方便之後核對。', button('＋ 快速新增飲料', 'quick-add-drink')) +
-    `<div class="admin-summary"><span>目前 ${store.data.drinks.length} 種飲料</span><span>${low} 種在 10 以內</span><span>${pending} 個願望待評估</span></div><div class="admin-grid">${[
+    `<section id="admin-low-stock" class="panel admin-low-stock" aria-live="polite"><p class="subtle">正在整理 10 以內的庫存…</p></section><div class="admin-grid">${[
       ['count', '☷', '快速盤點', '可只盤一個品項；未盤點留白，實際為零填 0。', '開始盤點'],
       ['restock', '↗', '到貨入庫', '飲料、泡麵與碳粉分頁登記，保存到貨時間與數量。', '登記入庫'],
       ['products', '▦', '倉庫庫存與歷史品項', '查看實際庫存，確認哪些品項需要補貨。', '查看庫存'],
       ['manage-wishes', '♡', '大家的願望', '看看同事想喝的飲料、想吃的零食，以及大家的贊同。', '查看願望'],
       ['history', '◷', '異動紀錄', '查看實際盤點、入庫時間與數量，並匯出備份。', '查看紀錄'],
     ].map(([href, icon, title, description, cta]) => `<a href="#${href}" class="admin-card"><span class="admin-card-icon" aria-hidden="true">${icon}</span><h2>${title}</h2><p>${description}</p><span class="admin-card-cta">${cta} ↗</span></a>`).join('')}</div>`;
+  loadAdminSummary();
 }
 
 function render() {
@@ -508,16 +527,18 @@ async function route() {
     history.replaceState(null, '', `#${view}`);
     return;
   }
+  if(nextView==='products'&&view!=='products'){filter='low';supplyFilter='low';query='';category='';}
   view = nextView;
   const sequence = ++routeSequence;
-  const needsGoogleRead = store.mode === 'google' && store.inWarehouse !== adminViews.has(view);
+  if(store.mode==='google'&&view!=='admin')store.cancelOtherViewReads(adminViews.has(view));
+  const needsGoogleRead = store.mode === 'google' && view !== 'admin' && (!store.googleViewLoaded || store.inWarehouse !== adminViews.has(view));
   routeLoading = needsGoogleRead;
   if (needsGoogleRead) {
     syncFridgeScene(null);
     updateChrome();
     main.setAttribute('aria-busy', 'true');
     main.innerHTML = `<div class="loading-state"><span class="loader"></span><p>正在開啟${viewNames[view]}，讀取共用資料…</p></div>`;
-    try { await (adminViews.has(view) ? store.readWarehouse() : store.readPublic()); }
+    try { await (adminViews.has(view) ? store.readWarehouse() : store.openPublic()); }
     catch (error) {
       if (sequence !== routeSequence) return;
       routeLoading = false;
@@ -529,6 +550,7 @@ async function route() {
   if (sequence !== routeSequence) return;
   routeLoading = false;
   render();
+  if (store.revalidateOnStart && !store.inWarehouse) refreshCurrentView();
 }
 
 function showModal(title, description, content) {
@@ -666,6 +688,10 @@ async function submitForm(form) {
     googleWriteToast('新飲料已上架，先使用包裝示意圖；記得補登實際數量。');
     return;
   }
+  if (form.id === 'archive-wish-form') {
+    const result=await store.supportArchivedDrink(form.dataset.id,String(values.get('voterName')||'').trim());
+    modalDirty=false;modal.close();renderArchive();googleWriteToast(result?.alreadyVoted?'這個瀏覽器已經登記過，保留原本的一票。':'已記下你的回購願望！');return;
+  }
   if (form.id === 'vote-form') {
     const voterName = String(values.get('voterName') || '').trim();
     if (!voterName || voterName.length > 80) throw new Error('請填寫姓名，最多 80 字。');
@@ -797,7 +823,12 @@ async function runAction(action, id) {
     modal.close();
     return;
   }
-  if (action === 'quick-add-drink') { openQuickDrink(); return; }
+  if (action === 'quick-add-drink') { if(store.mode==='google'&&!store.googleViewLoaded)await store.readPublic(); if(view!=='admin'&&view!=='products')return;openQuickDrink(); return; }
+  if (action === 'retry-admin-summary') { store.adminSummaryReadAt=-Infinity;loadAdminSummary();return; }
+  if (action === 'archive-wish') {
+    const drink=store.data.drinks.find(item=>item.id===id&&item.active===false);if(!drink)throw new Error('找不到這個歷史品項。');
+    showModal('這款，我還想喝',`留下姓名，讓採買時知道大家還想喝「${h(drink.name)}」。`, `<form id="archive-wish-form" data-id="${h(id)}"><label class="field">姓名<input name="voterName" required maxlength="80" autocomplete="name"></label><div class="form-actions">${button('取消','close-modal','type="button"','button-outline')}<button type="submit" class="button">送出回購願望</button></div></form>`);return;
+  }
   if (action === 'refresh-new-drinks') {
     if (store.mode !== 'google' || !adminViews.has(view)) throw new Error('請從管理入口更新飲料架。');
     const previous = new Set(JSON.parse(modal.dataset.productIds || '[]'));
@@ -906,7 +937,7 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   if (action) {
     event.preventDefault();
-    if (['supply-stock-filter','supply-expiry-set','supply-expiry-add','supply-expiry-remove','warehouse-kind','supply-arrival','supply-count','supply-count-kind','supply-expiry-close','close-modal', 'quick-add-drink', 'new-drink', 'new-wish', 'edit-drink', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-popularity', 'retry-route'].includes(action.dataset.action)) {
+    if (['retry-admin-summary','archive-wish','supply-stock-filter','supply-expiry-set','supply-expiry-add','supply-expiry-remove','warehouse-kind','supply-arrival','supply-count','supply-count-kind','supply-expiry-close','close-modal', 'quick-add-drink', 'new-drink', 'new-wish', 'edit-drink', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-popularity', 'retry-route'].includes(action.dataset.action)) {
       if (!busy) runAction(action.dataset.action, action.dataset.id).catch((error) => toast(error.message, true));
     } else withBusy(() => runAction(action.dataset.action, action.dataset.id), action);
   }
@@ -981,7 +1012,7 @@ $('#logout-button').addEventListener('click', () => {
 });
 async function refreshCurrentView(manual = false) {
   if (!ready || busy || refreshing || routeLoading) return;
-  if (!manual && (dirty || modal.open || !['overview', 'wishes', 'history'].includes(view) || document.hidden)) return;
+  if (!manual && (dirty || modal.open || !['overview', 'wishes', 'history', 'archive'].includes(view) || document.hidden)) return;
   if (manual && dirty && !confirm('重新讀取會捨棄未儲存的輸入，確定繼續嗎？')) return;
   const sequence = routeSequence, inputs = inputSequence, currentView = view, revision = store.revision;
   const button = $('#refresh-button');
@@ -989,6 +1020,7 @@ async function refreshCurrentView(manual = false) {
   if (store.revalidateOnStart) updateChrome();
   if (manual) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
   try {
+    if(view==='admin'&&store.mode==='google'){store.adminSummaryReadAt=-Infinity;await loadAdminSummary();return;}
     await store.read();
     // A read must never replace a newer page, an open dialog, or fresh input.
     if (sequence !== routeSequence || inputs !== inputSequence || currentView !== view || busy || modal.open || (!manual && dirty)) return;
@@ -1018,7 +1050,8 @@ window.addEventListener('beforeunload', (event) => {
 setInterval(() => refreshCurrentView(), 60000);
 
 try {
-  if (store.mode === 'google' && adminViews.has(location.hash.slice(1))) await store.readWarehouse();
+  if (store.mode === 'google' && location.hash === '#admin') { /* The entry and summary do not wait for full histories. */ }
+  else if (store.mode === 'google' && adminViews.has(location.hash.slice(1))) await store.readWarehouse();
   else await store.init();
   ready = true;
   await route();

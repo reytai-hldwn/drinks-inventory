@@ -37,7 +37,7 @@ try{
   const stats=deferred();let publicGate;
   await page.route(`${endpoint}**`,async route=>{
     assert.equal(route.request().method(),'GET');const parameter=Object.fromEntries(new URL(route.request().url()).searchParams);reads.push(parameter.action);
-    if(parameter.action==='warehouse'){stats.begin();await stats.wait;}
+    if(parameter.action==='popularity'){stats.begin();await stats.wait;}
     if(parameter.action==='public'&&publicGate){const gate=publicGate;publicGate=null;gate.begin();await gate.wait;}
     await route.fulfill({contentType:'application/javascript',body:backend.ctx.doGet({parameter}).body});
   });
@@ -52,7 +52,7 @@ try{
   await page.locator('#navigation [data-view=overview]').click();await page.waitForSelector('.popular-drink');
   const cards=page.locator('.popular-drink');assert.equal(await cards.count(),2);
   assert.match(await cards.first().innerText(),/32.*包／週/s);assert.match(await cards.nth(1).innerText(),/20.*包／週/s);
-  assert.equal(reads.filter(action=>action==='warehouse').length,1,'reopening uses cached aggregate stats');
+  assert.equal(reads.filter(action=>action==='popularity').length,1,'reopening uses cached aggregate stats');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.screenshot({path:'/tmp/pantry-mobile-popularity.png',fullPage:true});
   await cards.first().click();await page.waitForSelector('#modal[open]');assert.match(await page.locator('#modal').innerText(),/光泉牛乳/);await page.locator('#modal [data-action=close-modal]').first().click();

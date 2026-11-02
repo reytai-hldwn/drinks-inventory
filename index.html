@@ -8,6 +8,18 @@
   <title>宏穩茶水間 · 飲料庫存</title>
   <link rel="preload" href="./assets/pantry-ui.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="./assets/pantry-mobile.webp" as="image" media="(max-width: 900px)">
+  <script>
+    if (!location.hash || location.hash === '#overview') {
+      const scenePreload = document.createElement('link');
+      scenePreload.rel = 'preload'; scenePreload.as = 'image';
+      scenePreload.href = './assets/pantry-office-wide.webp';
+      scenePreload.media = '(min-width: 901px) and (min-aspect-ratio: 8/5)';
+      document.head.appendChild(scenePreload);
+    }
+  </script>
+  <link rel="modulepreload" href="./js/store.js">
+  <link rel="modulepreload" href="./js/google-store.js">
+  <link rel="modulepreload" href="./js/fridge.js">
   <link rel="preconnect" href="https://script.google.com">
   <link rel="preconnect" href="https://script.googleusercontent.com">
   <link rel="icon" type="image/png" href="./assets/holdwin-icon.png">

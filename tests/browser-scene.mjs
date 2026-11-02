@@ -150,9 +150,9 @@ try{
   const context=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'reduce'}),page=await context.newPage(),external=[];
   page.on('request',request=>{if(!request.url().startsWith(base)&&!request.url().startsWith('data:'))external.push(request.url());});
   await page.goto(`${base}/demo.html`);await page.waitForSelector('.pantry-stage[data-scene=wide]');
-  const embedded=await page.locator('.pantry-office-wide .pantry-scene-art image').getAttribute('href');assert.ok(embedded.startsWith('data:image/png;base64,'));
+  const embedded=await page.locator('.pantry-office-wide .pantry-scene-art image').getAttribute('href');assert.ok(embedded.startsWith('data:image/webp;base64,'));
   const dimensions=await page.evaluate(src=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve([image.naturalWidth,image.naturalHeight]);image.onerror=reject;image.src=src;}),embedded);
   assert.deepEqual(dimensions,[1672,941]);await page.locator('.fridge-open-guide').click();await page.waitForSelector('.fridge.is-ready');
   assert.equal(await page.locator('.fridge-product').count(),32);assert.deepEqual(external,[]);
-  console.log('PASS standalone preview: native PNG and vector hint work without external requests');await context.close();
+  console.log('PASS standalone preview: native WebP and vector hint work without external requests');await context.close();
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

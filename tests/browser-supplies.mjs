@@ -46,7 +46,7 @@ try{
     };
     const {context,page}=await connect();
     const done=async()=>{await page.waitForFunction(()=>!document.querySelector('iframe[name^=holdwin_write_]')&&!document.querySelector('form[aria-busy=true]'));await page.waitForFunction(()=>!document.querySelector('#modal').open);};
-    const tab=async kind=>{await page.locator(`[data-action=warehouse-kind][data-id=${kind}]`).click();await page.waitForSelector('#supply-inventory');};
+    const tab=async kind=>{await page.locator(`[data-action=warehouse-kind][data-id=${kind}]`).click();await page.waitForSelector('#supply-inventory');await page.locator('[data-action=supply-stock-filter][data-id=all]').click();};
     const row=id=>page.locator(`[data-supply-id=${id}]`);
     await page.goto(`${base}/index.html#products`);await page.waitForSelector('[data-action=warehouse-kind]');
     assert.deepEqual(reads,['warehouse'],'direct back-office link needs only one initial Google read');
@@ -195,13 +195,13 @@ try{
     assert.deepEqual(reads.slice(readsBefore),['warehouse'],'direct arrival subpage needs one warehouse read');
     await second.page.locator('#restock-supply').selectOption('supply-toner-black');
     assert.match(await second.page.locator('main [data-supply-arrival-summary]').innerText(),/5 盒/);await second.context.close();
-    const old=await connect(true);await old.page.goto(`${base}/index.html#products`);await old.page.waitForSelector('[data-action=warehouse-kind]');await old.page.locator('[data-action=warehouse-kind][data-id=noodle]').click();
+    const old=await connect(true);await old.page.goto(`${base}/index.html#products`);await old.page.waitForSelector('[data-action=warehouse-kind]');await old.page.locator('[data-action=warehouse-kind][data-id=noodle]').click();await old.page.locator('[data-action=supply-stock-filter][data-id=all]').click();
     assert.match(await old.page.locator('.supply-upgrade').innerText(),/更新 Apps Script/);assert.equal(await old.page.locator('[data-action=supply-arrival]:enabled').count(),0);
     await old.page.evaluate(()=>{location.hash='restock-noodle';});await old.page.waitForSelector('#restock-supply');
     assert.equal(await old.page.locator('.restock-kind-tabs a').count(),3);
     assert.equal(await old.page.locator('#supply-restock-form .arrival-fields[disabled]').count(),1);assert.match(await old.page.locator('.supply-upgrade').innerText(),/更新 Apps Script/);
     assert.equal(await old.page.locator('#restock-supply option[value=__new__]').isDisabled(),true);await old.context.close();
-    const priorExpiry=await connect('expiry');await priorExpiry.page.goto(`${base}/index.html#products`);await priorExpiry.page.waitForSelector('[data-action=warehouse-kind]');await priorExpiry.page.locator('[data-action=warehouse-kind][data-id=noodle]').click();
+    const priorExpiry=await connect('expiry');await priorExpiry.page.goto(`${base}/index.html#products`);await priorExpiry.page.waitForSelector('[data-action=warehouse-kind]');await priorExpiry.page.locator('[data-action=warehouse-kind][data-id=noodle]').click();await priorExpiry.page.locator('[data-action=supply-stock-filter][data-id=all]').click();
     assert.equal(await priorExpiry.page.locator('[data-supply-id=supply-noodle-04] [data-action=supply-expiry-set]').getAttribute('disabled'),'');
     assert.equal(await priorExpiry.page.locator('[data-supply-id=supply-noodle-04] [data-action=supply-arrival]').getAttribute('disabled'),null);await priorExpiry.context.close();
     assert.deepEqual(errors,[]);console.log(`PASS ${width}: arrival pages/new items, quantity-neutral existing-stock expiry, split/past dates, total/stale checks, single writes, history names and legacy gates.`);

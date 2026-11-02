@@ -42,6 +42,7 @@ export class InventoryStore {
 
   get canEdit() { return this.isEditor && !this.preview; }
   get canManage() { return this.mode === 'demo' || this.canEdit; }
+  get supportsArchiveWishes() { return this.mode === 'demo'; }
   get supportsSupplies() { return this.mode === 'demo'; }
   get supportsSupplyExpiry() { return this.supportsSupplies; }
   get supportsSupplyExpirySet() { return this.supportsSupplyExpiry; }
@@ -356,6 +357,20 @@ export class InventoryStore {
     if (!voterId) return false;
     const wish = this.data.wishes.find((item) => item.id === wishId);
     return Array.isArray(wish?.voterIds) && wish.voterIds.includes(voterId);
+  }
+
+  async supportArchivedDrink(drinkId, voterName) {
+    if (!this.supportsArchiveWishes) throw new Error('目前連線尚未啟用回購許願。');
+    const drink=this.data.drinks.find(item=>item.id===drinkId&&item.active===false);
+    if (!drink) throw new Error('找不到這個歷史品項。');
+    if (typeof voterName !== 'string' || !voterName.trim() || voterName.trim().length>80) throw new Error('請填寫姓名，最多 80 字。');
+    let wish=this.data.wishes.find(item=>item.sourceDrinkId===drinkId);
+    if(!wish){
+      const next=structuredClone(this.data);
+      wish={id:`wish-return-${uid()}`,kind:'drink',sourceDrinkId:drinkId,name:drink.name,note:'我還想喝，希望有機會可以再買',url:'',status:'pending',createdAt:new Date().toISOString(),votes:0,voterIds:[]};
+      next.wishes.push(wish);const saved=this.saveLocal(next);this.data=saved.payload;this.revision=saved.revision;this.updatedAt=saved.updated_at;
+    }
+    const alreadyVoted=this.hasVoted(wish.id);await this.voteWish(wish.id,voterName);return{id:wish.id,alreadyVoted};
   }
 
   async voteWish(wishId, voterName) {

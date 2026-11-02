@@ -135,7 +135,7 @@ test('a changed form cannot start another delivery while its previous request is
 
 function fakePage() {
   const children=[],timers=new Map();let timerId=0,submitted;
-  const document={body:{appendChild(node){children.push(node);}},createElement(type){return {type,children:[],setAttribute(){},appendChild(node){this.children.push(node);},submit(){submitted=this;},remove(){const index=children.indexOf(this);if(index>=0)children.splice(index,1);}};}};
+  const document={body:{appendChild(node){children.push(node);}},createElement(type){return {type,children:[],listeners:new Map(),addEventListener(name,fn){this.listeners.set(name,fn);},removeEventListener(name){this.listeners.delete(name);},setAttribute(){},appendChild(node){this.children.push(node);},submit(){submitted=this;},remove(){const index=children.indexOf(this);if(index>=0)children.splice(index,1);}};}};
   return {document,children,timers,get submitted(){return submitted;},setTimeout(fn,delay){const key=++timerId;timers.set(key,{fn,delay});return key;},clearTimeout(key){timers.delete(key);},async run(delay){const entry=[...timers].find(([,timer])=>timer.delay===delay);assert.ok(entry);timers.delete(entry[0]);await entry[1].fn();}};
 }
 test('transport posts offscreen, preserves top navigation and waits for an accepted receipt instead of a frame load',async()=>{
@@ -151,4 +151,19 @@ test('transport rejects explicit validation errors and reports an unresolved tim
   const rejected=assert.rejects(pending,error=>error.code==='rejected'&&/登記人/.test(error.message));await page.run(1200);await rejected;
   const again=fakePage();const uncertain=submitGoogleWebsiteCommand(endpoint,command,{...again,readReceipt:async()=>({state:'pending'})});
   const timed=assert.rejects(uncertain,error=>error.code==='pending');await again.run(90000);await timed;assert.equal(again.children.length,0);
+});
+
+
+test('a completed iframe triggers an immediate receipt check, ignores blank loads and never overlaps polling',async()=>{
+  const page=fakePage(),requestId=id();let checks=0,accept=false,release;
+  const pending=submitGoogleWebsiteCommand(endpoint,{requestId,operation:'wish',data:{}},{...page,readReceipt:async()=>{
+    checks++;if(release===undefined)await new Promise(resolve=>{release=resolve;});
+    return {ok:true,requestId,state:accept?'accepted':'pending',result:{id:'wish-done'}};
+  }});
+  const frame=page.children.find(node=>node.type==='iframe');
+  frame.contentWindow={location:{href:'about:blank'}};frame.listeners.get('load')();assert.equal(checks,0);
+  frame.contentWindow.location.href=endpoint;frame.listeners.get('load')();assert.equal(checks,1);
+  frame.listeners.get('load')();assert.equal(checks,1,'no overlapping network checks');
+  release();await new Promise(resolve=>setImmediate(resolve));assert.ok([...page.timers.values()].some(timer=>timer.delay===0));
+  accept=true;await page.run(0);assert.deepEqual(await pending,{id:'wish-done'});assert.equal(page.timers.size,0);assert.equal(frame.listeners.size,0);
 });

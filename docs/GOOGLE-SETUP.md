@@ -56,11 +56,13 @@
 ## 資料介面
 
 - `GET /exec?action=public`：品項、願望、贊同姓名與原生送出能力 `websiteEntry: { version: 1 }`，不含庫存與異動紀錄。
+- `GET /exec?action=admin`：後台總覽的低庫存摘要與待評估數，不含完整紀錄、表單或投票名單。
 - `GET /exec?action=warehouse`：庫存、最近盤點與異動／登記人，不含管理帳號或瀏覽器識別碼。
-- `POST /exec`：只接受 `wish`、`vote`、`stocktake`、`arrival`、`product` 五種指定操作。伺服器驗證品項、數量、必填資料及重複請求，不接受整份資料覆寫。
+- `POST /exec`：只接受原生表單的指定操作，包含許願／贊同、歷史品項 `archive-wish`、盤點／入庫、新品、泡麵效期及補貨偏好。伺服器驗證品項、數量、必填資料及重複請求，不接受整份資料覆寫。
+- `GET /exec?action=popularity`：只回傳熱門前三名的平均每週用量與觀察摘要，不讀取泡麵、碳粉或表單，不回傳庫存量與原始盤點紀錄。
 - `GET /exec?action=receipt&requestId=…`：只回傳該筆儲存狀態與必要結果，不公開原始輸入、登記人或重試資料。
 
-讀取支援經過驗證的 JSONP `callback`。POST 使用隱藏的 HTML 表單與傳輸 iframe，網站畫面仍是原生表單；只有讀到接受回條才視為成功，iframe 載入不算儲存確認。`updatedAt` 是同步時間，不代表追蹤日常取用。
+讀取支援經過驗證的 JSONP `callback`。POST 使用隱藏的 HTML 表單與傳輸 iframe，網站畫面仍是原生表單；只有讀到接受回條才視為成功，iframe 載入只會提早觸發回條查詢，不算儲存確認。新版許願／贊同回條包含已儲存的單筆願望摘要，網站驗證後直接更新該筆，省去整份清單重讀；舊部署或無效摘要會沿用完整重讀。已完成回條與固定表單網址使用可丟棄的 Google Script Cache，庫存與異動資料仍每次讀取來源。`updatedAt` 是同步時間，不代表追蹤日常取用。
 
 舊版 Apps Script 沒有 `websiteEntry.version=1` 時，網站暫時沿用舊 Google 表單流程。更新既有部署後，網站會自動切換原生介面。
 
@@ -80,3 +82,8 @@
 這是獨立的私人匯入步驟，原生表單升級不會自行匯入任何私人數量。先完成 `setupOnce`，在自己的 Apps Script 的 `ADMIN_EMAILS` 加入擁有人 Google 帳號並執行 `setupConfig`。將已準備好的私人 `GoogleImport.gs` 新增為同專案的指令碼檔，執行 `importReportedStocktake`。檔案自帶已確認的原盤點時間與數量，重跑同批次不重複增加，也不把匯入時間當成盤點時間。完成後執行 `refreshWarehouse`。
 
 私人盤點檔與 Google 帳號保留在私人位置，不提交至公開 GitHub。
+
+
+歷史品項回購會在 `WishReview` 第八欄保留來源歷史品項 ID，首筆回購建立願望並記下一票，後續同事沿用同筆願望；不變更供應狀態與庫存。第八欄已有其他用途時拒絕寫入，保留原資料。
+
+效期補登登記人可透過精確事件 ID 的 `supply-recorder-correction` 更正；只接受既有 `expiry-set` 與相符原登記人。`HistoryRecorderCorrections` 追加保存更正 ID、時間、事件 ID、原／新登記人。讀取與匯出套用更正，`SupplyHistory` 原列、數量、盤點時間、效期與批次保持原值。
