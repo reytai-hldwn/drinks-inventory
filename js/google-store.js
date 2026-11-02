@@ -246,6 +246,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     adminUrl,
     updatedAt,
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
+    newArrivalVersion: warehouse && payload.websiteEntry?.newArrivalVersion === 1 ? 1 : 0,
     ...(warehouse ? normalizeSupplyWarehouse(payload) : {supplies:[],supplyEvents:[],supplyEntryVersion:0,supplyExpiryVersion:0}),
   };
 }
@@ -269,6 +270,7 @@ export class GoogleInventoryStore {
     this.revision = '';
     this.googleReadSequence = 0;
     this.websiteEntryVersion = 0;
+    this.newArrivalVersion = 0;
     this.lastWriteNeedsRefresh = false;
     this.completedWrites = new Set();
     this.readPublicData = options.readPublicData || fetchGooglePublicData;
@@ -293,6 +295,7 @@ export class GoogleInventoryStore {
   get canEdit() { return false; }
   get canManage() { return true; }
   get supportsWebsiteEntry() { return this.websiteEntryVersion === 1; }
+  get supportsNewArrivals() { return this.supportsWebsiteEntry && this.newArrivalVersion === 1; }
   get supportsSupplies() { return this.supportsWebsiteEntry && this.supplyEntryVersion === 1; }
   get supportsSupplyExpiry() { return this.supportsSupplies && this.supplyExpiryVersion===1; }
 
@@ -362,11 +365,12 @@ export class GoogleInventoryStore {
     this.warehouseUrl = this.adminUrl;
     this.updatedAt = result.updatedAt;
     this.websiteEntryVersion = result.websiteEntryVersion;
+    this.newArrivalVersion = result.newArrivalVersion || 0;
     this.supplies = result.supplies || [];
     this.supplyEvents = result.supplyEvents || [];
     this.supplyEntryVersion = result.supplyEntryVersion || 0;
     this.supplyExpiryVersion = result.supplyExpiryVersion || 0;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplyExpiryVersion:this.supplyExpiryVersion });
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplyExpiryVersion:this.supplyExpiryVersion });
   }
 
   async readPopularity() {
@@ -474,7 +478,7 @@ export class GoogleInventoryStore {
     catch (error) { if (error.code === 'rejected') acknowledge('rejected'); throw error; }
     // A confirmed write stays a success even if the following read fails.
     acknowledge('accepted', result);
-    if (['stocktake', 'arrival', 'product'].includes(operation)) this.popularityReadAt = -Infinity;
+    if (['stocktake', 'arrival', 'product', 'new-arrival'].includes(operation)) this.popularityReadAt = -Infinity;
     try { await this.read(); } catch { this.lastWriteNeedsRefresh = true; }
     return result;
   }
@@ -502,6 +506,12 @@ export class GoogleInventoryStore {
 
   async submitArrival({ drinkId, cases, loose, recorder, note = '' }) {
     return this.sendWebsiteCommand('arrival', { drinkId, cases, loose, recorder, note });
+  }
+
+  async submitNewArrival(data) {
+    if (!this.supportsNewArrivals) throw new Error('請先更新 Apps Script 部署，才能在入庫時登記新品。');
+    if (data.kind === 'noodle' && !this.supportsSupplyExpiry) throw new Error('請更新 Apps Script 部署，啟用泡麵保存期限。');
+    return this.sendWebsiteCommand('new-arrival', data);
   }
 
   async submitSupplyArrival(data) {

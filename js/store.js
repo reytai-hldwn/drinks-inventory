@@ -43,6 +43,7 @@ export class InventoryStore {
   get canManage() { return this.mode === 'demo' || this.canEdit; }
   get supportsSupplies() { return this.mode === 'demo'; }
   get supportsSupplyExpiry() { return this.supportsSupplies; }
+  get supportsNewArrivals() { return this.mode === 'demo'; }
   get supplies() { return this.data.supplies || initialSupplies(); }
   get supplyEvents() { return this.data.supplyEvents || []; }
 
@@ -246,6 +247,31 @@ export class InventoryStore {
   async submitSupplyArrival({supplyId,quantity,recorder,note='',expiresOn=null}) {
     await this.saveSupplyEvents([{supplyId,quantity,type:'restock',note,expiresOn}],recorder);
     return {quantity};
+  }
+
+  async submitNewArrival({kind,name,unit,quantity,recorder,note='',expiresOn=null}) {
+    if (!this.supportsNewArrivals || !this.canEdit) throw new Error('請從支援新品入庫的管理入口登記。');
+    if (!['drink','noodle'].includes(kind)) throw new Error('新品到貨僅支援飲料與泡麵。');
+    if (typeof name!=='string'||!name.trim()||name.trim().length>80) throw new Error('請填寫新品名稱，最多 80 字。');
+    if (typeof recorder!=='string'||!recorder.trim()||recorder.trim().length>80) throw new Error('請填寫登記人，最多 80 字。');
+    if (!(kind==='drink'?['包','瓶','罐']:['杯','碗']).includes(unit)||!Number.isSafeInteger(quantity)||quantity<1||quantity>999999) throw new Error('請確認新品單位與整數到貨數量。');
+    if (typeof note!=='string'||note.length>500) throw new Error('入庫備註最多 500 字。');
+    if (kind==='noodle'&&(!validSupplyExpiry(expiresOn)||expiresOn<supplyToday())) throw new Error('泡麵入庫請填寫有效的保存期限，不能早於今天。');
+    const items=kind==='drink'?this.data.drinks:this.supplies.filter(item=>item.kind==='noodle');
+    const key=value=>value.trim().normalize('NFKC').toLowerCase();
+    if (items.some(item=>key(item.name)===key(name))) throw new Error('已經有同名品項，請沿用原品項或查看歷史清單。');
+    if ((kind==='drink'?this.data.drinks:this.supplies).length>=1000) throw new Error('品項數量已達上限。');
+    const next=structuredClone(this.data),stamp=new Date().toISOString(),id=`${kind==='drink'?'custom-drink':'supply-noodle'}-${uid()}`;
+    if (kind==='drink') {
+      next.drinks.push({id,name:name.trim(),category:'其他',packaging:'其他',unit,active:true,perCase:null,threshold:10,target:null,stock:null,lastCountAt:null,createdAt:stamp,createdBy:recorder.trim()});
+      next.events.push({id:uid(),drinkId:id,type:'restock',quantity,createdAt:stamp,recorder:recorder.trim(),note:note||'新品到貨入庫'});
+    } else {
+      next.supplies ||= initialSupplies();next.supplyEvents ||= [];
+      next.supplies.push({id,name:name.trim(),kind,unit,active:true,stock:null,lastCountAt:null});
+      next.supplyEvents.push({id:uid(),supplyId:id,type:'restock',quantity,createdAt:stamp,recorder:recorder.trim(),note:note||'新品到貨入庫',expiresOn,batchId:null});
+    }
+    await this.save(next);
+    return {id,quantity};
   }
 
   async closeSupplyBatch({batchId,recorder,note=''}) {

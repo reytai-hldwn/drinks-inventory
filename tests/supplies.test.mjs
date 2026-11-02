@@ -18,6 +18,74 @@ test('confirmed supply catalog has five cup/bowl noodles and exactly four boxed 
   const backend=websiteBackend();assert.deepEqual(plain(backend.ctx.INITIAL_SUPPLIES),plain(SUPPLY_CATALOG));
 });
 
+test('new arrivals create one named item and its arrival, preserving unknown balances and recorded units',()=>{
+  for(const kind of ['drink','noodle']){
+    const backend=websiteBackend(),requestId=randomUUID();
+    const data={kind,name:'新品測試',unit:kind==='drink'?'罐':'碗',quantity:6,recorder:'到貨同事',note:'先登記新品',expiresOn:kind==='noodle'?'2099-12-31':null};
+    const before=plain(backend.sheets.History.rows),receipt=backend.send('new-arrival',data,requestId);
+    assert.equal(receipt.state,'accepted');assert.equal(receipt.result.quantity,6);
+    assert.deepEqual(backend.send('new-arrival',data,requestId),receipt);
+    const view=normalizeGooglePublicData(plain(backend.ctx.warehouseData_()),{warehouse:true});
+    assert.equal(view.newArrivalVersion,1);
+    const item=(kind==='drink'?view.data.drinks:view.supplies).find(item=>item.id===receipt.result.id);
+    assert.equal(item.name,data.name);assert.equal(item.unit,data.unit);assert.equal(item.stock,null);assert.equal(item.lastCountAt,null);
+    const events=kind==='drink'?view.data.events:view.supplyEvents;
+    assert.equal(events.filter(event=>(event.drinkId||event.supplyId)===item.id).length,1);
+    assert.equal(events.find(event=>(event.drinkId||event.supplyId)===item.id).quantity,6);
+    if(kind==='drink'){assert.equal(item.perCase,null);assert.equal(backend.sheets.ProductIntake.rows.length,2);}
+    else{
+      assert.equal(backend.sheets.SupplyHistory.rows.length,2);assert.equal(supplyBatches(item.id,events)[0].expiresOn,data.expiresOn);
+      assert.deepEqual(plain(backend.sheets.History.rows),before);
+      assert.equal(backend.ctx.publicData_().drinks.some(drink=>drink.id===item.id),false);
+    }
+    assert.equal(backend.send('new-arrival',{...data,name:'  新品測試  '}).state,'rejected','duplicate names must use their original item');
+  }
+});
+
+test('invalid new arrivals leave both catalogs and ledgers untouched',()=>{
+  const base={kind:'noodle',name:'新品',unit:'杯',quantity:2,recorder:'同事',expiresOn:'2099-12-31'};
+  for(const change of [{kind:'toner',unit:'盒'},{unit:'盒'},{expiresOn:''},{expiresOn:'2026-02-30'},{expiresOn:'2000-01-01'},{name:'來一客海鮮'},{name:' '},{recorder:''},{quantity:0},{quantity:1.5},{quantity:1000000},{cases:1},{kind:'drink',name:'茶',unit:'瓶'},{kind:'drink',unit:'杯'}]){
+    const backend=websiteBackend(),before=plain({catalog:backend.sheets.Catalog.rows,history:backend.sheets.History.rows});
+    assert.equal(backend.send('new-arrival',{...base,...change}).state,'rejected',JSON.stringify(change));
+    assert.deepEqual(plain({catalog:backend.sheets.Catalog.rows,history:backend.sheets.History.rows}),before);
+    assert.equal(backend.sheets.SupplyCatalog,undefined);assert.equal(backend.sheets.SupplyHistory,undefined);
+  }
+});
+
+test('new arrival retries survive partial writes and reject intervening same-name registrations without orphan rows',()=>{
+  for(const kind of ['drink','noodle']){
+    const data={kind,name:'重試新品',unit:kind==='drink'?'包':'杯',quantity:3,recorder:'同事',expiresOn:'2099-12-31'};
+    const backend=websiteBackend(),requestId=randomUUID(),renderKey=kind==='drink'?'renderWarehouse_':'renderSupplyWarehouse_',render=backend.ctx[renderKey];let fail=true;
+    backend.ctx[renderKey]=(...args)=>{if(fail){fail=false;throw new Error('temporary view error');}return render(...args);};
+    assert.throws(()=>backend.send('new-arrival',data,requestId),/temporary/);
+    assert.equal(backend.send('new-arrival',data,requestId).state,'accepted');
+    const events=kind==='drink'?backend.ctx.historyEvents_(backend.ss):backend.ctx.supplyEvents_(backend.ss);
+    assert.equal(events.filter(event=>event.id.includes(requestId)).length,1);
+
+    const collision=websiteBackend(),apply=collision.ctx.applyWebsiteRequest_;let hold=true;
+    collision.ctx.applyWebsiteRequest_=(...args)=>{if(hold){hold=false;throw new Error('before apply');}return apply(...args);};
+    const first=randomUUID();assert.throws(()=>collision.send('new-arrival',data,first),/before apply/);
+    const winner=collision.send('new-arrival',data);assert.equal(winner.state,'accepted');
+    assert.equal(collision.send('new-arrival',data,first).state,'rejected');
+    const after=kind==='drink'?collision.ctx.historyEvents_(collision.ss):collision.ctx.supplyEvents_(collision.ss);
+    assert.equal(after.filter(event=>event.id.includes(first)).length,0);
+  }
+});
+
+test('Google new-arrival capability blocks legacy deployments and refreshes a saved new item',async()=>{
+  const backend=websiteBackend(),store=new GoogleInventoryStore({googleScriptUrl:endpoint});
+  store.pendingStorage=storage();let writes=0;
+  store.readPublicData=async(_url,{action})=>plain(action==='warehouse'?backend.ctx.warehouseData_():backend.ctx.publicData_());
+  store.submitWebsiteCommand=async(_url,command)=>{writes++;return backend.send(command.operation,command.data,command.requestId).result;};
+  await store.readWarehouse();assert.equal(store.supportsNewArrivals,true);
+  const data={kind:'noodle',name:'跨瀏覽器新品',unit:'杯',quantity:2,recorder:'同事',expiresOn:'2099-12-31'};
+  const result=await store.submitNewArrival(data);assert.ok(store.supplies.some(item=>item.id===result.id));assert.equal(writes,1);
+  const legacy=plain(backend.ctx.warehouseData_());delete legacy.websiteEntry.newArrivalVersion;
+  store.applyGoogleView(normalizeGooglePublicData(legacy,{warehouse:true}),true);assert.equal(store.supportsNewArrivals,false);
+  await assert.rejects(store.submitNewArrival(data),/更新 Apps Script/);assert.equal(writes,1);
+  assert.equal(normalizeGooglePublicData(plain(backend.ctx.warehouseData_())).newArrivalVersion,0,'public cache carries no management capability');
+});
+
 test('read-only warehouse upgrade exposes pending supply rows, without changing sheets or public drinks',()=>{
   const backend=websiteBackend(),before=Object.keys(backend.sheets);
   const data=plain(backend.ctx.warehouseData_());assert.equal(data.supplies.length,9);assert.deepEqual(data.supplyEvents,[]);
@@ -134,6 +202,13 @@ test('local preview preserves its original drinks and saves pending supply count
   await first.submitSupplyStocktake([{supplyId:'supply-toner-blue',quantity:0}],'小王');await first.submitSupplyArrival({supplyId:'supply-toner-blue',quantity:2,recorder:'小李'});
   const next=new InventoryStore();await next.init();assert.equal(next.supplies.find(item=>item.id==='supply-toner-blue').stock,2);
   assert.deepEqual(next.data.drinks,drinks);assert.equal(next.supplyEvents.length,2);
+  const created=await next.submitNewArrival({kind:'noodle',name:'示範新品泡麵',unit:'碗',quantity:2,recorder:'小王',expiresOn:'2099-12-31'});
+  const third=new InventoryStore();await third.init();assert.equal(third.supplies.find(item=>item.id===created.id).stock,null);
+  assert.equal(third.supplyEvents.find(event=>event.supplyId===created.id).expiresOn,'2099-12-31');
+  const drink=await third.submitNewArrival({kind:'drink',name:'示範新品飲料',unit:'罐',quantity:4,recorder:'小王'});
+  assert.equal(third.data.drinks.find(item=>item.id===drink.id).perCase,null);
+  assert.equal(third.data.events.find(event=>event.drinkId===drink.id).quantity,4);
+  await assert.rejects(third.submitNewArrival({kind:'drink',name:' 示範新品飲料 ',unit:'罐',quantity:4,recorder:'小王'}),/同名/);
 });
 
 
