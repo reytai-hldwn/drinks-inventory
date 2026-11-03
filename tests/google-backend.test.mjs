@@ -252,7 +252,7 @@ test('Google catalog corrects the known chocolate tea typo without changing user
   const code = await readFile(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8');
   const rows = COMPANY_CATALOG.map((drink) => [drink.id, drink.name, drink.category, drink.packaging, drink.unit, '', 10, true]);
   const old = rows.find((row) => row[0] === 'company-drink-09');
-  old[1] = '立頓巧克力牛奶'; old[2] = '牛奶／豆漿'; old[5] = 12; old[7] = false;
+  old[1] = '立頓巧克力牛奶'; old[2] = '牛乳／植物奶'; old[5] = 12; old[7] = false;
   const before = structuredClone(rows);
   const sheet = {
     getLastRow: () => rows.length + 1,
@@ -373,7 +373,7 @@ test('quick product intake is idempotent, validates actual submissions and prese
     response('empty-name', answers('  ')), response('long-name', answers('x'.repeat(81))),
     response('no-recorder', answers('不採計飲料', '茶飲', '寶特瓶', ' ')),
     response('bad-category', answers('不採計分類', '=bad()')), response('bad-packaging', answers('不採計包裝', '茶飲', '=bad()')),
-    response('new-can', answers('新汽水', '汽水', '小型鐵罐')), response('new-carton', answers('新牛乳', '牛奶／豆漿', '窄瓶鋁箔包')),
+    response('new-can', answers('新汽水', '汽水', '小型鐵罐')), response('new-carton', answers('新牛乳', '牛乳／植物奶', '窄瓶鋁箔包')),
   ];
   ctx.FormApp = { openById: () => ({ getResponses: () => responses }) };
   assert.equal(ctx.syncNewProducts_(ss), 3);

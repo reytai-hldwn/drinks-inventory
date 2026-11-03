@@ -140,7 +140,7 @@ function renderFridgeGuide(isOpen) {
   return `<button type="button" class="fridge-open-guide" data-action="toggle-door" aria-label="點擊打開冰箱" aria-controls="${FRIDGE_CONTENT_ID}" aria-expanded="${isOpen}"${isOpen ? ' hidden inert' : ''}>${artwork('wide', 330)}${artwork('portrait', 300)}</button>`;
 }
 const FRIDGE_SHELF_LABELS = {
-  '牛奶／豆漿': 'MILK & SOY', '大瓶飲料': 'BIG BOTTLE CORNER', 茶飲: 'TEA & INFUSIONS', 咖啡: 'COFFEE BREAK',
+  '牛乳／植物奶': 'DAIRY & PLANT MILK', '大瓶飲料': 'BIG BOTTLE CORNER', 茶飲: 'TEA & INFUSIONS', 咖啡: 'COFFEE BREAK',
   果汁: 'A LITTLE FRUITY', 汽水: 'BUBBLES & JOY', 其他: 'EVERYDAY FAVORITES',
 };
 
@@ -179,7 +179,7 @@ function fridgePackName(name) {
 }
 
 function fridgeIconFor(category) {
-  return ({ '牛奶／豆漿': '🥛', 茶飲: '🍵', 咖啡: '☕', 果汁: '🍊', 汽水: '🫧', 其他: '🌾' })[category] || '🧃';
+  return ({ '牛乳／植物奶': '🥛', 茶飲: '🍵', 咖啡: '☕', 果汁: '🍊', 汽水: '🫧', 其他: '🌾' })[category] || '🧃';
 }
 
 /** Packaging is visual: a drawing never represents a number of containers. */

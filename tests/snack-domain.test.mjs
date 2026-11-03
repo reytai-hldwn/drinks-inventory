@@ -80,15 +80,15 @@ test('Google snack reads expose explicit capability and validated dated writes w
 });
 
 
-test('snacks have a quantity browsing list while manual consideration remains explicit',async()=>{
+test('unmarked snacks stay out of low-stock summaries while manual consideration remains explicit',async()=>{
  const data=payload(),snack=data.supplies.find(item=>item.kind==='snack');snack.stock=2;snack.lastCountAt='2026-01-01T00:00:00Z';
  let action='admin',writes=0;
  const store=new GoogleInventoryStore({googleScriptUrl:endpoint},{pendingStorage:storage(),createRequestId:()=>crypto.randomUUID(),readPublicData:async(_url,parameters)=>{
   if(parameters.action==='admin')return action==='legacy'?{ok:false,error:'unsupported_action'}:{ok:true,version:1,totalDrinks:0,pendingWishes:0,manualSnackItems:[{id:snack.id,name:snack.name,kind:'snack',unit:'包',stock:null,mode:'consider',markedAt:'2026-01-01T00:00:00Z'}],lowItems:[{id:snack.id,name:snack.name,kind:'snack',unit:'包',stock:2,mode:'normal'},{id:'tea',name:'茶',kind:'drink',unit:'瓶',stock:3,mode:'normal'}]};
   return structuredClone(data);
  },submitWebsiteCommand:async()=>{writes++;return{};}});
- await store.readWarehouse();let summary=await store.readAdminSummary();assert.deepEqual(summary.lowItems.map(item=>item.id),['supply-snack-01','tea']);assert.equal(summary.manualSnackItems[0].stock,null);
- action='legacy';data.restockPreferences=[{kind:'snack',itemId:snack.id,mode:'consider',updatedAt:'2026-01-01T00:00:00Z'}];store.adminSummaryReadAt=-Infinity;summary=await store.readAdminSummary();assert.deepEqual(summary.lowItems,[]);assert.equal(summary.manualSnackItems[0].stock,2);
+ await store.readWarehouse();let summary=await store.readAdminSummary();assert.deepEqual(summary.lowItems.map(item=>item.id),['tea']);assert.equal(summary.manualSnackItems[0].stock,null);
+ action='legacy';data.restockPreferences=[{kind:'snack',itemId:snack.id,mode:'consider',updatedAt:'2026-01-01T00:00:00Z'}];store.adminSummaryReadAt=-Infinity;summary=await store.readAdminSummary();assert.deepEqual(summary.lowItems.map(item=>item.id),[snack.id]);assert.equal(summary.manualSnackItems[0].stock,2);
  for(const mode of ['hold','replace'])await assert.rejects(store.setRestockPreference({kind:'snack',itemId:snack.id,mode,expectedMode:'normal'}),/零食請使用/);assert.equal(writes,0);
 });
 

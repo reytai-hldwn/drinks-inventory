@@ -60,8 +60,8 @@ test('browse low and zero filters use distinct stock ranges without changing rem
   assert.deepEqual(['drink','snack','noodle','toner'].map(inventoryLowThreshold),[10,10,3,0]);
   assert.equal(inventoryLowThreshold('unrecognized'),null);
   for(const [kind,threshold] of [['drink',10],['snack',10],['noodle',3]]) {
-    for(const stock of [1,threshold])assert.equal(matchesInventoryStockFilter({kind,stock,lastCountAt:countedAt},'low'),true,`${kind} browse ${stock}`);
-    for(const stock of [0,threshold+1,null,-1,0.5,'1'])assert.equal(matchesInventoryStockFilter({kind,stock,lastCountAt:countedAt},'low'),false,`${kind} excludes ${stock}`);
+    for(const stock of [1,threshold])assert.equal(matchesInventoryStockFilter({id:'filter-test',kind,stock,lastCountAt:countedAt},'low',[{kind,itemId:'filter-test',mode:'consider'}]),true,`${kind} browse ${stock}`);
+    for(const stock of [0,threshold+1,null,-1,0.5,'1'])assert.equal(matchesInventoryStockFilter({id:'filter-test',kind,stock,lastCountAt:countedAt},'low',[{kind,itemId:'filter-test',mode:'consider'}]),false,`${kind} excludes ${stock}`);
     assert.equal(isOutOfStockItem({kind,stock:0,lastCountAt:countedAt}),true);
     assert.equal(matchesInventoryStockFilter({kind,stock:0,lastCountAt:countedAt},'empty'),true);
     for(const stock of [1,null,-1,'0'])assert.equal(matchesInventoryStockFilter({kind,stock,lastCountAt:countedAt},'empty'),false);
@@ -189,7 +189,7 @@ test('legacy warehouse summary fallback uses typed counts, excludes uncounted st
   const reads=[],publicStorage=storage(),store=new GoogleInventoryStore({googleScriptUrl:endpoint},{publicStorage,readPublicData:async(_url,{action})=>{reads.push(action);return action==='admin'?{ok:false,error:'unsupported_action'}:structuredClone(payload);}});
   const summary=await store.readAdminSummary();
   assert.deepEqual(reads,['admin','warehouse']);
-  assert.deepEqual(summary.lowItems.map(item=>item.id),['supply-toner-black','supply-noodle-01','drink-ten']);
+  assert.deepEqual(summary.lowItems.map(item=>item.id),['supply-toner-black','supply-noodle-01','supply-noodle-03','drink-ten']);
   assert.equal(summary.lowItems[1].mode,'hold');
   assert.deepEqual(summary.outOfStockItems.map(item=>item.id),['drink-zero','supply-snack-01','supply-noodle-02']);
   assert.equal(summary.outOfStockItems[1].mode,'consider');

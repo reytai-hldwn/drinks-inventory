@@ -9,14 +9,14 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
   {
     "id": "company-drink-01",
     "name": "光泉牛乳",
-    "category": "牛奶／豆漿",
+    "category": "牛乳／植物奶",
     "packaging": "窄瓶鋁箔包",
     "unit": "包"
   },
   {
     "id": "company-drink-02",
     "name": "光泉巧克力牛乳",
-    "category": "牛奶／豆漿",
+    "category": "牛乳／植物奶",
     "packaging": "窄瓶鋁箔包",
     "unit": "包"
   },
@@ -44,7 +44,7 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
   {
     "id": "company-drink-06",
     "name": "統一豆漿",
-    "category": "牛奶／豆漿",
+    "category": "牛乳／植物奶",
     "packaging": "鋁箔包",
     "unit": "包"
   },
@@ -241,7 +241,7 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
   {
     "id": "company-drink-34",
     "name": "光泉燕麥奶",
-    "category": "牛奶／豆漿",
+    "category": "牛乳／植物奶",
     "packaging": "窄瓶鋁箔包",
     "unit": "包",
     "active": false
@@ -281,7 +281,7 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
   {
     "id": "company-drink-39",
     "name": "克寧草莓優酪乳",
-    "category": "牛奶／豆漿",
+    "category": "牛乳／植物奶",
     "packaging": "窄瓶鋁箔包",
     "unit": "包",
     "active": false
@@ -318,7 +318,7 @@ var INITIAL_SUPPLIES = [
 var SUPPLY_CATALOG_HEADERS = ['id', 'name', 'kind', 'unit', 'active', 'category','flavor'];
 var SUPPLY_HISTORY_HEADERS = ['事件 ID', 'Google 收件時間', '類型', '品項 ID', '品項名稱', '數量', '備註', '登記人', '採計狀態', '保存期限', '批次／效期核對 ID'];
 var WEBSITE_REQUEST_HEADERS = ['請求代號', '收件時間', '操作', '資料指紋', '處理狀態', '結果', '處理內容 1', '處理內容 2', '處理內容 3', '處理內容 4', '處理內容 5', '處理內容 6', '處理內容 7', '處理內容 8'];
-var PRODUCT_CATEGORIES = ['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料'];
+var PRODUCT_CATEGORIES = ['牛乳／植物奶', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料'];
 var PRODUCT_PACKAGING = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐', '長鐵罐', '寶特瓶', '大瓶裝', '其他'];
 var DEFAULT_CASE_SIZE = 24;
 var PRODUCT_INTAKE_HEADERS = ['回應 ID', 'Google 收件時間', '品項 ID', '飲料名稱', '分類', '包裝', '登記人', '採計狀態'];
@@ -673,7 +673,8 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     var quantity = quantity_(data.quantity, false);
     if (quantity === null || (data.cases !== undefined && String(data.cases).trim() !== '' && Number(data.cases) !== 0)) throw websiteInputError_('新品請依單位填寫 1 到 999999 的整數數量，不使用整箱換算。');
     if ((kind === 'drink' ? ['包','瓶','罐'] : kind === 'snack' ? SNACK_UNITS : ['杯','碗']).indexOf(data.unit) < 0) throw websiteInputError_('請選擇有效的新品單位。');
-    var category = kind === 'snack' ? websiteText_(data.category, '零食分類', 80, true) : '';
+    var category = kind === 'snack' ? websiteText_(data.category, '零食分類', 80, true) : kind === 'drink' ? canonicalDrinkCategory_(data.category === undefined ? '其他' : websiteText_(data.category, '飲料分類', 80, true)) : '';
+    if (kind === 'drink' && PRODUCT_CATEGORIES.indexOf(category) < 0) throw websiteInputError_('請選擇有效的飲料分類。');
     if (kind === 'snack' && SNACK_CATEGORIES.indexOf(category) < 0) throw websiteInputError_('請選擇有效的零食分類。');
     var id = productResponseId_('website:' + request.requestId);
     effects.newArrival = true;
@@ -682,9 +683,9 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     if (kind === 'drink') {
       if (catalog.length >= 1000) throw websiteInputError_('品項數量已達上限。');
       if (catalog.some(function (item) { return productNameKey_(item.name) === productNameKey_(name); })) throw websiteInputError_('已經有同名飲料，請沿用原品項；停買品項請查看歷史清單。');
-      effects.catalog = [id, sheetText_(name), '其他', '其他', data.unit, '', 10, true];
+      effects.catalog = [id, sheetText_(name), category, '其他', data.unit, '', 10, true];
       effects.productKey = productNameKey_(name);
-      effects.product = ['website:' + request.requestId, stamp, id, sheetText_(name), '其他', '其他', sheetText_(recorder), '採計'];
+      effects.product = ['website:' + request.requestId, stamp, id, sheetText_(name), category, '其他', sheetText_(recorder), '採計'];
       effects.history = [['website:' + request.requestId + ':' + id, stamp, 'restock', id, sheetText_(name), quantity, sheetText_(note || '新品到貨入庫'), sheetText_(recorder), '採計']];
     } else {
       var supplies = supplyCatalog_(ss);
@@ -817,14 +818,15 @@ function prepareWebsiteRequest_(ss, request, stamp) {
   } else if (operation === 'product') {
     var name = websiteText_(data.name, '飲料名稱', 80, true);
     var recorder = websiteText_(data.recorder, '登記人', 80, true);
-    if (PRODUCT_CATEGORIES.indexOf(data.category) < 0 || PRODUCT_PACKAGING.indexOf(data.packaging) < 0) throw websiteInputError_('請選擇有效的飲料分類與包裝。');
+    var category = canonicalDrinkCategory_(data.category);
+    if (PRODUCT_CATEGORIES.indexOf(category) < 0 || PRODUCT_PACKAGING.indexOf(data.packaging) < 0) throw websiteInputError_('請選擇有效的飲料分類與包裝。');
     if (catalog.some(function (drink) { return productNameKey_(drink.name) === productNameKey_(name); })) throw websiteInputError_('已經有同名品項，請沿用原品項或查看歷史清單。');
     if (catalog.length >= 1000) throw websiteInputError_('品項數量已達上限。');
     var unit = ['寶特瓶', '大瓶裝'].indexOf(data.packaging) >= 0 ? '瓶' : data.packaging.indexOf('鐵罐') >= 0 ? '罐' : '包';
     var id = productResponseId_('website:' + request.requestId);
-    effects.catalog = [id, sheetText_(name), data.category, data.packaging, unit, DEFAULT_CASE_SIZE, 10, true];
+    effects.catalog = [id, sheetText_(name), category, data.packaging, unit, DEFAULT_CASE_SIZE, 10, true];
     effects.productKey = productNameKey_(name);
-    effects.product = ['website:' + request.requestId, stamp, id, sheetText_(name), data.category, data.packaging, sheetText_(recorder), '採計'];
+    effects.product = ['website:' + request.requestId, stamp, id, sheetText_(name), category, data.packaging, sheetText_(recorder), '採計'];
     effects.result.id = id;
   } else throw websiteInputError_('不支援的網站操作。');
   return effects;
@@ -962,7 +964,7 @@ function publicData_(spreadsheet, catalog) {
   });
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = websiteFormUrls_();
-  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
+  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),
@@ -976,7 +978,7 @@ function adminSummaryData_() {
   function summary(item){return {kind:item.kind,id:item.id,name:item.name,flavor:item.flavor||'',unit:item.unit,stock:item.stock,mode:restockMode_(preferences,item.kind,item.id)};}
   var active=items.filter(function(item){return item.active;});
   var restockItems=active.filter(function(item){return restockMode_(preferences,item.kind,item.id)==='consider';}).map(summary).sort(function(a,b){return (a.stock===null?Infinity:a.stock)-(b.stock===null?Infinity:b.stock);});
-  var lowItems=active.filter(function(item){return item.stock!==null&&(item.kind==='toner'?item.stock===0:item.stock>0&&item.stock<=(item.kind==='noodle'?3:10));}).map(summary).sort(function(a,b){return a.stock-b.stock;});
+  var lowItems=active.filter(function(item){return item.stock!==null&&(item.kind!=='snack'||restockMode_(preferences,item.kind,item.id)==='consider')&&(item.kind==='toner'?item.stock===0:item.stock>0&&item.stock<=(item.kind==='noodle'?3:10));}).map(summary).sort(function(a,b){return a.stock-b.stock;});
   var outOfStockItems=active.filter(function(item){return item.kind!=='toner'&&item.stock===0;}).map(summary);
   var manualSnackItems=restockItems.filter(function(item){return item.kind==='snack';}).map(function(item){var preference=preferences.filter(function(entry){return entry.kind==='snack'&&entry.itemId===item.id;})[0];return Object.assign({},item,{markedAt:preference.updatedAt});});
   var rows=events.concat(supplyEvents).filter(function(event){return event.accepted!==false&&['count','restock'].indexOf(event.type)>=0;}).map(function(event){var item=items.filter(function(item){return item.id===(event.drinkId||event.supplyId);})[0];return item?{id:event.id,itemId:item.id,kind:item.kind,name:item.name,flavor:item.flavor||'',unit:item.unit,quantity:event.quantity,createdAt:event.createdAt,type:event.type}:null;}).filter(Boolean).sort(function(a,b){return Date.parse(b.createdAt)-Date.parse(a.createdAt);});
@@ -1379,7 +1381,7 @@ function initializeCatalog_(ss) {
     // custom category, stock, history and all other administrator changes.
     if (row[0] === 'company-drink-09' && row[1] === '立頓巧克力牛奶') {
       sheet.getRange(index + 2, 2).setValue('立頓巧克力奶茶');
-      if (row[2] === '牛奶／豆漿') sheet.getRange(index + 2, 3).setValue('茶飲');
+      if (['牛奶／豆漿','牛乳／豆漿','牛乳／植物奶'].indexOf(row[2]) >= 0) sheet.getRange(index + 2, 3).setValue('茶飲');
     }
     if (row[0] === 'company-drink-07' && row[1] === '波利芭樂汁') sheet.getRange(index + 2, 2).setValue('波蜜芭樂汁');
     if (row[0] === 'company-drink-14' && row[1] === '波蜜一日蔬果') sheet.getRange(index + 2, 2).setValue('一日蔬果100%蘋果柳橙蔬果汁');
@@ -1398,6 +1400,12 @@ function initializeCatalog_(ss) {
   sheet.setFrozenRows(1);
 }
 
+function canonicalDrinkCategory_(category, name) {
+  if (['牛奶／豆漿','牛乳／豆漿','牛奶/豆漿','牛乳/豆漿'].indexOf(category) >= 0) return '牛乳／植物奶';
+  var corrections = {'午后時光重乳奶茶':'茶飲','義美寶吉葡萄汁':'果汁','波蜜蜂蜜檸檬':'果汁'};
+  return category === '其他' && Object.prototype.hasOwnProperty.call(corrections,name) ? corrections[name] : category;
+}
+
 function catalog_(ss) {
   var sheet = ss.getSheetByName(SHEETS.catalog);
   if (!sheet || sheet.getLastRow() < 2) return [];
@@ -1409,7 +1417,7 @@ function catalog_(ss) {
     seen[id] = true;
     var perCase = quantity_(row[5], false);
     var threshold = quantity_(row[6], true);
-    return { id: id, name: name, category: text_(row[2], 30), packaging: text_(row[3], 30), unit: ['包', '瓶', '罐'].indexOf(row[4]) >= 0 ? row[4] : '包', perCase: perCase, threshold: threshold === null ? 10 : threshold, active: row[7] !== false && String(row[7]).toLowerCase() !== 'false' };
+    return { id: id, name: name, category: canonicalDrinkCategory_(text_(row[2], 30),name), packaging: text_(row[3], 30), unit: ['包', '瓶', '罐'].indexOf(row[4]) >= 0 ? row[4] : '包', perCase: perCase, threshold: threshold === null ? 10 : threshold, active: row[7] !== false && String(row[7]).toLowerCase() !== 'false' };
   });
 }
 

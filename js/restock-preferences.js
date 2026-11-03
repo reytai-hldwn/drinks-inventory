@@ -20,12 +20,13 @@ export function isOutOfStockItem(item) {
   return ['drink','snack','noodle'].includes(kind) && hasRecordedStock(item) && item.stock===0;
 }
 
-export function matchesInventoryStockFilter(item,filter='all') {
+export function matchesInventoryStockFilter(item,filter='all',preferences=[]) {
   if(filter==='all')return true;
   if(filter==='empty')return isOutOfStockItem(item);
   const kind=item.kind===undefined?'drink':item.kind,threshold=inventoryLowThreshold(kind);
   return filter==='low' && threshold!==null && hasRecordedStock(item) && Number.isSafeInteger(item.stock) &&
-    (kind==='toner'?item.stock===0:item.stock>0&&item.stock<=threshold);
+    (kind==='toner'?item.stock===0:item.stock>0&&item.stock<=threshold) &&
+    (kind!=='snack'||restockPreferenceMode(preferences,kind,item.id)==='consider');
 }
 
 export function sortInventoryItems(items,preferences=[]) {
