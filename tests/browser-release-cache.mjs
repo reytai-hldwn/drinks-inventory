@@ -28,7 +28,7 @@ const server = createServer(async (req, res) => {
     let body = name === 'config.js' ? 'window.DRINKS_CONFIG = {};' : await readFile(path);
     if (legacy && name === 'js/fridge.js') body = body.toString().replaceAll('guide-hand-arrow', 'guide-gold-arrow');
     if (legacy && name === 'pantry.css') {
-      body = body.toString().replaceAll('guide-hand-arrow', 'guide-gold-arrow') + '\n.fridge-open-guide .guide-arrow{stroke:#e8b847;stroke-width:6}.fridge-open-guide .guide-arrowhead{stroke:#e8b847;fill:#e8b847}';
+      body = body.toString().replaceAll('guide-hand-arrow', 'guide-gold-arrow').replace(/@font-face\{font-family:"Pantry Product Characters"[^}]+\}/g,'').replace('\"Pantry Product Characters\",','') + '\n.fridge-open-guide .guide-arrow{stroke:#e8b847;stroke-width:6}.fridge-open-guide .guide-arrowhead{stroke:#e8b847;fill:#e8b847}';
     }
     res.setHeader('Content-Type', mime[extname(path)] || 'application/octet-stream');
     res.setHeader('Cache-Control', name === 'index.html' ? 'no-store' : 'public, max-age=600');
@@ -69,7 +69,13 @@ try {
   const fresh = requests.slice(before).filter(path => /\.(?:css|js)(?:\?|$)/.test(path));
   assert.ok(fresh.some(path => path.startsWith('/js/fridge.js?')));
   for (const path of fresh) assert.equal(new URL(path, base).searchParams.get('v'), revision, 'all runtime requests use one release');
-  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(async () => {
+    const probe=document.createElement('h2');probe.id='product-character-probe';probe.textContent='后吉爾思';document.querySelector('#main').append(probe);
+    const faces=await document.fonts.load('700 22px "Pantry Product Characters"','后吉爾思');
+    if(faces.length!==1||faces[0].status!=='loaded')throw new Error('Product characters did not load');
+    await document.fonts.ready;
+  });
+  assert.ok(requests.some(path=>path===`/assets/pantry-product-characters.woff2?v=${revision}`),'new product glyph font uses the current release and cannot reuse the old UI subset');
   await page.screenshot({ path: '/tmp/pantry-cache-fixed.png', fullPage: true });
   await page.locator('.fridge-open-guide').click(); await page.waitForSelector('.fridge.is-ready');
   assert.equal(await page.locator('.fridge-product').count(), 32);

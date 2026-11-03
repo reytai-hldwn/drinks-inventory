@@ -1,4 +1,4 @@
-import { CATEGORIES_ORDER, canonicalDrinkCategory } from './catalog.js';
+import { CATEGORIES_ORDER, canonicalDrinkCategory, canonicalDrinkPackaging } from './catalog.js';
 import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
 import { normalizeSupplyWarehouse, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, validSupplyExpiry } from './supplies.js';
@@ -195,7 +195,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
       id,
       name: textField(row.name, '飲料名稱', 80),
       category: canonicalDrinkCategory(textField(row.category, '飲料分類', 80), row.name),
-      packaging: textField(row.packaging, '包裝形式', 80),
+      packaging: canonicalDrinkPackaging(textField(row.packaging, '包裝形式', 80), row.name),
       unit: row.unit,
       perCase,
       threshold,

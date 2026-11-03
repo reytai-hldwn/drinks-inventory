@@ -51,6 +51,7 @@ try {
       assert.match(await card.locator('.drink-photo-viewport').evaluate(e => getComputedStyle(e).clipPath), /^polygon\(/);
       await card.locator('[data-action="view-drink"]').click();
       await page.waitForSelector('.drink-information');
+      assert.equal(await page.locator('.drink-detail-hero .subtle').innerText(), '鋁箔包');
       assert.ok((await page.locator('.drink-information').innerText()).includes(['330 毫升', '125 毫升', '160 毫升'][i]));
       if (i < 2) assert.equal(await page.locator('.nutrition-table tbody tr').count(), 8);
       else assert.equal(await page.locator('.nutrition-table').count(), 0);
@@ -65,7 +66,7 @@ try {
     assert.deepEqual(backend.sheets.Catalog.rows, originalRows);
     assert.deepEqual(writes, []);
     assert.deepEqual(errors, []);
-    console.log(`PASS ${width}: three original photo cutouts, deferred WebP loading, correct capacity/labels, pending lemon fields, no inventory writes`);
+    console.log(`PASS ${width}: three original photo cutouts, foil carton labels, deferred WebP loading, correct capacity/labels, pending lemon fields, no inventory writes`);
     await context.close();
   }
 } finally { await browser.close(); await new Promise(done => server.close(done)); }

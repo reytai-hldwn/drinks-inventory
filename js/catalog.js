@@ -9,6 +9,11 @@ export function canonicalDrinkCategory(category, name = '') {
   return category === '其他' && Object.hasOwn(corrections, name) ? corrections[name] : category;
 }
 
+/** The three confirmed cartons were first registered with unknown packaging. */
+export function canonicalDrinkPackaging(packaging, name = '') {
+  return packaging === '其他' && ['午后時光重乳奶茶','義美寶吉葡萄汁','波蜜蜂蜜檸檬'].includes(name) ? '鋁箔包' : packaging;
+}
+
 const COMPANY_CATALOG_ROWS = [
   ['光泉牛乳', '牛乳／植物奶', '窄瓶鋁箔包'],
   ['光泉巧克力牛乳', '牛乳／植物奶', '窄瓶鋁箔包'],
@@ -187,7 +192,8 @@ export function prepareCompanyCatalog(data) {
   }
   const correctedNames = prepared.drinks.map((source) => {
     const category = canonicalDrinkCategory(source.category, source.name);
-    const drink = category === source.category ? source : { ...source, category };
+    const packaging = canonicalDrinkPackaging(source.packaging, source.name);
+    const drink = category === source.category && packaging === source.packaging ? source : { ...source, category, packaging };
     if (drink.id === 'company-drink-07' && drink.name === '波利芭樂汁') return { ...drink, name: '波蜜芭樂汁' };
     if (drink.id === 'company-drink-14' && drink.name === '波蜜一日蔬果') return { ...drink, name: '一日蔬果100%蘋果柳橙蔬果汁' };
     if (drink.id === 'company-drink-22' && ['Milkiis水蜜桃', 'Miilkis水蜜桃'].includes(drink.name)) return { ...drink, name: 'Milkis水蜜桃' };
