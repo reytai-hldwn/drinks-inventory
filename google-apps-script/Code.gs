@@ -961,7 +961,7 @@ function websiteConsumption_(drinkId, events, now = new Date()) {
     }
 
     if (previousCount) {
-      const days = (event.timestamp - previousCount.timestamp) / 86_400_000;
+      const days = (event.timestamp - previousCount.timestamp) / 86400000;
       const consumed = previousCount.quantity + received - event.quantity;
       if (days > 0 && consumed >= 0 && Number.isSafeInteger(consumed) && !invalidInterval) {
         result.days += days;
