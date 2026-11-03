@@ -573,7 +573,7 @@ function submitWebsiteRequest_(request) {
       // Recorder corrections have no stock or generated inventory changes.
     } else if (effects.batch) {
       if(effects.batch.some(function(child){return !!child.supplyHistory;}))renderSupplyWarehouse_(ss);
-      if(effects.batch.some(function(child){return !!child.history;})){renderWarehouse_(ss,computeInventory_(catalog_(ss),historyEvents_(ss)));PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT',new Date().toISOString());}
+      if(effects.batch.some(function(child){return !!child.history;})){var inventory=computeInventory_(catalog_(ss),historyEvents_(ss));renderWarehouse_(ss,inventory);if(effects.batch.some(function(child){return child.restore&&child.restore.some(function(item){return item.kind==='drink';});}))renderArchive_(ss,inventory);PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT',new Date().toISOString());}
     } else if (effects.supplyDetails) { renderSupplyWarehouse_(ss);
     } else if (effects.supplyHistory || (effects.restockPreference && effects.restockPreference[2] !== 'drink')) renderSupplyWarehouse_(ss);
     else {
@@ -581,7 +581,7 @@ function submitWebsiteRequest_(request) {
       renderWarehouse_(ss, inventory);
       // Normal website writes affect active products only. A recovered pending
       // write can still touch a product archived since validation.
-      if ((effects.history || []).some(function (event) { return catalog.some(function (drink) { return drink.id === event[3] && !drink.active; }); })) renderArchive_(ss, inventory);
+      if ((effects.restore||[]).some(function(item){return item.kind==='drink';}) || (effects.history || []).some(function (event) { return catalog.some(function (drink) { return drink.id === event[3] && !drink.active; }); })) renderArchive_(ss, inventory);
       if (effects.operation !== 'restock-preference') PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
     }
     // Large supporter lists use the ordinary full-read fallback rather than
@@ -603,8 +603,8 @@ function prepareWebsiteRequest_(ss, request, stamp) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw websiteInputError_('送出資料格式不正確。');
   var operation = request.operation, effects = { operation: operation, result: { operation: operation } };
   var catalog = ['wish', 'vote','batch-arrival'].indexOf(operation) >= 0 || String(operation).indexOf('supply-') === 0 ? [] : catalog_(ss);
-  function activeDrink(id) {
-    var found = catalog.filter(function (drink) { return drink.id === id && drink.active; })[0];
+  function activeDrink(id,restore) {
+    var found = catalog.filter(function(drink){return drink.id===id&&(drink.active||restore===true);})[0];
     if (!found) throw websiteInputError_('這個品項目前不在供應清單，請重新讀取品項。');
     return found;
   }
@@ -701,8 +701,8 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     var recorder = websiteText_(data.recorder, '登記人', 80, true);
     var supplies = supplyCatalog_(ss);
     effects.supplyHistory = [];
-    function activeSupply(id) {
-      var item = supplies.filter(function (entry) { return entry.id === id && entry.active; })[0];
+    function activeSupply(id,restore) {
+      var item = supplies.filter(function(entry){return entry.id===id&&(entry.active||restore===true);})[0];
       if (!item) throw websiteInputError_('這個零食、泡麵或碳粉品項目前不可登記，請重新整理。');
       return item;
     }
@@ -747,13 +747,14 @@ function prepareWebsiteRequest_(ss, request, stamp) {
       });
       effects.result.count = effects.supplyHistory.length;
     } else {
-      var item = activeSupply(data.supplyId), quantity = quantity_(data.quantity, false);
+      var item = activeSupply(data.supplyId,data.restoreArchived===true), quantity = quantity_(data.quantity, false);
+      if(!item.active){effects.restore=[{kind:item.kind,id:item.id}];effects.result.restored=true;}
       if (quantity === null || (data.cases !== undefined && String(data.cases).trim() !== '' && Number(data.cases) !== 0)) throw websiteInputError_('請填寫大於 0 的整數數量；零食、泡麵與碳粉不支援整箱換算。');
       var current = supplyInventory_(supplies, supplyEvents_(ss)).filter(function (entry) { return entry.id === item.id; })[0];
       if (current.stock !== null && current.stock + quantity > 999999) throw websiteInputError_('累計庫存不可超過 999999，請確認數量。');
       var note = websiteText_(data.note || '', '入庫備註', 500, false);
       var expiresOn = supplyTracksExpiry_(item.kind) ? websiteSupplyExpiry_(item.kind,data.expiresOn,stamp) : '';
-      effects.supplyHistory.push(['website:' + request.requestId + ':' + item.id, stamp, 'restock', item.id, sheetText_(item.name), quantity, sheetText_(note || '網站快速入庫'), sheetText_(recorder), '採計', expiresOn, '']);
+      effects.supplyHistory.push(['website:' + request.requestId + ':' + item.id, stamp, 'restock', item.id, sheetText_(item.name), quantity, sheetText_(note || (effects.restore?'歷史品項重新入庫':'網站快速入庫')), sheetText_(recorder), '採計', expiresOn, '']);
       effects.result.quantity = quantity;
     }
   } else if (operation === 'archive-wish') {
@@ -803,13 +804,14 @@ function prepareWebsiteRequest_(ss, request, stamp) {
       });
       effects.result.count = effects.history.length;
     } else {
-      var drink = activeDrink(data.drinkId);
+      var drink = activeDrink(data.drinkId,data.restoreArchived===true);
+      if(!drink.active){effects.restore=[{kind:'drink',id:drink.id}];effects.result.restored=true;}
       var quantity = arrivalQuantity_(data.cases, data.loose, drink.perCase);
       if (quantity === null) throw websiteInputError_('整箱或零散數量至少填一項，且合計須大於 0。');
       var current = computeInventory_(catalog, historyEvents_(ss)).filter(function (entry) { return entry.drink.id === drink.id; })[0];
       if (current.stock !== null && current.stock + quantity > 999999) throw websiteInputError_('累計庫存不可超過 999999，請確認數量。');
       var note = websiteText_(data.note || '', '入庫備註', 500, false);
-      effects.history.push(['website:' + request.requestId + ':' + drink.id, stamp, 'restock', drink.id, sheetText_(drink.name), quantity, sheetText_(note || '網站到貨入庫'), sheetText_(recorder), '採計']);
+      effects.history.push(['website:' + request.requestId + ':' + drink.id, stamp, 'restock', drink.id, sheetText_(drink.name), quantity, sheetText_(note || (effects.restore?'歷史品項重新入庫':'網站到貨入庫')), sheetText_(recorder), '採計']);
       effects.result.quantity = quantity;
     }
   } else if (operation === 'product') {
@@ -838,6 +840,7 @@ function websiteAppendMissing_(sheet, rows) {
 
 function applyWebsiteRequest_(ss, effects) {
   var snapshotAt = new Date().toISOString();
+  var restoreUpdates=prepareArrivalRestores_(ss,effects);
   if (effects.batch) {
     var drinks=catalog_(ss),supplies=supplyCatalog_(ss);
     effects.batch.forEach(function(child){if(child.newArrival){var row=child.supplyCatalog||child.catalog,items=child.supplyCatalog?supplies.filter(function(item){return item.kind===row[2];}):drinks;
@@ -851,6 +854,7 @@ function applyWebsiteRequest_(ss, effects) {
     var products=effects.batch.filter(function(child){return child.product;}).map(function(child){return child.product;});
     if(products.length){websiteAppendMissing_(ensureSheet_(ss,SHEETS.products,PRODUCT_INTAKE_HEADERS),products);PropertiesService.getScriptProperties().setProperty('HOLDWIN_CATALOG_FORMS_DIRTY','true');}
     websiteAppendMissing_(ss.getSheetByName(SHEETS.history),collect('history'));
+    applyArrivalRestores_(restoreUpdates);
     return;
   }
   if(effects.supplyDetails){
@@ -909,6 +913,7 @@ function applyWebsiteRequest_(ss, effects) {
     websiteAppendMissing_(ensureSheet_(ss, SHEETS.products, PRODUCT_INTAKE_HEADERS), [effects.product]);
   }
   websiteAppendMissing_(ss.getSheetByName(SHEETS.history), effects.history);
+  applyArrivalRestores_(restoreUpdates);
   websiteAppendMissing_(ss.getSheetByName(SHEETS.wishes), effects.wish ? [effects.wish] : []);
   if (effects.vote) {
     var voteSheet = ss.getSheetByName(SHEETS.votes);
@@ -957,7 +962,7 @@ function publicData_(spreadsheet, catalog) {
   });
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = websiteFormUrls_();
-  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, batchArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
+  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),
@@ -1854,3 +1859,17 @@ function arrivalReadSnapshot_(ss) {
     sheets[name]={getLastRow:function(){return count;},getRange:function(row,column,rows,columns){rows=rows||1;columns=columns||1;return {getValues:function(){return Array.from({length:rows},function(_,i){return Array.from({length:columns},function(_,j){return values[row-1+i]&&values[row-1+i][column-1+j]!==undefined?values[row-1+i][column-1+j]:'';});});}};}};return sheets[name];
   }};
 }
+
+// Reactivation touches only the existing active cell, never IDs or catalog metadata.
+function prepareArrivalRestores_(ss,effects) {
+  var entries=effects.batch?effects.batch.reduce(function(all,child){return all.concat(child.restore||[]);},[]):effects.restore||[];
+  var tables=Object.create(null),seen=Object.create(null);
+  return entries.filter(function(entry){var key=entry.kind+':'+entry.id;if(seen[key])return false;seen[key]=true;return true;}).map(function(entry){
+    var name=entry.kind==='drink'?SHEETS.catalog:SHEETS.supplyCatalog,column=entry.kind==='drink'?8:5;
+    if(!tables[name]){var sheet=ss.getSheetByName(name);if(!sheet||sheet.getLastRow()<2)throw websiteInputError_('歷史品項已不存在，請重新整理。');tables[name]={sheet:sheet,rows:sheet.getRange(2,1,sheet.getLastRow()-1,column).getValues()};}
+    var table=tables[name],index=table.rows.map(function(row){return String(row[0]);}).indexOf(entry.id);
+    if(index<0||(entry.kind!=='drink'&&table.rows[index][2]!==entry.kind))throw websiteInputError_('歷史品項已變更，請重新整理。');
+    return {kind:entry.kind,sheet:table.sheet,row:index+2,column:column,current:table.rows[index][column-1]};
+  });
+}
+function applyArrivalRestores_(updates) { updates.forEach(function(update){if(update.current!==true)update.sheet.getRange(update.row,update.column,1,1).setValues([[true]]);});if(updates.some(function(update){return update.kind==='drink';}))PropertiesService.getScriptProperties().setProperty('HOLDWIN_CATALOG_FORMS_DIRTY','true'); }
