@@ -18,7 +18,7 @@ test('read-only snack upgrade exposes four categorized pending products without 
     ['supply-snack-01','多力多滋','包','太空包',null,null],
     ['supply-snack-02','多力多滋','包','太空包',null,null],
     ['supply-snack-03','樂事','包','太空包',null,null],
-    ['supply-snack-04','華元蚵仔煎','包','太空包',null,null],
+    ['supply-snack-04','華元洋芋片','包','太空包',null,null],
   ]);
   assert.deepEqual(b.sheets.SupplyCatalog.rows,before);assert.equal(b.sheets.SupplyHistory,undefined);assert.equal(b.sheets.SupplyWarehouse,undefined);
   assert.deepEqual(plain(b.ctx.publicData_().drinks),drinks);

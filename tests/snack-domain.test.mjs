@@ -24,7 +24,7 @@ function payload(){return{ok:true,provider:'google',drinks:[],wishes:[],events:[
 
 test('snack seeds retain the requested names, explicit categories/units and unknown balances without altering other supplies',()=>{
  assert.deepEqual(SNACK_CATEGORIES,['太空包','巧克力','甜/鹹餅乾','燕麥棒/餅','蛋白質零食','其他鹹食','其他甜食']);assert.deepEqual(SNACK_UNITS,['包','盒','條','個','顆']);
- const snacks=SUPPLY_CATALOG.filter(item=>item.kind==='snack');assert.deepEqual(snacks.map(item=>item.name),['多力多滋','多力多滋','樂事','華元蚵仔煎']);assert.ok(snacks.every(item=>item.unit==='包'&&SNACK_CATEGORIES.includes(item.category)));
+ const snacks=SUPPLY_CATALOG.filter(item=>item.kind==='snack');assert.deepEqual(snacks.map(item=>item.name),['多力多滋','多力多滋','樂事','華元洋芋片']);assert.ok(snacks.every(item=>item.unit==='包'&&SNACK_CATEGORIES.includes(item.category)));
  assert.ok(initialSupplies().filter(item=>item.kind==='snack').every(item=>item.stock===null&&item.lastCountAt===null));assert.equal(SUPPLY_CATALOG.filter(item=>item.kind==='noodle').length,6);assert.equal(SUPPLY_CATALOG.filter(item=>item.kind==='toner').length,4);
  assert.equal(supplyNeedsExpiry('snack'),false);assert.equal(supplySupportsExpiryHistory('snack'),true);assert.equal(supplyNeedsExpiry('noodle'),true);assert.equal(supplyNeedsExpiry('toner'),false);
 });

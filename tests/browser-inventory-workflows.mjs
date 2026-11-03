@@ -12,7 +12,9 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const base=`http://127.0.0.1:${server.address().port}`,endpoint='https://script.google.com/macros/s/TEST_BATCH_WORKFLOWS/exec';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
 try{for(const width of [1440,390]){
- const b=websiteBackend(),context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'}),page=await context.newPage(),errors=[],posts=[],reads=[];
+ const b=websiteBackend();b.ctx.ensureSupplyStorage_(b.ss);for(let i=0;i<7;i++)b.sheets.SupplyHistory.rows.push([`recent-${i}`,new Date(Date.now()-(i+1)*3600000).toISOString(),'restock','supply-snack-04','虛構到貨',1,'','虛構','採計','','']);
+ b.sheets.SupplyHistory.rows.push(['old-arrival',new Date(Date.now()-73*3600000).toISOString(),'restock','supply-snack-04','虛構舊到貨',1,'','虛構','採計','','']);
+ const context=await browser.newContext({viewport:{width,height:900},reducedMotion:'reduce'}),page=await context.newPage(),errors=[],posts=[],reads=[];
  await page.addInitScript(()=>{const original=URL.createObjectURL;URL.createObjectURL=blob=>{window.__stockExport=blob;return original(blob);};});
  page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>dialog.accept());
  await page.route('**/config.js*',route=>route.fulfill({contentType:'application/javascript',body:`window.DRINKS_CONFIG=${JSON.stringify({provider:'google',googleScriptUrl:endpoint})};`}));
@@ -23,7 +25,7 @@ try{for(const width of [1440,390]){
  const done=async()=>{await page.waitForFunction(()=>!document.querySelector('form[aria-busy=true], [data-restock-control][aria-busy=true]'));await page.waitForTimeout(80);};
  const go=async route=>{await page.evaluate(route=>{location.hash=route;},route);await page.waitForTimeout(100);};
  const row=id=>page.locator(`[data-supply-id="${id}"]`);
- await page.goto(`${base}/#restock-snack`);await page.waitForSelector('#supply-restock-form');
+ await page.goto(`${base}/#restock-snack`);await page.waitForSelector('#supply-restock-form');assert.equal(await page.locator('[data-recent-arrivals] .order-card').count(),7,'all recent arrivals remain visible beyond five');
  await page.locator('[data-action=batch-arrival]').click();await page.waitForSelector('#batch-arrival-form');await page.locator('#batch-arrival-form [name=recorder]').fill('虛構批次登記者');
  let rows=page.locator('.batch-row');await rows.nth(0).locator('[data-batch-item]').selectOption('supply-snack-01');await rows.nth(0).locator('[data-batch-quantity]').fill('7');
  await page.locator('[data-action=batch-add]').click();await rows.nth(1).locator('[data-batch-kind]').selectOption('drink');await rows.nth(1).locator('[data-batch-item]').selectOption('tea');await rows.nth(1).locator('[data-batch-quantity]').fill('3');

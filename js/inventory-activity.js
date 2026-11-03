@@ -32,3 +32,9 @@ export function snackFlavorStatistics(supplies,events) {
     return {id:item.id,name:item.name,flavor:item.flavor||'',unit:item.unit,arrivals,weekly:days?Math.round(used/days*70)/10:null,days};
   }).sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant')||(b.weekly??-1)-(a.weekly??-1));
 }
+
+/** All accepted arrivals in the rolling 72-hour window, with no item limit. */
+export function recentArrivalEvents(events,now=Date.now()) {
+  const until=+new Date(now),since=until-3*86400000;
+  return events.filter(event=>event.type==='restock'&&event.accepted!==false&&Date.parse(event.createdAt)>=since&&Date.parse(event.createdAt)<=until).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
+}

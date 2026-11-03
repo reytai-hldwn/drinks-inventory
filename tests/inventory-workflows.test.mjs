@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {websiteBackend,memorySheet} from './helpers/google-website.mjs';
 import {InventoryStore} from '../js/store.js';
 import {GoogleInventoryStore} from '../js/google-store.js';
-import {recordedBalances,inventoryActivity,snackFlavorStatistics} from '../js/inventory-activity.js';
+import {recordedBalances,inventoryActivity,snackFlavorStatistics,recentArrivalEvents} from '../js/inventory-activity.js';
 import {hasRecordedStock,sortInventoryItems} from '../js/restock-preferences.js';
 const plain=value=>JSON.parse(JSON.stringify(value));
 const snack=(quantity=7)=>({kind:'snack',supplyId:'supply-snack-01',quantity});
@@ -97,4 +97,12 @@ test('local batch is atomic and persists arrival-only balances and flavors betwe
 test('Google capabilities gate new mutations and compact activity DTO normalizes without a warehouse read',async()=>{
  const b=websiteBackend(),calls=[],store=new GoogleInventoryStore({googleScriptUrl:'https://script.google.com/macros/s/WORKFLOW_TEST/exec'},{readPublicData:async(_url,{action})=>{calls.push(action);return plain(b.ctx.adminSummaryData_());}});await assert.rejects(store.submitBatchArrival({}),/更新/);await assert.rejects(store.updateSupplyDetails({}),/更新/);
  b.send('batch-arrival',{recorder:'虛構',entries:[snack(),drink()]});b.send('supply-stocktake',{recorder:'虛構',entries:[{supplyId:'supply-snack-01',quantity:0}]});const summary=await store.readAdminSummary();assert.equal(summary.activityVersion,1);assert.equal(summary.recentArrivals.length,2);assert.equal(summary.recentCounts.find(group=>group.kind==='snack').items[0].quantity,0);assert.deepEqual(calls,['admin']);assert.equal(store.inWarehouse,false);
+});
+
+
+test('three-day arrival window includes every row beyond five and handles time boundaries without modifying source',()=>{
+ const now=Date.parse('2026-11-03T16:00:00Z'),row=(id,age,extra={})=>({id,type:'restock',createdAt:new Date(now-age).toISOString(),...extra});
+ const recent=Array.from({length:9},(_,i)=>row('inside-'+i,i*3600000)),boundary=row('boundary',72*3600000),outside=row('old',72*3600000+1),future=row('future',-1),count=row('count',1,{type:'count'}),rejected=row('rejected',1,{accepted:false});
+ const events=[outside,...recent,boundary,future,count,rejected],before=structuredClone(events),result=recentArrivalEvents(events,now);
+ assert.equal(result.length,10);assert.equal(result[0].id,'inside-0');assert.equal(result.at(-1).id,'boundary');assert.deepEqual(events,before);
 });
