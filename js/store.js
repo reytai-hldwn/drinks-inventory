@@ -316,7 +316,7 @@ export class InventoryStore {
     if(!item||(item.active===false&&mode!=='normal'))throw new Error('找不到可設定的品項。');
     const current=restockPreferenceMode(this.restockPreferences,kind,itemId);
     if(expectedMode!==current)throw new Error('其他裝置已更新這個品項的補貨設定，請重新整理。');
-    if(kind!=='snack'&&mode!=='normal'&&current==='normal'&&!isLowStockItem(item))throw new Error('目前庫存不在 10 以內，請重新整理後確認。');
+    if(kind!=='snack'&&mode!=='normal'&&current==='normal'&&!isLowStockItem(item))throw new Error('目前庫存未達補貨提醒門檻，請重新整理後確認。');
     const entry={kind,itemId,mode,updatedAt:new Date().toISOString()},next=structuredClone(this.data);
     next.restockPreferences=[...this.restockPreferences.filter(entry=>entry.kind!==kind||entry.itemId!==itemId),entry];
     await this.save(next);return entry;

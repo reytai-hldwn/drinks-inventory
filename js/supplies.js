@@ -1,6 +1,6 @@
 /** Back-office supplies are independent of the public drinks catalog. */
 export const SUPPLY_KINDS = Object.freeze({ snack:'零食', noodle: '泡麵', toner: '碳粉' });
-export const SNACK_CATEGORIES = Object.freeze(['太空包','巧克力','甜/鹹餅乾','燕麥棒/餅','其他鹹食','其他甜食']);
+export const SNACK_CATEGORIES = Object.freeze(['太空包','巧克力','甜/鹹餅乾','燕麥棒/餅','蛋白質零食','其他鹹食','其他甜食']);
 export const SNACK_UNITS = Object.freeze(['包','盒','條','個','顆']);
 export const supplyNeedsExpiry = kind => kind==='noodle';
 // Existing snack expiry entries stay readable even though new snack entries need no date.

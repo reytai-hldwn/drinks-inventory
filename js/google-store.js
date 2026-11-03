@@ -1,7 +1,7 @@
 import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
 import { normalizeSupplyWarehouse, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, validSupplyExpiry } from './supplies.js';
-import { normalizeRestockPreferences } from './restock-preferences.js';
+import { isLowStockItem, isOutOfStockItem, normalizeRestockPreferences, restockThreshold } from './restock-preferences.js';
 
 let googleCallbackSequence = 0;
 
@@ -505,18 +505,31 @@ export class GoogleInventoryStore {
         const items = [...legacy.data.drinks.map(item=>({...item,kind:'drink'})),...legacy.supplies];
         value = {ok:true,version:1,totalDrinks:legacy.data.drinks.length,pendingWishes:legacy.data.wishes.filter(wish=>wish.status==='pending').length,
           manualSnackItems:items.filter(item=>item.kind==='snack'&&item.active!==false&&legacy.restockPreferences.some(entry=>entry.kind==='snack'&&entry.itemId===item.id&&entry.mode==='consider')).map(item=>({kind:'snack',id:item.id,name:item.name,unit:item.unit,stock:item.stock,mode:'consider',markedAt:legacy.restockPreferences.find(entry=>entry.kind==='snack'&&entry.itemId===item.id).updatedAt})),
-          lowItems:items.filter(item=>item.kind!=='snack'&&item.active!==false&&item.lastCountAt&&item.stock!==null&&item.stock<=10).map(item=>({kind:item.kind,id:item.id,name:item.name,unit:item.unit,stock:item.stock,mode:legacy.restockPreferences.find(entry=>entry.kind===item.kind&&entry.itemId===item.id)?.mode||'normal'}))};
+          outOfStockItems:items.filter(item=>item.active!==false&&isOutOfStockItem(item)).map(item=>({kind:item.kind,id:item.id,name:item.name,unit:item.unit,stock:0,mode:legacy.restockPreferences.find(entry=>entry.kind===item.kind&&entry.itemId===item.id)?.mode||'normal'})),
+          lowItems:items.filter(item=>item.active!==false&&isLowStockItem(item)&&!isOutOfStockItem(item)).map(item=>({kind:item.kind,id:item.id,name:item.name,unit:item.unit,stock:item.stock,mode:legacy.restockPreferences.find(entry=>entry.kind===item.kind&&entry.itemId===item.id)?.mode||'normal'}))};
       }
       if (value?.ok !== true || value.version !== 1 || !Number.isSafeInteger(value.totalDrinks) || value.totalDrinks < 0 || value.totalDrinks > 1000 ||
           !Number.isSafeInteger(value.pendingWishes) || value.pendingWishes < 0 || value.pendingWishes > 5000 || !Array.isArray(value.lowItems) || value.lowItems.length > 2000) throw new Error('後台摘要格式不正確，請稍後重新讀取。');
       const ids = new Set();
-      const lowItems = value.lowItems.map(row=>{
+      const legacyLowItems = value.lowItems.map(row=>{
+        // Older deployments report every kind through ten; validate that envelope before applying current thresholds.
         if (!row || !['drink','snack','noodle','toner'].includes(row.kind) || !['normal','hold','replace'].includes(row.mode) ||
             !(row.kind==='drink'?['包','瓶','罐']:row.kind==='snack'?SNACK_UNITS:row.kind==='noodle'?['杯','碗']:['盒']).includes(row.unit) || !Number.isSafeInteger(row.stock) || row.stock < 0 || row.stock > 10) throw new Error('後台低庫存摘要格式不正確。');
         const id=textField(row.id,'品項代號',160),name=textField(row.name,'品項名稱',80),key=`${row.kind}:${id}`;
         if(ids.has(key))throw new Error('後台摘要有重複品項。');ids.add(key);
         return {id,name,kind:row.kind,unit:row.unit,stock:row.stock,mode:row.mode};
-      }).filter(item=>item.kind!=='snack').sort((a,b)=>a.stock-b.stock);
+      });
+      const lowItems=legacyLowItems.filter(item=>restockThreshold(item.kind)!==null&&item.stock<=restockThreshold(item.kind)&&(item.stock>0||item.kind==='toner')).sort((a,b)=>a.stock-b.stock);
+      const empty=value.outOfStockItems===undefined?legacyLowItems.filter(item=>['drink','snack','noodle'].includes(item.kind)&&item.stock===0):value.outOfStockItems;
+      if(!Array.isArray(empty)||empty.length>2000)throw new Error('後台零庫存摘要格式不正確。');
+      const emptyIds=new Set();
+      const outOfStockItems=empty.map(row=>{
+        if(!row||!['drink','snack','noodle'].includes(row.kind)||!(row.kind==='snack'?['normal','hold','replace','consider']:['normal','hold','replace']).includes(row.mode)||
+            !(row.kind==='drink'?['包','瓶','罐']:row.kind==='snack'?SNACK_UNITS:['杯','碗']).includes(row.unit)||row.stock!==0)throw new Error('後台零庫存摘要格式不正確。');
+        const id=textField(row.id,'品項代號',160),name=textField(row.name,'品項名稱',80),key=`${row.kind}:${id}`;
+        if(emptyIds.has(key))throw new Error('後台零庫存摘要有重複品項。');emptyIds.add(key);
+        return {id,name,kind:row.kind,unit:row.unit,stock:0,mode:row.mode};
+      });
       const manual=value.manualSnackItems===undefined?[]:value.manualSnackItems;
       if(!Array.isArray(manual)||manual.length>1000)throw new Error('零食手動補貨摘要格式不正確。');
       const manualIds=new Set();
@@ -527,7 +540,7 @@ export class GoogleInventoryStore {
         return {kind:'snack',id,name,unit:row.unit,stock:row.stock,mode:'consider',markedAt:row.markedAt};
       });
       if(writeSequence!==this.confirmedWriteSequence)throw new Error('庫存剛更新，請重新讀取摘要。');
-      this.adminSummary={totalDrinks:value.totalDrinks,pendingWishes:value.pendingWishes,lowItems,manualSnackItems};this.adminSummaryReadAt=this.now();
+      this.adminSummary={totalDrinks:value.totalDrinks,pendingWishes:value.pendingWishes,lowItems,outOfStockItems,manualSnackItems};this.adminSummaryReadAt=this.now();
       return this.adminSummary;
     })();
     try { return await this.adminSummaryRequest; } finally { this.adminSummaryRequest=null; }

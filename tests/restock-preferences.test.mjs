@@ -24,7 +24,7 @@ test('restock preference reads expose only a warehouse capability and never crea
 
 test('hold/replace/restore persists across categories and preserves quantities, counts, expiry and drink catalogs',()=>{
  const backend=websiteBackend(),id='supply-noodle-03';
- backend.send('supply-stocktake',{entries:[{supplyId:id,quantity:2},{supplyId:'supply-toner-blue',quantity:0}],recorder:'盤點'});
+ backend.send('supply-stocktake',{entries:[{supplyId:id,quantity:0},{supplyId:'supply-toner-blue',quantity:0}],recorder:'盤點'});
  backend.send('supply-arrival',{supplyId:id,quantity:1,expiresOn:'2099-01-01',recorder:'到貨'});
  const sources=()=>plain({catalog:backend.sheets.Catalog.rows,history:backend.sheets.History.rows,supplyCatalog:backend.sheets.SupplyCatalog.rows,supplyHistory:backend.sheets.SupplyHistory.rows});
  const before=sources(),publicStamp=backend.props.get('HOLDWIN_PUBLIC_UPDATED_AT');
