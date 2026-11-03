@@ -11,6 +11,8 @@ import { inventoryActivity, snackFlavorStatistics, recentArrivalEvents } from '.
 import { supplyLabel } from './supplies.js';
 import { RESTOCK_MODES, hasRecordedStock, isLowStockItem, isOutOfStockItem, inventoryLowThreshold, matchesInventoryStockFilter, sortInventoryItems, restockPreferenceMode } from './restock-preferences.js';
 import { groupEmptyStock } from './empty-stock.js';
+import { CONSUMPTION_KINDS, buildConsumptionRecords, consumptionPeriod, selectConsumption } from './consumption.js';
+import { renderConsumptionControls, renderConsumptionResults } from './consumption-view.js';
 
 const store = window.DRINKS_CONFIG?.provider === 'google' ? new GoogleInventoryStore(window.DRINKS_CONFIG) : new InventoryStore(window.DRINKS_CONFIG);
 const $ = (selector) => document.querySelector(selector);
@@ -23,7 +25,8 @@ const packagingTypes = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐'
 const restockViews = { restock: 'drink', 'restock-snack':'snack', 'restock-noodle': 'noodle', 'restock-toner': 'toner' };
 const NEW_ARRIVAL_VALUE = '__new__';
 const viewNames = { overview: '飲料冰箱', wishes: '採買許願池', archive: '歷史品項', admin: '管理後台', products: '倉庫庫存', count: '快速盤點', restock: '到貨入庫 · 飲料', 'restock-snack':'到貨入庫 · 零食', 'restock-noodle': '到貨入庫 · 泡麵', 'restock-toner': '到貨入庫 · 碳粉', 'manage-wishes': '願望管理', history: '異動紀錄' };
-const adminViews = new Set(['admin', 'products', 'count', ...Object.keys(restockViews), 'manage-wishes', 'history']);
+viewNames.consumption = '消耗排行榜';
+const adminViews = new Set(['admin', 'consumption', 'products', 'count', ...Object.keys(restockViews), 'manage-wishes', 'history']);
 let view = 'overview';
 let wishFilter = 'all';
 const wishKind = (wish) => wish?.kind === 'snack' ? 'snack' : 'drink';
@@ -54,6 +57,8 @@ let countKind = 'drink';
 let popularityLoading = false;
 let popularityError = false;
 let adminZeroItems = [];
+const rankingState = {kind:'drink',days:90,unit:'',category:'',query:'',archived:false};
+let rankingCache = null;
 
 const formatDate = (value, time = false) => value ? new Intl.DateTimeFormat('zh-TW', {
   timeZone: 'Asia/Taipei', ...(time ? { year: 'numeric' } : {}), month: '2-digit', day: '2-digit', ...(time ? { hour: '2-digit', minute: '2-digit', hour12: false } : {}),
@@ -621,6 +626,20 @@ function renderAdmin(){
   loadAdminSummary();
 }
 
+function rankingData() {
+  const refs=[store.data.drinks,store.supplies,store.data.events,store.supplyEvents],minute=Math.floor(Date.now()/60000);
+  if(!rankingCache||rankingCache.minute!==minute||refs.some((ref,index)=>ref!==rankingCache.refs[index])){
+    const now=Date.now();rankingCache={refs,minute,now,records:buildConsumptionRecords({drinks:refs[0],supplies:refs[1],events:refs[2],supplyEvents:refs[3]},now)};
+  }
+  if(rankingCache.days!==rankingState.days){rankingCache.days=rankingState.days;rankingCache.metrics=consumptionPeriod(rankingCache.records,{days:rankingState.days,now:rankingCache.now});}
+  return rankingCache.metrics;
+}
+function renderConsumption() {
+  const selection=selectConsumption(rankingData(),rankingState);rankingState.unit=selection.unit;rankingState.category=selection.category;
+  main.innerHTML=heading('PANTRY FAVORITES','茶水間人氣排行榜','看看大家愛喝、愛吃什麼。依每週平均消耗排名，飲料的包、瓶、罐可以一起比較。')+renderConsumptionControls(selection,rankingState)+`<div id="ranking-results" aria-live="polite">${renderConsumptionResults(selection)}</div>`;
+}
+function updateRankingResults(){const target=$('#ranking-results');if(target)target.innerHTML=renderConsumptionResults(selectConsumption(rankingData(),rankingState));}
+
 function render() {
   syncFridgeScene(null);
   main.removeAttribute('aria-busy');
@@ -633,7 +652,7 @@ function render() {
   }
   if (store.mode === 'google' && !store.supportsWebsiteEntry && view === 'count') { renderGoogleEntry(); return; }
   if (Object.hasOwn(restockViews, view)) renderRestock();
-  else ({ overview: renderOverview, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
+  else ({ overview: renderOverview, consumption:renderConsumption, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
 }
 
 async function route() {
@@ -943,6 +962,9 @@ async function submitForm(form) {
 }
 
 async function runAction(action, id) {
+  if(action==='ranking-kind'){
+    if(view==='consumption'&&Object.hasOwn(CONSUMPTION_KINDS,id)){Object.assign(rankingState,{kind:id,unit:'',category:'',query:''});renderConsumption();}return;
+  }
   if(['empty-pending','empty-undecided','empty-archive'].includes(action)){
     const [kind,itemId]=id.split(':'),item=adminZeroItems.find(item=>item.kind===kind&&item.id===itemId);
     if(view!=='admin'||!item)throw new Error('請重新整理無庫存清單。');
@@ -1133,6 +1155,7 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('input', (event) => {
   inputSequence += 1;
+  if(event.target.id==='ranking-search'){rankingState.query=event.target.value;updateRankingResults();return;}
   if(event.target.matches('[data-batch-search]')){modalDirty=true;updateBatchPicker(event.target.closest('.batch-row'));return;}
   if(event.target.matches('[data-snack-query],[data-snack-category]')){updateSnackPicker(event.target.closest('form'));return;}
   if (event.target.closest('dialog form')) modalDirty = true;
@@ -1146,6 +1169,13 @@ document.addEventListener('input', (event) => {
 });
 document.addEventListener('change', (event) => {
   inputSequence += 1;
+  if(event.target.matches('[data-ranking-filter]')){
+    const key=event.target.dataset.rankingFilter;
+    if(key==='days'){const value=Number(event.target.value);if(![0,30,90].includes(value))return;rankingState.days=value;}
+    else if(key==='archived')rankingState.archived=event.target.checked;
+    else if(['category','unit'].includes(key))rankingState[key]=event.target.value;
+    renderConsumption();document.querySelector(`[data-ranking-filter="${key}"]`)?.focus();return;
+  }
   if(event.target.matches('[data-batch-kind]')){const row=event.target.closest('.batch-row'),quantity=row.querySelector('[data-batch-quantity]').value,note=row.querySelector('[data-batch-note]').value;row.innerHTML=batchRowMarkup(event.target.value);row.querySelector('[data-action=batch-remove]').dataset.id=row.id;row.querySelector('[data-batch-quantity]').value=quantity;row.querySelector('[data-batch-note]').value=note;updateBatchPicker(row);modalDirty=true;return;}
   if(event.target.matches('[data-batch-item]')){updateBatchPicker(event.target.closest('.batch-row'));modalDirty=true;return;}
   if(event.target.matches('[data-snack-query],[data-snack-category]')){updateSnackPicker(event.target.closest('form'));return;}
