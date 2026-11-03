@@ -303,7 +303,7 @@ var INITIAL_SUPPLIES = [
   { id:'supply-snack-01',name:'多力多滋',flavor:'雙倍起司',kind:'snack',unit:'包',active:true,category:'太空包' },
   { id:'supply-snack-02',name:'多力多滋',flavor:'香菜',kind:'snack',unit:'包',active:true,category:'太空包' },
   { id:'supply-snack-03',name:'樂事',flavor:'海苔',kind:'snack',unit:'包',active:true,category:'太空包' },
-  { id:'supply-snack-04',name:'華元蚵仔煎',flavor:'',kind:'snack',unit:'包',active:true,category:'太空包' },
+  { id:'supply-snack-04',name:'華元洋芋片',flavor:'蚵仔煎',kind:'snack',unit:'包',active:true,category:'太空包' },
   { id: 'supply-noodle-01', name: '來一客海鮮', kind: 'noodle', unit: '杯', active: true },
   { id: 'supply-noodle-02', name: '滿漢大餐牛肉麵', kind: 'noodle', unit: '碗', active: true },
   { id: 'supply-noodle-03', name: '拉麵道味噌拉麵', kind: 'noodle', unit: '杯', active: true },
@@ -1137,7 +1137,7 @@ function websiteSupplyExpiry_(kind, value, stamp) {
   return expiry;
 }
 
-function supplyProductKey_(name,flavor) { var aliases={'多力多滋雙倍起司口味':['多力多滋','雙倍起司'],'多力多滋香菜口味':['多力多滋','香菜'],'樂事海苔口味':['樂事','海苔']},key=productNameKey_(name);if(!flavor&&Object.prototype.hasOwnProperty.call(aliases,key)){name=aliases[key][0];flavor=aliases[key][1];}return productNameKey_(name)+'\u0000'+productNameKey_(flavor||''); }
+function supplyProductKey_(name,flavor) { var aliases={'多力多滋雙倍起司口味':['多力多滋','雙倍起司'],'多力多滋香菜口味':['多力多滋','香菜'],'樂事海苔口味':['樂事','海苔'],'華元蚵仔煎':['華元洋芋片','蚵仔煎'],'華元辣蚵仔煎':['華元洋芋片','辣蚵仔煎']},key=productNameKey_(name);if(!flavor&&Object.prototype.hasOwnProperty.call(aliases,key)){name=aliases[key][0];flavor=aliases[key][1];}return productNameKey_(name)+'\u0000'+productNameKey_(flavor||''); }
 
 function supplyCatalog_(ss) {
   var sheet = ss.getSheetByName(SHEETS.supplyCatalog), seen = Object.create(null);
@@ -1150,7 +1150,7 @@ function supplyCatalog_(ss) {
     if (kind === 'toner' && !INITIAL_SUPPLIES.some(function (item) { return item.kind === 'toner' && item.id === id && item.unit === unit; })) throw new Error('Invalid toner color');
     var category = kind === 'snack' ? text_(row[5],80) || (known ? known.category : '') : '';
     var flavor = kind === 'snack' ? text_(row[6],80) : '';
-    var legacy = {'supply-snack-01':'多力多滋雙倍起司口味','supply-snack-02':'多力多滋香菜口味','supply-snack-03':'樂事海苔口味'};
+    var legacy = {'supply-snack-01':'多力多滋雙倍起司口味','supply-snack-02':'多力多滋香菜口味','supply-snack-03':'樂事海苔口味','supply-snack-04':'華元蚵仔煎'};
     if (known && legacy[id] === name && !flavor) { name = known.name; flavor = known.flavor || ''; }
     if (kind === 'snack' && SNACK_CATEGORIES.indexOf(category) < 0) throw new Error('Invalid snack category');
     seen[id] = true;

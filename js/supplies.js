@@ -10,7 +10,7 @@ export const SUPPLY_CATALOG = Object.freeze([
   ['supply-snack-01','多力多滋','snack','包','太空包','雙倍起司'],
   ['supply-snack-02','多力多滋','snack','包','太空包','香菜'],
   ['supply-snack-03','樂事','snack','包','太空包','海苔'],
-  ['supply-snack-04','華元蚵仔煎','snack','包','太空包'],
+  ['supply-snack-04','華元洋芋片','snack','包','太空包','蚵仔煎'],
   ['supply-noodle-01','來一客海鮮','noodle','杯'],
   ['supply-noodle-02','滿漢大餐牛肉麵','noodle','碗'],
   ['supply-noodle-03','拉麵道味噌拉麵','noodle','杯'],
@@ -28,12 +28,12 @@ export function initialSupplies() {
 }
 
 export const supplyLabel = item => item.flavor ? `${item.name}｜${item.flavor}` : item.name;
-export function supplyNameKey(item) { const aliases={'多力多滋雙倍起司口味':['多力多滋','雙倍起司'],'多力多滋香菜口味':['多力多滋','香菜'],'樂事海苔口味':['樂事','海苔']},alias=Object.hasOwn(aliases,item.name.trim().normalize('NFKC').toLowerCase())?aliases[item.name.trim().normalize('NFKC').toLowerCase()]:null;if(!item.flavor&&alias)item={name:alias[0],flavor:alias[1]};return `${item.name.trim().normalize('NFKC').toLowerCase()}\u0000${(item.flavor||'').trim().normalize('NFKC').toLowerCase()}`; }
+export function supplyNameKey(item) { const aliases={'多力多滋雙倍起司口味':['多力多滋','雙倍起司'],'多力多滋香菜口味':['多力多滋','香菜'],'樂事海苔口味':['樂事','海苔'],'華元蚵仔煎':['華元洋芋片','蚵仔煎'],'華元辣蚵仔煎':['華元洋芋片','辣蚵仔煎']},alias=Object.hasOwn(aliases,item.name.trim().normalize('NFKC').toLowerCase())?aliases[item.name.trim().normalize('NFKC').toLowerCase()]:null;if(!item.flavor&&alias)item={name:alias[0],flavor:alias[1]};return `${item.name.trim().normalize('NFKC').toLowerCase()}\u0000${(item.flavor||'').trim().normalize('NFKC').toLowerCase()}`; }
 
 /** Upgrade local previews once without changing any observed stock/history. */
 export function prepareSupplyCatalog(data) {
   if((data.supplies!=null&&!Array.isArray(data.supplies))||(data.supplyEvents!=null&&!Array.isArray(data.supplyEvents)))throw new Error('本機庫存或紀錄格式不正確，原資料已保留。');
-  const legacy={'supply-snack-01':'多力多滋雙倍起司口味','supply-snack-02':'多力多滋香菜口味','supply-snack-03':'樂事海苔口味'};
+  const legacy={'supply-snack-01':'多力多滋雙倍起司口味','supply-snack-02':'多力多滋香菜口味','supply-snack-03':'樂事海苔口味','supply-snack-04':'華元蚵仔煎'};
   let changed=false;
   const supplies=(Array.isArray(data.supplies)?data.supplies:[]).map(item=>{const seed=SUPPLY_CATALOG.find(seed=>seed.id===item.id);if(seed&&legacy[item.id]===item.name&&!item.flavor){changed=true;return {...item,name:seed.name,flavor:seed.flavor};}return item;});
   const missing=SUPPLY_CATALOG.filter(seed=>!supplies.some(item=>item.id===seed.id));
