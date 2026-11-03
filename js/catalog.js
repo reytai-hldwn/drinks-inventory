@@ -4,10 +4,13 @@ export const CATEGORIES_ORDER = Object.freeze(['牛乳／植物奶', '茶飲', '
 
 /** Read legacy labels in one category while retaining IDs, quantities and history. */
 export function canonicalDrinkCategory(category, name = '') {
+  if (name === '可爾必思開心成長160ml' && ['牛乳／植物奶','牛奶／豆漿'].includes(category)) return '其他';
   if (['牛奶／豆漿', '牛乳／豆漿', '牛奶/豆漿', '牛乳/豆漿'].includes(category)) return '牛乳／植物奶';
   const corrections = { '午后時光重乳奶茶': '茶飲', '義美寶吉葡萄汁': '果汁', '波蜜蜂蜜檸檬': '果汁', '光泉薏仁糙米漿': '牛乳／植物奶' };
   return category === '其他' && Object.hasOwn(corrections, name) ? corrections[name] : category;
 }
+
+export const fridgeDisplayName = name => name === '可爾必思開心成長160ml' ? '可爾必思' : name;
 
 /** The three confirmed cartons were first registered with unknown packaging. */
 export function canonicalDrinkPackaging(packaging, name = '') {

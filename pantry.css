@@ -240,3 +240,7 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
 .admin-activity>.panel{padding:20px 24px}.admin-activity h2{font-size:20px;margin:0 0 16px}.admin-activity .section-heading h2{margin:0}.admin-activity .activity-list:last-child{margin-bottom:0}@media(max-width:640px){.admin-activity>.panel{padding:18px 16px}}
 
 [data-recent-arrivals]>.subtle{margin:0;padding:14px 20px 0}
+
+/* Empty stock decisions remain inside the existing collapsed overview. */
+.empty-stock-group-title{display:flex;align-items:baseline;gap:10px;margin:22px 0 4px;font-size:15px}.empty-stock-group-title small{font-family:var(--body-font);font-size:11px;font-weight:400;color:var(--muted)}.empty-stock-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}.empty-stock-list li>span{min-width:0;overflow-wrap:anywhere}.empty-stock-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}.empty-stock-actions .button{font-size:11px;padding:8px 11px;white-space:normal}.empty-stock-list .needs-restock>b{color:var(--red,#a84636)}
+@media(min-width:1100px){.empty-stock-list li{grid-template-columns:minmax(0,1fr) auto auto}.empty-stock-actions{grid-column:auto;justify-content:flex-end}}

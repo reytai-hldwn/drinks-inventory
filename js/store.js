@@ -4,6 +4,7 @@ import { initialSupplies, prepareSupplyCatalog, SNACK_CATEGORIES, SNACK_UNITS, s
 import { recordedBalances } from './inventory-activity.js';
 import { supplyNameKey, supplyLabel } from './supplies.js';
 import { RESTOCK_MODES, isLowStockItem, restockPreferenceMode } from './restock-preferences.js';
+import { fulfilZeroRestocks } from './empty-stock.js';
 
 const DATA_KEY = 'office-pantry-demo-v1';
 const SESSION_KEY = 'office-pantry-session-v1';
@@ -57,6 +58,7 @@ export class InventoryStore {
   get supportsBatchArrival() { return this.mode==='demo'; }
   get supportsSnackFlavors() { return this.mode==='demo'; }
   get supportsManualRestock() { return this.mode==='demo'; }
+  get supportsZeroStockDecisions() { return this.mode==='demo'; }
   get supportsRestockPreferences() { return this.mode === 'demo'; }
   get restockPreferences() { return this.data.restockPreferences || []; }
   get supplies() { return this.data.supplies || initialSupplies(); }
@@ -185,7 +187,7 @@ export class InventoryStore {
   async save(data) {
     if (!this.canEdit) throw new Error('請先以獲授權的編輯者帳號登入。');
     if (!validData(data)) throw new Error('庫存資料格式不正確。');
-    if(this.mode==='demo')data={...data,drinks:recordedBalances(data.drinks,data.events,'drinkId'),supplies:recordedBalances(data.supplies||[],data.supplyEvents||[],'supplyId')};
+    if(this.mode==='demo')data=fulfilZeroRestocks(this.data,{...data,drinks:recordedBalances(data.drinks,data.events,'drinkId'),supplies:recordedBalances(data.supplies||[],data.supplyEvents||[],'supplyId')});
     const existingEventIds = new Set(this.data.events.map((event) => event.id));
     for (const event of data.events) {
       if (!existingEventIds.has(event.id) && ['count', 'restock'].includes(event.type) &&
@@ -363,6 +365,18 @@ export class InventoryStore {
     const entry={kind,itemId,mode,updatedAt:new Date().toISOString()},next=structuredClone(this.data);
     next.restockPreferences=[...this.restockPreferences.filter(entry=>entry.kind!==kind||entry.itemId!==itemId),entry];
     await this.save(next);return entry;
+  }
+
+  async setZeroStockDecision({kind,itemId,decision,expectedMode}) {
+    if(!this.supportsZeroStockDecisions||!this.canEdit)throw new Error('請從管理入口處理無庫存品項。');
+    if(!['drink','snack','noodle'].includes(kind)||!['pending','undecided','archive'].includes(decision))throw new Error('處理方式不正確。');
+    const next=structuredClone(this.data),item=(kind==='drink'?next.drinks:next.supplies||[]).find(item=>item.id===itemId&&(kind==='drink'||item.kind===kind));
+    if(!item||item.active===false||item.stock!==0||!(item.lastCountAt||item.lastArrivalAt))throw new Error('這個品項已不在無庫存清單，請重新整理。');
+    if(restockPreferenceMode(this.restockPreferences,kind,itemId)!==expectedMode)throw new Error('處理狀態已變更，請重新整理。');
+    const mode=decision==='pending'?'consider':'normal',updatedAt=new Date().toISOString();
+    if(decision==='archive')item.active=false;
+    next.restockPreferences=[...(next.restockPreferences||[]).filter(entry=>entry.kind!==kind||entry.itemId!==itemId),{kind,itemId,mode,updatedAt,...(decision==='pending'?{zeroStockPending:true}:{})}];
+    await this.save(next);return{kind,itemId,decision,mode,active:decision!=='archive',stock:0,snapshotAt:updatedAt};
   }
 
   async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {

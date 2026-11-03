@@ -1,5 +1,5 @@
 import { escapeHtml as h, stockStatus } from './domain.js';
-import { CATEGORIES_ORDER } from './catalog.js';
+import { CATEGORIES_ORDER, fridgeDisplayName } from './catalog.js';
 import { findProductPhoto } from './product-photos.js';
 
 const FRIDGE_DOOR_TIMERS = new WeakMap();
@@ -224,13 +224,14 @@ export function drinkPack(drink, { defer = false, fullSize = false } = {}) {
 }
 
 function renderFridgeProduct(drink, showQuantities, dateLabel, defer) {
+  const label = fridgeDisplayName(drink.name);
   const status = showQuantities ? stockStatus(drink) : null;
   const classes = showQuantities
     ? `${status === 'low' ? ' is-low' : ''}${status === 'unknown' ? ' is-unknown' : ''}${status !== 'unknown' && drink.stock === 0 ? ' is-empty' : ''}`
     : '';
   const quantity = !showQuantities ? '' : `<span class="fridge-stock-badge">${status === 'unknown' ? '—' : drink.stock}<small>${h(drink.unit)}</small></span>`;
   const inventory = !showQuantities ? '' : `<span class="fridge-product-status">${status === 'unknown' ? '等待首次盤點' : status === 'low' ? '需要補貨' : '庫存充足'}</span><p>盤點 ${h(dateLabel(drink.lastCountAt))}</p>`;
-  return `<article class="fridge-product${classes}" data-drink-id="${h(drink.id)}"><div class="fridge-product-stage">${drinkPack(drink, { defer })}${quantity}</div><div class="fridge-product-info"><h4>${h(drink.name)}</h4><p class="fridge-product-packaging">${h(drink.packaging || '飲料包裝')}</p>${inventory}</div><button type="button" class="fridge-product-edit" data-action="view-drink" data-id="${h(drink.id)}" aria-label="查看${h(drink.name)}飲料資訊"><span class="fridge-detail-arrow" aria-hidden="true"></span></button></article>`;
+  return `<article class="fridge-product${classes}" data-drink-id="${h(drink.id)}"><div class="fridge-product-stage">${drinkPack(drink, { defer })}${quantity}</div><div class="fridge-product-info"><h4>${h(label)}</h4><p class="fridge-product-packaging">${h(drink.packaging || '飲料包裝')}</p>${inventory}</div><button type="button" class="fridge-product-edit" data-action="view-drink" data-id="${h(drink.id)}" aria-label="查看${h(label)}飲料資訊"><span class="fridge-detail-arrow" aria-hidden="true"></span></button></article>`;
 }
 
 export function renderFridgePopularity(summary, { loading = false, error = false } = {}) {

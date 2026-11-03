@@ -68,7 +68,7 @@ test('summary separates empty drinks, snacks and noodles from low stock while re
     const summary=plain(b.ctx.adminSummaryData_());
     for(const target of targets){
       const low=summary.lowItems.find(entry=>entry.kind===target.kind&&entry.id===target.id);
-      assert.equal(Boolean(low),quantity<=(target.kind==='noodle'?3:target.threshold)&&(quantity>0||target.kind==='toner'),`${target.kind} ${target.unit||''} at ${quantity}`);
+      assert.equal(Boolean(low),target.kind!=='noodle'&&quantity<=target.threshold&&(quantity>0||target.kind==='toner'),`${target.kind} ${target.unit||''} at ${quantity}`);
       if(low){assert.equal(low.stock,quantity);assert.equal(low.mode,'normal');if(target.unit)assert.equal(low.unit,target.unit);}
       const empty=summary.outOfStockItems.find(entry=>entry.kind===target.kind&&entry.id===target.id);
       assert.equal(Boolean(empty),quantity===0&&target.kind!=='toner',`${target.kind} ${target.unit||''} empty at ${quantity}`);
@@ -95,7 +95,7 @@ test('zero-stock summary rows preserve preference modes, overlap manual snack fl
   for(const id of ['supply-snack-01','supply-snack-04'])assert.equal(preference(b,{kind:'snack',id},'consider').state,'accepted');
   const before=sources(b),summary=plain(b.ctx.adminSummaryData_());
   assert.deepEqual(summary.lowItems.map(item=>[item.kind,item.id,item.stock,item.mode]),[
-    ['toner','supply-toner-black',0,'hold'],['noodle','supply-noodle-02',1,'normal'],
+    ['toner','supply-toner-black',0,'hold'],
   ]);
   assert.deepEqual(summary.outOfStockItems,[
     {kind:'drink',id:'milk',name:'牛乳',flavor:'',unit:'包',stock:0,mode:'hold'},
@@ -105,7 +105,7 @@ test('zero-stock summary rows preserve preference modes, overlap manual snack fl
   ]);
   assert.deepEqual(summary.manualSnackItems.map(item=>[item.id,item.stock]),[['supply-snack-01',0],['supply-snack-04',null]]);
   assert.equal(b.sheets.SupplyWarehouse.rows.find(row=>row[0]==='supply-snack-02')[7],'');
-  assert.deepEqual(plain(b.ctx.adminSummaryData_()),summary);assert.deepEqual(sources(b),before);
+  const again=plain(b.ctx.adminSummaryData_());assert.ok(Date.parse(again.snapshotAt)>=Date.parse(summary.snapshotAt));assert.deepEqual({...again,snapshotAt:summary.snapshotAt},summary);assert.deepEqual(sources(b),before);
   assert.doesNotMatch(JSON.stringify(summary),/events|recorder|lastCountAt|expiresOn/);
 });
 
