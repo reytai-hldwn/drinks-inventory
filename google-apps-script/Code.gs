@@ -1465,7 +1465,7 @@ function syncNewProducts_(ss) {
     var answers = {};
     response.getItemResponses().forEach(function (item) { answers[String(item.getItem().getId())] = item.getResponse(); });
     var name = String(answers[fields.productName] || '').trim();
-    var category = String(answers[fields.productCategory] || '').trim();
+    var category = canonicalDrinkCategory_(String(answers[fields.productCategory] || '').trim());
     var packaging = String(answers[fields.productPackaging] || '').trim();
     var recorder = String(answers[fields.productRecorder] || '').trim();
     var stamp = iso_(response.getTimestamp());
