@@ -37,19 +37,19 @@ test('the eight formerly purchased drinks begin archived without fabricated quan
   }
 });
 
-test('semantic milk category is first while tea and rice drink stay distinct', () => {
+test('milk and plant drinks include the owner-confirmed rice drink while tea stays separate', () => {
   assert.deepEqual(CATEGORIES_ORDER, ['牛乳／植物奶', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
   assert.deepEqual(COMPANY_CATALOG.filter((drink) => drink.active && drink.category === '牛乳／植物奶').map((drink) => drink.name), [
-    '光泉牛乳', '光泉巧克力牛乳', '統一豆漿',
+    '光泉牛乳', '光泉巧克力牛乳', '光泉薏仁糙米漿', '統一豆漿',
   ]);
   const category = (name) => COMPANY_CATALOG.find((drink) => drink.name === name).category;
   assert.equal(category('立頓原味奶茶'), '茶飲');
   assert.equal(category('立頓沁香奶綠'), '茶飲');
   assert.equal(category('立頓巧克力奶茶'), '茶飲');
-  assert.equal(category('光泉薏仁糙米漿'), '其他');
+  assert.equal(category('光泉薏仁糙米漿'), '牛乳／植物奶');
   assert.equal(category('蜂蜜燕麥'), '其他');
   assert.deepEqual(Object.fromEntries(CATEGORIES_ORDER.map((name) => [name, COMPANY_CATALOG.filter((drink) => drink.active && drink.category === name).length])), {
-    '牛乳／植物奶': 3, '茶飲': 7, '咖啡': 0, '果汁': 4, '汽水': 9, '其他': 6, '大瓶飲料': 3,
+    '牛乳／植物奶': 4, '茶飲': 7, '咖啡': 0, '果汁': 4, '汽水': 9, '其他': 5, '大瓶飲料': 3,
   });
 });
 

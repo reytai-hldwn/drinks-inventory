@@ -5,7 +5,7 @@ export const CATEGORIES_ORDER = Object.freeze(['牛乳／植物奶', '茶飲', '
 /** Read legacy labels in one category while retaining IDs, quantities and history. */
 export function canonicalDrinkCategory(category, name = '') {
   if (['牛奶／豆漿', '牛乳／豆漿', '牛奶/豆漿', '牛乳/豆漿'].includes(category)) return '牛乳／植物奶';
-  const corrections = { '午后時光重乳奶茶': '茶飲', '義美寶吉葡萄汁': '果汁', '波蜜蜂蜜檸檬': '果汁' };
+  const corrections = { '午后時光重乳奶茶': '茶飲', '義美寶吉葡萄汁': '果汁', '波蜜蜂蜜檸檬': '果汁', '光泉薏仁糙米漿': '牛乳／植物奶' };
   return category === '其他' && Object.hasOwn(corrections, name) ? corrections[name] : category;
 }
 
@@ -17,7 +17,7 @@ export function canonicalDrinkPackaging(packaging, name = '') {
 const COMPANY_CATALOG_ROWS = [
   ['光泉牛乳', '牛乳／植物奶', '窄瓶鋁箔包'],
   ['光泉巧克力牛乳', '牛乳／植物奶', '窄瓶鋁箔包'],
-  ['光泉薏仁糙米漿', '其他', '窄瓶鋁箔包'],
+  ['光泉薏仁糙米漿', '牛乳／植物奶', '窄瓶鋁箔包'],
   ['tree top瓶果汁', '果汁', '窄瓶鋁箔包'],
   ['光泉柳橙汁', '果汁', '窄瓶鋁箔包'],
   ['統一豆漿', '牛乳／植物奶', '鋁箔包'],

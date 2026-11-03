@@ -1391,5 +1391,45 @@ export const CHECKED_DRINK_LABELS = [
       "scope": "已核對蜂蜜檸檬 160 毫升鋁箔包與產品照片；官網及已查通路未提供可核對的完整成分、過敏原及營養表，相關欄位保留待確認。",
       "url": "https://www.bomy.com.tw/160ml%E7%B3%BB%E5%88%97/"
     }
+  },
+  {
+    "names": [
+      "可爾必思開心成長160ml",
+      "可爾必思開心成長160毫升"
+    ],
+    "packaging": "鋁箔包",
+    "container": "160 毫升",
+    "ingredients": "水、砂糖、發酵乳飲料、脫脂奶粉、檸檬酸、牛奶鈣、香料、大豆多醣體",
+    "allergens": "本產品含有乳製品及大豆成份，過敏體質者飲用前請注意。",
+    "nutrition": {
+      "basis": "每份 160 毫升，本包裝含 1 份",
+      "energyKcal": 90,
+      "proteinG": 0.5,
+      "fatG": 0,
+      "saturatedFatG": 0,
+      "transFatG": 0,
+      "carbohydrateG": 21.9,
+      "sugarG": 20.9,
+      "sodiumMg": 27,
+      "calciumMg": 91,
+      "per100": {
+        "energyKcal": 56,
+        "proteinG": 0.3,
+        "fatG": 0,
+        "saturatedFatG": 0,
+        "transFatG": 0,
+        "carbohydrateG": 13.7,
+        "sugarG": 13.1,
+        "sodiumMg": 17,
+        "calciumMg": 57
+      }
+    },
+    "source": {
+      "type": "official",
+      "label": "ASAHI 朝日 momo 官方直營・開心成長乳酸菌飲料 160 毫升商品標示",
+      "checkedAt": "2026-11-03",
+      "scope": "依朝日官方直營通路同款台灣原味 160 毫升鋁箔包的商品標示轉錄成分、過敏原及每份／每 100 毫升營養值，並與 PChome 同款規格交叉核對；不套用日本罐裝或其他容量。配方改版請以手上包裝為準。",
+      "url": "https://www.momoshop.com.tw/goods/GoodsDetail.jsp?i_code=15272602"
+    }
   }
 ];

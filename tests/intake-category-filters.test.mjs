@@ -32,6 +32,13 @@ test('existing drink category aliases and the three confirmed arrivals normalize
   assert.equal(prepared.drinks.find(item => item.id === 'confirmed-new').category, '茶飲');
   assert.equal(prepared.drinks.find(item => item.id === 'confirmed-new').stock, 7);
   assert.equal(local.drinks.at(-1).category, '其他');
+  assert.equal(canonicalDrinkCategory('其他', '光泉薏仁糙米漿'), '牛乳／植物奶');
+  assert.equal(createCompanyData().drinks.find(item => item.name === '光泉薏仁糙米漿').category, '牛乳／植物奶');
+  const legacyRice = structuredClone(normalized.data.drinks[0]);
+  Object.assign(legacyRice, { id:'rice-drink', name:'光泉薏仁糙米漿', category:'其他', stock:9 });
+  const payload = plain(b.ctx.warehouseData_()); payload.drinks.push(legacyRice);
+  const actual = normalizeGooglePublicData(payload,{warehouse:true}).data.drinks.find(item=>item.id===legacyRice.id);
+  assert.equal(actual.category,'牛乳／植物奶'); assert.equal(actual.stock,9);
 });
 
 test('single and mixed batch arrivals store the selected drink category and reject an invalid later row before writing', () => {
