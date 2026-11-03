@@ -1,7 +1,29 @@
 export const RESTOCK_MODES = Object.freeze({ normal: '', hold: '暫不需要補貨', replace: '可以準備替換新品項', consider:'可以考慮補貨' });
 
+export function restockThreshold(kind) {
+  return kind==='drink'?10:kind==='noodle'?1:kind==='toner'?0:null;
+}
+
 export function isLowStockItem(item) {
-  return !!item.lastCountAt && Number.isSafeInteger(item.stock) && item.stock >= 0 && item.stock <= 10;
+  const threshold=restockThreshold(item.kind===undefined?'drink':item.kind);
+  return threshold!==null && !!item.lastCountAt && Number.isSafeInteger(item.stock) && item.stock >= 0 && item.stock <= threshold;
+}
+
+export function inventoryLowThreshold(kind) {
+  return kind==='drink'||kind==='snack'?10:kind==='noodle'?3:kind==='toner'?0:null;
+}
+
+export function isOutOfStockItem(item) {
+  const kind=item.kind===undefined?'drink':item.kind;
+  return ['drink','snack','noodle'].includes(kind) && !!item.lastCountAt && item.stock===0;
+}
+
+export function matchesInventoryStockFilter(item,filter='all') {
+  if(filter==='all')return true;
+  if(filter==='empty')return isOutOfStockItem(item);
+  const kind=item.kind===undefined?'drink':item.kind,threshold=inventoryLowThreshold(kind);
+  return filter==='low' && threshold!==null && !!item.lastCountAt && Number.isSafeInteger(item.stock) &&
+    (kind==='toner'?item.stock===0:item.stock>0&&item.stock<=threshold);
 }
 
 export function sortInventoryItems(items) {
