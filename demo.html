@@ -459,6 +459,15 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
 @media(max-width:1100px){.ranking-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.ranking-search{grid-column:1/-1}.ranking-winner h2{font-size:17px}.ranking-rate strong{font-size:26px}}
 @media(max-width:640px){.ranking-stats{gap:12px}.ranking-stats strong{font-size:24px}.ranking-stats .ranking-date{font-size:13px;overflow-wrap:anywhere}.ranking-stats small{font-size:10px;margin-left:3px}.ranking-podium{grid-template-columns:1fr;gap:12px}.ranking-winner{display:grid;grid-template-columns:76px minmax(0,1fr);column-gap:16px;text-align:left;padding:20px;min-height:165px}.ranking-medal{position:absolute;right:12px;top:10px;width:28px;height:28px;font-size:20px}.ranking-product{grid-column:1;grid-row:1/5;height:130px;align-self:center}.ranking-winner-caption{margin:5px 25px 2px 0}.ranking-winner h2{font-size:18px;margin:4px 18px 4px 0}.ranking-rate strong{font-size:27px}.ranking-rate small{display:inline;margin-left:8px}.ranking-list{padding:18px}.ranking-list .section-heading h2{font-size:18px}.ranking-row{grid-template-columns:24px minmax(0,1fr) auto;gap:10px}.ranking-row-rate strong{font-size:20px}.ranking-evidence{margin-left:0}.ranking-intervals li{grid-template-columns:minmax(0,1fr) auto;gap:12px}.ranking-mini-bar{display:none}.ranking-waiting{padding:20px}.ranking-waiting li{gap:12px}.ranking-waiting li b{max-width:115px;flex-shrink:1}.ranking-empty h2{font-size:22px}.ranking-flavors li{flex-wrap:wrap}}
 
+/* One light SVG machine; product photos are requested only after a daily draw. */
+.gacha-layout{display:grid;grid-template-columns:minmax(250px,.8fr) minmax(0,1.2fr);gap:40px;align-items:center;max-width:1080px;margin:20px auto 0}.gacha-play{min-width:0;text-align:center}.gacha-machine-wrap{position:relative;background:radial-gradient(ellipse at center,#faf4e7 0%,#fff 66%)}.gacha-machine{display:block;width:min(100%,330px);margin:0 auto;padding:0 0 14px;background:none;border:0;color:#765136;cursor:pointer;border-radius:24px}.gacha-machine svg{display:block;width:100%;height:auto;overflow:visible}.gacha-machine>span{display:inline-block;border:1px solid #be985f;border-radius:13px 11px 14px 10px;background:#fff8e8;padding:13px 19px;font-family:var(--heading-font);font-size:18px;line-height:1.6;box-shadow:0 3px 0 #eaddc4}.gacha-machine:not(:disabled):hover>span{background:#f6e8ca}.gacha-machine:disabled{cursor:default;opacity:1}.gacha-machine:disabled>span{background:#faf7f1;color:#947e65;border-color:#dfd3c0;box-shadow:none}.gacha-daily-note{font-size:11px;color:var(--muted);line-height:2;margin:15px 0}.gacha-result{min-width:0}.gacha-result:not(:focus-visible){outline:none}.gacha-invitation{padding:45px 20px;text-align:center;color:var(--muted)}.gacha-invitation>span{font-size:52px;color:#c7a169}.gacha-invitation h2{font-size:25px;color:#72513d;line-height:1.8}.gacha-invitation p{font-size:13px;line-height:2}.gacha-invitation small{font-size:11px;color:#ae8e61}.gacha-ticket{background:#fffdf7;border:1.5px solid #c3a174;border-radius:25px 19px 22px 24px;padding:28px;position:relative;box-shadow:4px 6px 0 #efe6d447}.gacha-ticket:before{content:'✧';position:absolute;right:24px;top:66px;color:#d2b47f;font-size:24px}.gacha-ticket-top{display:flex;align-items:center;justify-content:space-between;gap:14px;color:#a07a47;font-size:11px}.gacha-ticket-top span{font-family:var(--heading-font);font-size:16px}.gacha-ticket-top time{font-size:10px;white-space:nowrap}.gacha-fortune{font-family:var(--heading-font);font-size:27px;line-height:2.1;color:#694735;margin:35px 4px 28px;letter-spacing:.03em}.gacha-ticket-rule{display:flex;align-items:center;gap:12px;font-size:10px;color:#aa8a61;margin-bottom:24px}.gacha-ticket-rule:before,.gacha-ticket-rule:after{content:'';height:1px;background:#e4d3b4;flex:1}.gacha-ticket-rule span{white-space:nowrap}.gacha-drink{display:grid;grid-template-columns:92px minmax(0,1fr);gap:18px;align-items:center;padding:12px 0 8px;min-width:0}.gacha-drink-photo{display:flex;align-items:center;justify-content:center;min-height:145px}.gacha-drink h3{font-size:21px;line-height:1.8;margin:5px 0;overflow-wrap:anywhere}.gacha-drink .eyebrow{font-size:10px;letter-spacing:.1em;margin:0}.gacha-drink .subtle{font-size:11px;line-height:1.8}.gacha-drink .text-link{font-size:12px}.gacha-drink-status{font-size:12px;color:var(--muted);line-height:2;padding:8px 0}.gacha-drink-status .inline-actions{gap:16px;flex-wrap:wrap}.gacha-drink-status .text-link{font-size:11px}.gacha-knob{transform-box:fill-box;transform-origin:center}.gacha-balls{transform-origin:160px 123px}.is-spinning .gacha-knob{animation:gacha-turn .65s ease-in-out}.is-spinning .gacha-balls{animation:gacha-shuffle .65s ease-in-out}.is-spinning svg{animation:gacha-wiggle .65s ease-in-out}
+@keyframes gacha-turn{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}@keyframes gacha-shuffle{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg) translateY(-5px)}55%{transform:rotate(15deg) translateY(7px)}80%{transform:rotate(-7deg)}}@keyframes gacha-wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-1deg)}70%{transform:rotate(1deg)}}
+@media(max-width:800px){.gacha-layout{grid-template-columns:1fr;gap:20px;max-width:530px}.gacha-machine{width:min(100%,275px)}.gacha-invitation{padding:10px 15px 35px}.gacha-ticket{padding:24px}.gacha-fortune{font-size:24px;margin-top:30px}.gacha-daily-note{margin:8px 0 0}.gacha-drink{grid-template-columns:76px minmax(0,1fr);gap:16px}.gacha-drink h3{font-size:19px}}
+@media(prefers-reduced-motion:reduce){.is-spinning .gacha-knob,.is-spinning .gacha-balls,.is-spinning svg{animation:none}}
+.gacha-drink button.text-link,.gacha-drink-status button.text-link{padding:0;border:0;background:transparent;cursor:pointer;text-align:left;font-family:inherit}
+.gacha-drink button.text-link{min-height:36px}
+@media(max-width:900px){body[data-area=front][data-gacha-ready=true] nav#navigation{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;overflow:visible}body[data-area=front][data-gacha-ready=true] nav#navigation a{min-width:0;min-height:44px;white-space:normal;text-align:center}}
+
 </style>
 
 
@@ -3208,6 +3217,78 @@ function renderConsumptionResults(selection) {
   return `${stats}${podium}${list}${unranked(selection.zero,'本期未觀察到消耗',true)}${unranked(selection.pending,'正在累積紀錄')}<details class="panel ranking-method"><summary>怎麼看這份排行榜？</summary><p>兩次實際盤點之間，用「上次盤點＋期間入庫−這次盤點」估算消耗，再按觀察天數換算成每週平均。飲料可將包、瓶、罐一起按消耗件數比較；零食保留相同單位比較。沒有實際紀錄的品項不列為零消耗。</p><p>只採選定期間內完整、至少一天的盤點區間；數量異常與整段沒有庫存的區間不列入。盤點也可能包含報廢或調整，因此這是消耗估算。</p></details>`;
 }
 
+
+const GACHA_ODDS = Object.freeze({lucky:.98,steady:.015,pause:.005});
+// Append within a bucket: these positions form IDs saved in the daily result.
+const GACHA_COPY = {
+  lucky:[
+    '願你的好運不過擬合，快樂走得長又穩。',
+    '今天的好消息，正在低調累積動能。',
+    '你的耐心正在生息，驚喜會替它結算。',
+    '好運並非隨機漫步，今天正往你這裡靠近。',
+    '願報酬保持正偏，快樂持續複利。',
+    '今天值得加碼的，是那個還沒被你說出口的好點子。',
+    '雜訊留給市場，把好心情留給自己。',
+    '幸運已送出委託，成交的可能是你期待的好消息。',
+    '小小補給，也能替今天帶來超額快樂。',
+    '請把煩惱停損，把值得開心的事繼續持有。',
+    '今天的你，值得比昨天更高的信心權重。',
+    '願你在喧鬧的盤面裡，總能找到自己的節奏。',
+    '好事正在累積訊號，輪到你時會很漂亮。',
+    '今天的幸運，不只一個因子在加分。',
+    '下一段漂亮的績效曲線，先從照顧好自己開始。',
+    '你的靈感已經暖機，好消息也快跟上了。',
+    '今天的快樂不必回測，先喝一口就知道。',
+    '先補水，再補靈感；屬於你的訊號正在靠近。',
+    '別急著為自己定價，世界還沒看完你的潛力。',
+    '今天該減碼的是壓力，該加碼的是好心情。',
+  ],
+  steady:[
+    '好的策略容得下一次休息，好的日子也是。',
+    '盤面再熱鬧，也可以先讓心情收盤三分鐘。',
+    '留一點現金，也留一點餘裕；好機會喜歡從容的人。',
+  ],
+  pause:[
+    '這筆先算了吧。今天的 alpha，可能是保留選擇權。',
+    '宇宙暫時沒給進場訊號，倒是給了你一張喝飲料的通行證。',
+  ],
+};
+const GACHA_FORTUNES=Object.freeze(Object.entries(GACHA_COPY).flatMap(([kind,texts])=>texts.map((text,index)=>Object.freeze({id:`${kind}-${String(index+1).padStart(2,'0')}`,kind,text}))));
+const gachaFortuneMap=new Map(GACHA_FORTUNES.map(fortune=>[fortune.id,fortune]));
+const gachaDay=(now=Date.now())=>new Date(+new Date(now)+8*3600000).toISOString().slice(0,10);
+const gachaResetDelay=(now=Date.now())=>Date.parse(`${gachaDay(now)}T16:00:00Z`)-+new Date(now)+50;
+function gachaRandom(){if(globalThis.crypto?.getRandomValues){const value=new Uint32Array(1);crypto.getRandomValues(value);return value[0]/4294967296;}return Math.random();}
+const gachaIndex=(length,random)=>Math.min(length-1,Math.max(0,Math.floor(random()*length)));
+
+function drawGacha({now=Date.now(),random=gachaRandom}={}) {
+  const chance=random(),kind=chance<GACHA_ODDS.lucky?'lucky':chance<GACHA_ODDS.lucky+GACHA_ODDS.steady?'steady':'pause';
+  const fortunes=GACHA_FORTUNES.filter(fortune=>fortune.kind===kind),fortune=fortunes[gachaIndex(fortunes.length,random)];
+  return {version:1,day:gachaDay(now),createdAt:new Date(now).toISOString(),fortuneId:fortune.id,drinkId:null};
+}
+function readDailyGacha(storage,key,now=Date.now()) {
+  try{
+    const raw=storage?.getItem(key);if(!raw||raw.length>6000)return null;
+    const value=JSON.parse(raw);
+    if(value?.version!==1||value.day!==gachaDay(now)||!gachaFortuneMap.has(value.fortuneId)||typeof value.createdAt!=='string'||!Number.isFinite(Date.parse(value.createdAt))||gachaDay(value.createdAt)!==value.day)return null;
+    if(value.drinkId!==null&&(typeof value.drinkId!=='string'||!/^[A-Za-z0-9_-]{1,160}$/.test(value.drinkId)))return null;
+    return {version:1,day:value.day,createdAt:value.createdAt,fortuneId:value.fortuneId,drinkId:value.drinkId};
+  }catch{return null;}
+}
+function saveDailyGacha(storage,key,draw){try{storage?.setItem(key,JSON.stringify(draw));return !!storage;}catch{return false;}}
+function chooseGachaDrink(drinks,eligibleIds,random=gachaRandom){const eligible=new Set(eligibleIds),items=drinks.filter(drink=>drink.active!==false&&eligible.has(drink.id));return items.length?items[gachaIndex(items.length,random)]:null;}
+
+function gachaMachine(disabled,spinning) {
+  const balls=[[121,91,-18,'#d7dec7'],[175,82,22,'#efd6c6'],[210,121,-26,'#e9c77d'],[153,130,12,'#f2dec7'],[106,148,32,'#e8c57d'],[191,168,-14,'#d4dcc2'],[142,185,20,'#efd4c3']];
+  return `<button type="button" class="gacha-machine${spinning?' is-spinning':''}" data-action="gacha-draw"${disabled?' disabled':''} aria-label="轉一下，抽今日補給"><svg viewBox="0 0 320 380" role="presentation" aria-hidden="true"><defs><clipPath id="gacha-globe"><circle cx="160" cy="123" r="88"/></clipPath></defs><ellipse cx="161" cy="351" rx="102" ry="8" fill="#eee5d4"/><path d="M88 199 Q77 205 75 224 L67 322 Q64 344 89 347 L231 346 Q252 345 249 322 L241 224 Q238 207 223 201 Z" fill="#f6ead3" stroke="#a78355" stroke-width="2.5"/><path d="M77 310 L242 312 M86 339 Q164 344 238 338" fill="none" stroke="#cfb68d" stroke-width="1.3"/><circle cx="160" cy="123" r="91" fill="#fffcf4" stroke="#a78355" stroke-width="2.5"/><circle cx="160" cy="123" r="86" fill="none" stroke="#dfcfb1" stroke-width="1"/><g clip-path="url(#gacha-globe)"><g class="gacha-balls">${balls.map(([x,y,rotation,color])=>`<g transform="translate(${x} ${y}) rotate(${rotation})"><circle r="25" fill="${color}" stroke="#aa8b64" stroke-width="1.8"/><path d="M-24 0 A25 25 0 0 1 24 0 Z" fill="#fffaf0" stroke="#aa8b64" stroke-width="1.5"/><path d="M-16 -11 Q-12 -18 -4 -19" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g>`).join('')}</g></g><path d="M98 59 Q113 40 139 37" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" opacity=".8"/><path d="M128 28 Q160 19 191 28 L198 37 Q160 44 123 37 Z" fill="#d1ab69" stroke="#a78355" stroke-width="2"/><rect x="109" y="225" width="101" height="62" rx="22" fill="#fffaf0" stroke="#b49469" stroke-width="2"/><g class="gacha-knob"><circle cx="160" cy="256" r="23" fill="#e6c383" stroke="#a78355" stroke-width="2"/><rect x="138" y="250" width="44" height="12" rx="6" fill="#fff9e9" stroke="#a78355" stroke-width="1.7"/><circle cx="160" cy="256" r="4" fill="#cba568"/></g><path d="M117 315 Q117 296 137 296 L184 296 Q204 296 204 315 L203 330 L118 330 Z" fill="#806144" stroke="#a78355" stroke-width="2"/><path d="M127 323 Q160 317 195 324" fill="none" stroke="#d8bb8a" stroke-width="2"/><path d="M55 82 l-5 -9 M263 115 l10 -4 M252 56 l7 -8" stroke="#d0ad70" stroke-width="2" stroke-linecap="round"/></svg><span>${spinning?'好運正在靠近…':disabled?'今日好運已收好':'轉一下，抽今日補給'}</span></button>`;
+}
+
+function renderGacha(state,drinks) {
+  const draw=state.draw,fortune=draw?gachaFortuneMap.get(draw.fortuneId):null,drink=draw?.drinkId?drinks.find(drink=>drink.id===draw.drinkId):null;
+  const label=fortune?.kind==='pause'?'宇宙小暫停':fortune?.kind==='steady'?'慢慢來也有好運':'今日好籤';
+  const drinkCard=drink?`<div class="gacha-drink"><div class="gacha-drink-photo">${drinkPack(drink)}</div><div><p class="eyebrow">今日配對飲料</p><h3>${h(fridgeDisplayName(drink.name))}</h3><p class="subtle">${h(findDrinkInformation(drink)?.container||drink.packaging||drink.unit)}</p><button type="button" class="text-link" data-action="view-drink" data-id="${h(drink.id)}">看看飲料資訊 ↗</button></div></div>`:`<div class="gacha-drink-status" role="status"><p>${state.loading?'正在替你找一份補給…':state.drinkState==='empty'?'今天的飲料推薦先留白，補給到貨後再來看看。':state.drinkState==='error'?'飲料推薦暫時沒有回應，今天的幸運籤已替你收好。':'飲料推薦準備中，先收下今天的好運。'}</p>${state.loading?'':`<div class="inline-actions"><button type="button" class="text-link" data-action="gacha-retry">再看看飲料 ↻</button><a class="text-link" href="#overview">逛逛冰箱 ↗</a></div>`}</div>`;
+  return `<div class="gacha-layout"><section class="gacha-play"><div class="gacha-machine-wrap">${gachaMachine(!!draw||state.spinning,state.spinning)}</div><p class="gacha-daily-note">每天一顆，同一瀏覽器會保留今天的結果。</p></section><section id="gacha-result" class="gacha-result" tabindex="-1" aria-live="polite">${fortune&&!state.spinning?`<article class="gacha-ticket"><div class="gacha-ticket-top"><span>✧ ${label}</span><time>${h(draw.day.replaceAll('-',' / '))}</time></div><p class="gacha-fortune">${h(fortune.text)}</p><div class="gacha-ticket-rule"><span>今日的好訊號，請查收</span></div>${drinkCard}</article>${state.saveFailed?'<p class="subtle">此瀏覽器暫時無法保存結果，重新整理後可能會改變。</p>':''}`:`<div class="gacha-invitation"><span aria-hidden="true">✧</span><h2>${state.spinning?'正在轉出你的好訊號':'今天的好運，等你轉開'}</h2><p>一份飲料推薦，一張有點懂你的幸運籤。</p><small>補給一下，讓好心情繼續複利。</small></div>`}</section></div>`;
+}
+
 /** A normal HTML POST needs no CORS permission. Only the server's read-only
  *  receipt confirms success; an iframe load or an opaque response never does. */
 function submitGoogleWebsiteCommand(endpoint, command, options = {}) {
@@ -3322,7 +3403,7 @@ function validateGoogleScriptUrl(value) {
 function fetchGooglePublicData(endpoint, options = {}) {
   const url = new URL(validateGoogleScriptUrl(endpoint));
   const action = options.action ?? 'public';
-  if (!['public', 'warehouse', 'receipt', 'popularity', 'admin'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
+  if (!['public', 'warehouse', 'receipt', 'popularity', 'admin', 'gacha'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
   if (action === 'receipt' && !/^[A-Za-z0-9_-]{20,100}$/.test(options.requestId || '')) throw new Error('儲存回條代號不正確。');
   const pageWindow = options.window || globalThis.window;
   const pageDocument = options.document || globalThis.document;
@@ -3557,6 +3638,7 @@ function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     updatedAt,
     snapshotAt: googleDateField(payload.snapshotAt, '資料讀取時間', true),
     archiveWishVersion: payload.websiteEntry?.archiveWishVersion === 1 ? 1 : 0,
+    gachaVersion: payload.websiteEntry?.gachaVersion === 1 ? 1 : 0,
     popularityVersion: payload.websiteEntry?.popularityVersion === 1 ? 1 : 0,
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
     archivedArrivalVersion:warehouse&&payload.websiteEntry?.archivedArrivalVersion===1?1:0,
@@ -3617,6 +3699,8 @@ class GoogleInventoryStore {
     this.newArrivalVersion = 0;
     this.drinkCategoryVersion = 0;
     this.zeroStockVersion = 0;
+    this.gachaVersion = 0;
+    this.gachaRequest = null;
     this.lastWriteNeedsRefresh = false;
     this.completedWrites = new Set();
     this.readPublicData = options.readPublicData || fetchGooglePublicData;
@@ -3648,6 +3732,7 @@ class GoogleInventoryStore {
   get canManage() { return true; }
   get supportsArchivedArrivals() { return this.supportsWebsiteEntry&&this.archivedArrivalVersion===1; }
   get supportsZeroStockDecisions() { return this.zeroStockVersion===1; }
+  get supportsGacha() { return this.gachaVersion===1; }
   get supportsBatchArrival() { return this.supportsWebsiteEntry&&this.batchArrivalVersion===1; }
   get supportsSnackFlavors() { return this.supportsSupplies&&this.snackFlavorVersion===1; }
   get supportsManualRestock() { return this.supportsRestockPreferences&&this.manualAllVersion===1; }
@@ -3693,7 +3778,7 @@ class GoogleInventoryStore {
     const result = normalizeGooglePublicData({ok:true,drinks:this.data.drinks,wishes:this.data.wishes,
       formUrls:this.formUrls,voteForm:this.voteForm,wishForm:this.wishForm,adminUrl:this.adminUrl,
       updatedAt:this.updatedAt,snapshotAt:this.snapshotAt,
-      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion}});
+      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion,gachaVersion:this.gachaVersion}});
     ++this.googleReadSequence;
     this.pendingGoogleReads.delete('public');
     this.applyGoogleView(result, false);
@@ -3738,7 +3823,7 @@ class GoogleInventoryStore {
       try {
         const payload = { ok: true, provider: 'google', drinks: result.data.drinks, wishes: result.data.wishes,
           formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm,
-          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion } };
+          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion,gachaVersion:result.gachaVersion } };
         const saved = JSON.stringify({ version: 1, savedAt: this.now(), payload });
         if (saved.length < 750000) (this.publicStorage || globalThis.localStorage)?.setItem(`holdwin-public-cache-v1:${endpoint}`, saved);
       } catch { /* Storage is optional; fresh Google data still works. */ }
@@ -3760,6 +3845,7 @@ class GoogleInventoryStore {
     this.snapshotAt = result.snapshotAt;
     this.popularityVersion = result.popularityVersion;
     this.archiveWishVersion = result.archiveWishVersion;
+    this.gachaVersion = result.gachaVersion || 0;
     this.websiteEntryVersion = result.websiteEntryVersion;
     this.newArrivalVersion = result.newArrivalVersion || 0;
     this.drinkCategoryVersion = result.drinkCategoryVersion || 0;
@@ -3775,7 +3861,7 @@ class GoogleInventoryStore {
     this.supplyExpirySetVersion = result.supplyExpirySetVersion || 0;
     this.restockPreferences = result.restockPreferences || [];
     this.restockPreferenceVersion = result.restockPreferenceVersion || 0;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion,drinkCategoryVersion:this.drinkCategoryVersion,batchArrivalVersion:this.batchArrivalVersion,archivedArrivalVersion:this.archivedArrivalVersion,snackFlavorVersion:this.snackFlavorVersion,manualAllVersion:this.manualAllVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplySnackVersion:this.supplySnackVersion,supplySnackPolicyVersion:this.supplySnackPolicyVersion,snackManualVersion:this.snackManualVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, gachaVersion:this.gachaVersion, newArrivalVersion:this.newArrivalVersion,drinkCategoryVersion:this.drinkCategoryVersion,batchArrivalVersion:this.batchArrivalVersion,archivedArrivalVersion:this.archivedArrivalVersion,snackFlavorVersion:this.snackFlavorVersion,manualAllVersion:this.manualAllVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplySnackVersion:this.supplySnackVersion,supplySnackPolicyVersion:this.supplySnackPolicyVersion,snackManualVersion:this.snackManualVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
   }
 
   applyWishReceipt(operation, data, result, requestId) {
@@ -4132,6 +4218,17 @@ class GoogleInventoryStore {
     return this.sendWebsiteCommand('product', { name: name.trim(), category: storedCategory, packaging, recorder: recorder.trim() });
   }
 
+  async readGachaOptions() {
+    if(!this.supportsGacha)return {supported:false,eligibleIds:[]};
+    if(this.gachaRequest)return this.gachaRequest;
+    this.gachaRequest=(async()=>{
+      const value=await this.readPublicData(validateGoogleScriptUrl(this.url),{action:'gacha'});
+      if(value?.ok!==true||value.version!==1||!Array.isArray(value.eligibleIds)||value.eligibleIds.length>1000||value.eligibleIds.some(id=>typeof id!=='string'||!/^[A-Za-z0-9_-]{1,160}$/.test(id))||new Set(value.eligibleIds).size!==value.eligibleIds.length)throw new Error('暫時無法讀取飲料推薦，請稍後再試。');
+      return {supported:true,eligibleIds:[...value.eligibleIds]};
+    })();
+    try{return await this.gachaRequest;}finally{this.gachaRequest=null;}
+  }
+
   async setZeroStockDecision(data) {
     if(!this.supportsZeroStockDecisions)throw new Error('請先更新原 Apps Script 部署，啟用無庫存處理功能。');
     if(!['drink','snack','noodle'].includes(data.kind)||!['pending','undecided','archive'].includes(data.decision))throw new Error('請選擇有效的處理方式。');
@@ -4216,6 +4313,7 @@ class InventoryStore {
   get supportsSnackFlavors() { return this.mode==='demo'; }
   get supportsManualRestock() { return this.mode==='demo'; }
   get supportsZeroStockDecisions() { return this.mode==='demo'; }
+  get supportsGacha() { return this.mode==='demo'; }
   get supportsRestockPreferences() { return this.mode === 'demo'; }
   get restockPreferences() { return this.data.restockPreferences || []; }
   get supplies() { return this.data.supplies || initialSupplies(); }
@@ -4536,6 +4634,10 @@ class InventoryStore {
     await this.save(next);return{kind,itemId,decision,mode,active:decision!=='archive',stock:0,snapshotAt:updatedAt};
   }
 
+  async readGachaOptions() {
+    return {supported:this.supportsGacha,eligibleIds:this.supportsGacha?this.data.drinks.filter(item=>item.active!==false&&hasRecordedStock(item)&&item.stock>0).map(item=>item.id):[]};
+  }
+
   async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {
     if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料許願或零食許願。');
     if (this.mode !== 'demo' && kind !== 'drink') throw new Error('此舊版共用介接尚未支援零食許願，請改用 Google 共用模式。');
@@ -4633,6 +4735,7 @@ const restockViews = { restock: 'drink', 'restock-snack':'snack', 'restock-noodl
 const NEW_ARRIVAL_VALUE = '__new__';
 const viewNames = { overview: '飲料冰箱', wishes: '採買許願池', archive: '歷史品項', admin: '管理後台', products: '倉庫庫存', count: '快速盤點', restock: '到貨入庫 · 飲料', 'restock-snack':'到貨入庫 · 零食', 'restock-noodle': '到貨入庫 · 泡麵', 'restock-toner': '到貨入庫 · 碳粉', 'manage-wishes': '願望管理', history: '異動紀錄' };
 viewNames.consumption = '消耗排行榜';
+viewNames.gacha = '今日補給扭蛋';
 const adminViews = new Set(['admin', 'consumption', 'products', 'count', ...Object.keys(restockViews), 'manage-wishes', 'history']);
 let view = 'overview';
 let wishFilter = 'all';
@@ -4666,6 +4769,9 @@ let popularityError = false;
 let adminZeroItems = [];
 const rankingState = {kind:'drink',days:90,unit:'',category:'',query:'',archived:false};
 let rankingCache = null;
+const gachaStorageKey=`holdwin-gacha-v1:${location.pathname.replace(/index\.html$/,'')}`;
+let gachaState = null;
+let gachaDayTimer;
 
 const formatDate = (value, time = false) => value ? new Intl.DateTimeFormat('zh-TW', {
   timeZone: 'Asia/Taipei', ...(time ? { year: 'numeric' } : {}), month: '2-digit', day: '2-digit', ...(time ? { hour: '2-digit', minute: '2-digit', hour12: false } : {}),
@@ -4704,9 +4810,11 @@ function updateChrome() {
   document.title = `${viewNames[view]} · 宏穩茶水間`;
   const inAdmin = adminViews.has(view) && (store.canManage || store.canEdit);
   document.body.dataset.area = inAdmin ? 'admin' : 'front';
+  document.body.dataset.gachaReady = String(!!store.supportsGacha);
   document.body.dataset.view = view;
   document.querySelectorAll('[data-editor]').forEach((element) => { element.hidden = !inAdmin; });
   document.querySelectorAll('[data-front]').forEach((element) => { element.hidden = inAdmin; });
+  const gachaLink=document.querySelector('[data-gacha]');if(gachaLink)gachaLink.hidden=inAdmin||!store.supportsGacha;
   document.querySelectorAll('nav [data-view]').forEach((element) => {
     const active = element.dataset.view === view || (element.dataset.view === 'restock' && Object.hasOwn(restockViews, view));
     element.classList.toggle('active', active);
@@ -5247,7 +5355,44 @@ function renderConsumption() {
 }
 function updateRankingResults(){const target=$('#ranking-results');if(target)target.innerHTML=renderConsumptionResults(selectConsumption(rankingData(),rankingState));}
 
+function gameStorage(){try{return globalThis.localStorage;}catch{return null;}}
+function currentGacha(){
+  const day=gachaDay();
+  if(!gachaState||gachaState.day!==day)gachaState={day,draw:readDailyGacha(gameStorage(),gachaStorageKey),loading:false,spinning:false,drinkState:'idle',saveFailed:false};
+  return gachaState;
+}
+function renderGachaPage(){
+  clearTimeout(gachaDayTimer);gachaDayTimer=setTimeout(()=>{if(view==='gacha')renderGachaPage();},gachaResetDelay());
+  const state=currentGacha(),description=store.supportsGacha?'轉一顆飲料，順便接收今天的好訊號。':'幸運籤先開放試玩，飲料推薦準備中。';main.innerHTML=heading('A LITTLE LUCK, ON THE HOUSE','今日補給扭蛋',description)+renderGacha(state,store.data.drinks);
+  if(state.draw&&!state.draw.drinkId&&!state.loading&&(state.drinkState==='idle'||(state.drinkState==='pending'&&store.supportsGacha)))loadGachaDrink();
+}
+async function loadGachaDrink(){
+  const state=currentGacha(),draw=state.draw;if(!draw||state.loading)return;
+  state.loading=true;
+  if(view==='gacha'&&!state.spinning)renderGachaPage();
+  try{
+    const options=await store.readGachaOptions();if(gachaState!==state||draw!==state.draw||draw.day!==gachaDay())return;
+    const paired=readDailyGacha(gameStorage(),gachaStorageKey),savedDrink=paired?.fortuneId===draw.fortuneId&&paired?.createdAt===draw.createdAt&&paired.drinkId?store.data.drinks.find(item=>item.id===paired.drinkId):null;
+    const drink=savedDrink||(options.supported?chooseGachaDrink(store.data.drinks,options.eligibleIds):null);
+    state.drinkState=!options.supported?'pending':drink?'ready':'empty';
+    if(drink){draw.drinkId=drink.id;state.saveFailed=!saveDailyGacha(gameStorage(),gachaStorageKey,draw);}
+  }catch{state.drinkState='error';}
+  finally{state.loading=false;if(view==='gacha'&&gachaState===state&&!state.spinning)renderGachaPage();}
+}
+async function startGacha(){
+  const state=currentGacha();if(state.draw||state.spinning)return;
+  const saved=readDailyGacha(gameStorage(),gachaStorageKey);
+  state.draw=saved||drawGacha();state.spinning=!saved&&!matchMedia('(prefers-reduced-motion: reduce)').matches;state.saveFailed=!saveDailyGacha(gameStorage(),gachaStorageKey,state.draw);
+  renderGachaPage();
+  if(state.spinning){await new Promise(resolve=>setTimeout(resolve,650));state.spinning=false;if(view==='gacha'&&gachaState===state)renderGachaPage();}
+  if(view==='gacha'){
+    const result=$('#gacha-result');result?.focus({preventScroll:true});
+    if(matchMedia('(max-width: 800px)').matches)result?.scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  }
+}
+
 function render() {
+  clearTimeout(gachaDayTimer);
   syncFridgeScene(null);
   main.removeAttribute('aria-busy');
   store.preview = !adminViews.has(view);
@@ -5259,7 +5404,7 @@ function render() {
   }
   if (store.mode === 'google' && !store.supportsWebsiteEntry && view === 'count') { renderGoogleEntry(); return; }
   if (Object.hasOwn(restockViews, view)) renderRestock();
-  else ({ overview: renderOverview, consumption:renderConsumption, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
+  else ({ overview: renderOverview, gacha:renderGachaPage, consumption:renderConsumption, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
 }
 
 async function route() {
@@ -5569,6 +5714,8 @@ async function submitForm(form) {
 }
 
 async function runAction(action, id) {
+  if(action==='gacha-draw'){if(view==='gacha')await startGacha();return;}
+  if(action==='gacha-retry'){if(view==='gacha')await loadGachaDrink();return;}
   if(action==='ranking-kind'){
     if(view==='consumption'&&Object.hasOwn(CONSUMPTION_KINDS,id)){Object.assign(rankingState,{kind:id,unit:'',category:'',query:''});renderConsumption();}return;
   }
@@ -5735,7 +5882,7 @@ document.addEventListener('click', (event) => {
   const action = event.target.closest('[data-action]');
   if (action) {
     event.preventDefault();
-    if (['count-kind','batch-arrival','batch-add','batch-remove','snack-details','open-empty-stock','open-snack-stock','snack-new','retry-admin-summary','archive-wish','supply-stock-filter','supply-expiry-set','supply-expiry-add','supply-expiry-remove','warehouse-kind','supply-arrival','supply-count','supply-count-kind','supply-expiry-close','close-modal', 'quick-add-drink', 'new-drink', 'new-wish', 'edit-drink', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-popularity', 'retry-route'].includes(action.dataset.action)) {
+    if (['gacha-draw','gacha-retry','count-kind','batch-arrival','batch-add','batch-remove','snack-details','open-empty-stock','open-snack-stock','snack-new','retry-admin-summary','archive-wish','supply-stock-filter','supply-expiry-set','supply-expiry-add','supply-expiry-remove','warehouse-kind','supply-arrival','supply-count','supply-count-kind','supply-expiry-close','close-modal', 'quick-add-drink', 'new-drink', 'new-wish', 'edit-drink', 'edit-wish', 'vote-wish', 'view-wish-supporters', 'view-drink-label', 'login', 'view-drink', 'toggle-door', 'retry-popularity', 'retry-route'].includes(action.dataset.action)) {
       if (!busy) runAction(action.dataset.action, action.dataset.id).catch((error) => toast(error.message, true));
     } else withBusy(() => runAction(action.dataset.action, action.dataset.id), action);
   }
@@ -5760,6 +5907,7 @@ document.addEventListener('click', (event) => {
   }
 });
 
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='gacha'&&gachaState&&gachaState.day!==gachaDay())renderGachaPage();});
 document.addEventListener('input', (event) => {
   inputSequence += 1;
   if(event.target.id==='ranking-search'){rankingState.query=event.target.value;updateRankingResults();return;}
@@ -5990,6 +6138,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       <div class="workspace-label"><span class="status-dot"></span> HOLDWIN CAPITAL</div>
       <nav aria-label="主要選單" id="navigation">
         <a href="#overview" data-view="overview" data-front><span aria-hidden="true">▦</span> 飲料冰箱</a>
+        <a href="#gacha" data-view="gacha" data-front data-gacha hidden><span aria-hidden="true">✧</span> 今日補給扭蛋</a>
         <a href="#archive" data-view="archive" data-front><span aria-hidden="true">◷</span> 歷史品項</a>
         <a href="#wishes" data-view="wishes" data-front><span aria-hidden="true">♡</span> 採買許願池</a>
         <a href="#admin" data-view="admin" data-editor hidden><span aria-hidden="true">⌂</span> 後台總覽</a>

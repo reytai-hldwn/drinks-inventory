@@ -21,7 +21,7 @@ export function validateGoogleScriptUrl(value) {
 export function fetchGooglePublicData(endpoint, options = {}) {
   const url = new URL(validateGoogleScriptUrl(endpoint));
   const action = options.action ?? 'public';
-  if (!['public', 'warehouse', 'receipt', 'popularity', 'admin'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
+  if (!['public', 'warehouse', 'receipt', 'popularity', 'admin', 'gacha'].includes(action)) throw new Error('不支援的 Google 資料讀取方式。');
   if (action === 'receipt' && !/^[A-Za-z0-9_-]{20,100}$/.test(options.requestId || '')) throw new Error('儲存回條代號不正確。');
   const pageWindow = options.window || globalThis.window;
   const pageDocument = options.document || globalThis.document;
@@ -256,6 +256,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     updatedAt,
     snapshotAt: googleDateField(payload.snapshotAt, '資料讀取時間', true),
     archiveWishVersion: payload.websiteEntry?.archiveWishVersion === 1 ? 1 : 0,
+    gachaVersion: payload.websiteEntry?.gachaVersion === 1 ? 1 : 0,
     popularityVersion: payload.websiteEntry?.popularityVersion === 1 ? 1 : 0,
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
     archivedArrivalVersion:warehouse&&payload.websiteEntry?.archivedArrivalVersion===1?1:0,
@@ -316,6 +317,8 @@ export class GoogleInventoryStore {
     this.newArrivalVersion = 0;
     this.drinkCategoryVersion = 0;
     this.zeroStockVersion = 0;
+    this.gachaVersion = 0;
+    this.gachaRequest = null;
     this.lastWriteNeedsRefresh = false;
     this.completedWrites = new Set();
     this.readPublicData = options.readPublicData || fetchGooglePublicData;
@@ -347,6 +350,7 @@ export class GoogleInventoryStore {
   get canManage() { return true; }
   get supportsArchivedArrivals() { return this.supportsWebsiteEntry&&this.archivedArrivalVersion===1; }
   get supportsZeroStockDecisions() { return this.zeroStockVersion===1; }
+  get supportsGacha() { return this.gachaVersion===1; }
   get supportsBatchArrival() { return this.supportsWebsiteEntry&&this.batchArrivalVersion===1; }
   get supportsSnackFlavors() { return this.supportsSupplies&&this.snackFlavorVersion===1; }
   get supportsManualRestock() { return this.supportsRestockPreferences&&this.manualAllVersion===1; }
@@ -392,7 +396,7 @@ export class GoogleInventoryStore {
     const result = normalizeGooglePublicData({ok:true,drinks:this.data.drinks,wishes:this.data.wishes,
       formUrls:this.formUrls,voteForm:this.voteForm,wishForm:this.wishForm,adminUrl:this.adminUrl,
       updatedAt:this.updatedAt,snapshotAt:this.snapshotAt,
-      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion}});
+      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion,gachaVersion:this.gachaVersion}});
     ++this.googleReadSequence;
     this.pendingGoogleReads.delete('public');
     this.applyGoogleView(result, false);
@@ -437,7 +441,7 @@ export class GoogleInventoryStore {
       try {
         const payload = { ok: true, provider: 'google', drinks: result.data.drinks, wishes: result.data.wishes,
           formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm,
-          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion } };
+          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion,gachaVersion:result.gachaVersion } };
         const saved = JSON.stringify({ version: 1, savedAt: this.now(), payload });
         if (saved.length < 750000) (this.publicStorage || globalThis.localStorage)?.setItem(`holdwin-public-cache-v1:${endpoint}`, saved);
       } catch { /* Storage is optional; fresh Google data still works. */ }
@@ -459,6 +463,7 @@ export class GoogleInventoryStore {
     this.snapshotAt = result.snapshotAt;
     this.popularityVersion = result.popularityVersion;
     this.archiveWishVersion = result.archiveWishVersion;
+    this.gachaVersion = result.gachaVersion || 0;
     this.websiteEntryVersion = result.websiteEntryVersion;
     this.newArrivalVersion = result.newArrivalVersion || 0;
     this.drinkCategoryVersion = result.drinkCategoryVersion || 0;
@@ -474,7 +479,7 @@ export class GoogleInventoryStore {
     this.supplyExpirySetVersion = result.supplyExpirySetVersion || 0;
     this.restockPreferences = result.restockPreferences || [];
     this.restockPreferenceVersion = result.restockPreferenceVersion || 0;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, newArrivalVersion:this.newArrivalVersion,drinkCategoryVersion:this.drinkCategoryVersion,batchArrivalVersion:this.batchArrivalVersion,archivedArrivalVersion:this.archivedArrivalVersion,snackFlavorVersion:this.snackFlavorVersion,manualAllVersion:this.manualAllVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplySnackVersion:this.supplySnackVersion,supplySnackPolicyVersion:this.supplySnackPolicyVersion,snackManualVersion:this.snackManualVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, gachaVersion:this.gachaVersion, newArrivalVersion:this.newArrivalVersion,drinkCategoryVersion:this.drinkCategoryVersion,batchArrivalVersion:this.batchArrivalVersion,archivedArrivalVersion:this.archivedArrivalVersion,snackFlavorVersion:this.snackFlavorVersion,manualAllVersion:this.manualAllVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplySnackVersion:this.supplySnackVersion,supplySnackPolicyVersion:this.supplySnackPolicyVersion,snackManualVersion:this.snackManualVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
   }
 
   applyWishReceipt(operation, data, result, requestId) {
@@ -829,6 +834,17 @@ export class GoogleInventoryStore {
   async addDrink({ name, category, packaging, recorder }) {
     const storedCategory = category === '牛乳／植物奶' && this.drinkCategoryVersion !== 1 ? '牛奶／豆漿' : category;
     return this.sendWebsiteCommand('product', { name: name.trim(), category: storedCategory, packaging, recorder: recorder.trim() });
+  }
+
+  async readGachaOptions() {
+    if(!this.supportsGacha)return {supported:false,eligibleIds:[]};
+    if(this.gachaRequest)return this.gachaRequest;
+    this.gachaRequest=(async()=>{
+      const value=await this.readPublicData(validateGoogleScriptUrl(this.url),{action:'gacha'});
+      if(value?.ok!==true||value.version!==1||!Array.isArray(value.eligibleIds)||value.eligibleIds.length>1000||value.eligibleIds.some(id=>typeof id!=='string'||!/^[A-Za-z0-9_-]{1,160}$/.test(id))||new Set(value.eligibleIds).size!==value.eligibleIds.length)throw new Error('暫時無法讀取飲料推薦，請稍後再試。');
+      return {supported:true,eligibleIds:[...value.eligibleIds]};
+    })();
+    try{return await this.gachaRequest;}finally{this.gachaRequest=null;}
   }
 
   async setZeroStockDecision(data) {

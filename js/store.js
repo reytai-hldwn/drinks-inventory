@@ -3,7 +3,7 @@ import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE, createCompanyData, prepareCompanyC
 import { initialSupplies, prepareSupplyCatalog, SNACK_CATEGORIES, SNACK_UNITS, supplyBatches, supplyNeedsExpiry, supplySupportsExpiryHistory, supplyToday, validSupplyExpiry } from './supplies.js';
 import { recordedBalances } from './inventory-activity.js';
 import { supplyNameKey, supplyLabel } from './supplies.js';
-import { RESTOCK_MODES, isLowStockItem, restockPreferenceMode } from './restock-preferences.js';
+import { RESTOCK_MODES, hasRecordedStock, isLowStockItem, restockPreferenceMode } from './restock-preferences.js';
 import { fulfilZeroRestocks } from './empty-stock.js';
 
 const DATA_KEY = 'office-pantry-demo-v1';
@@ -59,6 +59,7 @@ export class InventoryStore {
   get supportsSnackFlavors() { return this.mode==='demo'; }
   get supportsManualRestock() { return this.mode==='demo'; }
   get supportsZeroStockDecisions() { return this.mode==='demo'; }
+  get supportsGacha() { return this.mode==='demo'; }
   get supportsRestockPreferences() { return this.mode === 'demo'; }
   get restockPreferences() { return this.data.restockPreferences || []; }
   get supplies() { return this.data.supplies || initialSupplies(); }
@@ -377,6 +378,10 @@ export class InventoryStore {
     if(decision==='archive')item.active=false;
     next.restockPreferences=[...(next.restockPreferences||[]).filter(entry=>entry.kind!==kind||entry.itemId!==itemId),{kind,itemId,mode,updatedAt,...(decision==='pending'?{zeroStockPending:true}:{})}];
     await this.save(next);return{kind,itemId,decision,mode,active:decision!=='archive',stock:0,snapshotAt:updatedAt};
+  }
+
+  async readGachaOptions() {
+    return {supported:this.supportsGacha,eligibleIds:this.supportsGacha?this.data.drinks.filter(item=>item.active!==false&&hasRecordedStock(item)&&item.stock>0).map(item=>item.id):[]};
   }
 
   async submitWish({ name, url = '', note = '', kind = 'drink' } = {}) {
