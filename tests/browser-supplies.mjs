@@ -166,7 +166,7 @@ try{
     assert.equal(await page.locator('#restock-form [name=cases]').isDisabled(),true);
     const newDrinkName=`分頁新品飲料 ${width}`;
     await page.locator('#restock-form [name=recorder]').fill('新品到貨同事');
-    await page.locator('#restock-form [name=newName]').fill(newDrinkName);await page.locator('#restock-form [name=loose]').fill('4');
+    await page.locator('#restock-form [name=newName]').fill(newDrinkName);await page.locator('#restock-form [name=newCategory]').selectOption('茶飲');await page.locator('#restock-form [name=loose]').fill('4');
     const newBefore=posts.length;await page.locator('#restock-form [type=submit]').click();assert.equal(posts.length,newBefore,'new unit is required');
     await page.locator('#restock-form [name=newUnit]').selectOption('罐');
     await page.screenshot({path:`/tmp/new-arrival-drink-${width}.png`,fullPage:true});

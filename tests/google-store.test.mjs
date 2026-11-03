@@ -12,7 +12,7 @@ function payload() {
   return {
     ok: true,
     provider: 'google',
-    drinks: [{ id: 'company-drink-01', name: '光泉牛乳', category: '牛奶／豆漿', packaging: '窄瓶鋁箔包', unit: '包', perCase: null, threshold: 10, active: true }],
+    drinks: [{ id: 'company-drink-01', name: '光泉牛乳', category: '牛乳／植物奶', packaging: '窄瓶鋁箔包', unit: '包', perCase: null, threshold: 10, active: true }],
     wishes: [{ id: 'wish-01', name: '無糖氣泡水', url: 'https://example.com/drink', note: '想要清爽的選擇', status: 'pending', createdAt: '2026-10-30T00:00:00.000Z' }],
     formUrls: { wish: WISH_URL },
     adminUrl: ADMIN_URL,

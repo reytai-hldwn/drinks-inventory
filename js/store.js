@@ -51,6 +51,7 @@ export class InventoryStore {
   get supportsSupplies() { return this.mode === 'demo'; }
   get supportsSupplyExpiry() { return this.supportsSupplies; }
   get supportsSupplyExpirySet() { return this.supportsSupplyExpiry; }
+  get supportsDrinkArrivalCategories() { return this.supportsNewArrivals; }
   get supportsNewArrivals() { return this.mode === 'demo'; }
   get supportsArchivedArrivals() { return this.mode==='demo'; }
   get supportsBatchArrival() { return this.mode==='demo'; }
@@ -275,6 +276,7 @@ export class InventoryStore {
     if (!(kind==='drink'?['包','瓶','罐']:kind==='snack'?SNACK_UNITS:['杯','碗']).includes(unit)||!Number.isSafeInteger(quantity)||quantity<1||quantity>999999) throw new Error('請確認新品單位與整數到貨數量。');
     if (typeof note!=='string'||note.length>500) throw new Error('入庫備註最多 500 字。');
     if(typeof flavor!=='string'||flavor.trim().length>80)throw new Error('口味最多 80 字。');
+    if (kind==='drink'&&category!==undefined&&!CATEGORIES_ORDER.includes(category))throw new Error('請選擇有效的飲料分類。');
     if (kind==='snack'&&!SNACK_CATEGORIES.includes(category))throw new Error('請選擇有效的零食分類。');
     if (kind==='snack'&&expiresOn!=null&&expiresOn!==''&&!validSupplyExpiry(expiresOn))throw new Error('零食保存期限格式不正確。');
     if (supplyNeedsExpiry(kind)&&(!validSupplyExpiry(expiresOn)||expiresOn<supplyToday())) throw new Error('食品入庫請填寫有效的保存期限，不能早於今天。');
@@ -284,7 +286,7 @@ export class InventoryStore {
     if ((kind==='drink'?this.data.drinks:this.supplies).length>=1000) throw new Error('品項數量已達上限。');
     const next=structuredClone(this.data),stamp=new Date().toISOString(),id=`${kind==='drink'?'custom-drink':`supply-${kind}`}-${uid()}`;
     if (kind==='drink') {
-      next.drinks.push({id,name:name.trim(),category:'其他',packaging:'其他',unit,active:true,perCase:null,threshold:10,target:null,stock:null,lastCountAt:null,createdAt:stamp,createdBy:recorder.trim()});
+      next.drinks.push({id,name:name.trim(),category:category || '其他',packaging:'其他',unit,active:true,perCase:null,threshold:10,target:null,stock:null,lastCountAt:null,createdAt:stamp,createdBy:recorder.trim()});
       next.events.push({id:uid(),drinkId:id,type:'restock',quantity,createdAt:stamp,recorder:recorder.trim(),note:note||'新品到貨入庫'});
     } else {
       next.supplies ||= initialSupplies();next.supplyEvents ||= [];

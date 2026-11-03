@@ -26,7 +26,7 @@ try{for(const width of [1440,390]){
   });
   const beganAt=Date.now();await page.goto(`${base}/index.html#admin`,{waitUntil:'domcontentloaded'});await page.waitForSelector('.admin-activity');await began;
   assert.ok(Date.now()-beganAt<3000);assert.deepEqual(reads,['admin'],'entry does not request full warehouse history');
-  const sections=['#admin-restock','#admin-low-stock','#admin-empty-stock'];
+  const sections=['#admin-low-stock','#admin-empty-stock'];
   assert.deepEqual(await page.locator(sections.join(',')).evaluateAll(elements=>elements.map(element=>({tag:element.tagName,open:element.open}))),sections.map(()=>({tag:'DETAILS',open:false})),'admin lists start collapsed');
   assert.match(await page.locator('#admin-low-stock').textContent(),/正在整理/);assert.equal(await page.locator('.admin-card').count(),0);
   await page.locator('#admin-low-stock > summary').focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>document.querySelector('#admin-low-stock').open);
@@ -34,7 +34,7 @@ try{for(const width of [1440,390]){
   await page.evaluate(()=>{window.__adminDetails=[...document.querySelectorAll('.admin-disclosure')];window.__adminSummary=document.activeElement;});
   release();await page.waitForSelector('#admin-low-stock .admin-low-list');
   assert.equal(await page.evaluate(()=>window.__adminDetails.every(element=>element===document.getElementById(element.id))&&document.activeElement===window.__adminSummary),true,'async summary keeps disclosure nodes and keyboard focus');
-  assert.deepEqual(await page.locator(sections.join(',')).evaluateAll(elements=>elements.map(element=>element.open)),[false,true,true],'async summary preserves the chosen disclosure states');
+  assert.deepEqual(await page.locator(sections.join(',')).evaluateAll(elements=>elements.map(element=>element.open)),[true,true],'async summary preserves the chosen disclosure states');
   assert.match(await page.locator('#admin-low-stock .admin-low-list').innerText(),/牛乳.*9/s);assert.equal(await page.locator('#admin-low-stock .needs-restock').count(),0);
   assert.match(await page.locator('#admin-low-stock .admin-low-list').innerText(),new RegExp(supplyName('supply-toner-black')),'zero toner stays in low reminders');
   for(const name of emptyNames){assert.ok((await page.locator('#admin-empty-stock .admin-low-list').innerText()).includes(name));assert.ok(!(await page.locator('#admin-low-stock .admin-low-list').innerText()).includes(name),'zero drinks, snacks and noodles remain separate');}
@@ -45,7 +45,7 @@ try{for(const width of [1440,390]){
   await page.evaluate(()=>{location.hash='products';});await page.waitForSelector('[data-stock-drink-id]');
   assert.deepEqual(await page.locator('[data-filter]').evaluateAll(buttons=>buttons.map(button=>button.dataset.filter)),['low','empty','all','archived']);
   await page.locator('[data-stock-drink-id=milk] [data-restock-toggle]').check();await page.waitForFunction(()=>!document.querySelector('[data-stock-drink-id=milk] [data-restock-toggle]').disabled);
-  await page.evaluate(()=>{location.hash='admin';});await page.waitForSelector('#admin-restock');await openSection('#admin-restock');await page.waitForSelector('#admin-restock .needs-restock');assert.equal(await page.locator('#admin-restock .needs-restock').count(),1);
+  await page.evaluate(()=>{location.hash='admin';});await page.waitForSelector('#admin-low-stock');await openSection('#admin-low-stock');await page.waitForSelector('#admin-low-stock .needs-restock');assert.equal(await page.locator('#admin-low-stock .needs-restock').count(),1);
   for(const [kind,id] of [['drink','empty'],['snack','supply-snack-01'],['noodle','supply-noodle-02']]){
     if(kind!=='drink'){
       await page.evaluate(()=>{location.hash='products';});await page.waitForSelector('[data-action=warehouse-kind]');await page.locator(`[data-action=warehouse-kind][data-id=${kind}]`).click();

@@ -22,12 +22,12 @@ test('the eight formerly purchased drinks begin archived without fabricated quan
   assert.equal(COMPANY_CATALOG.filter((drink) => drink.active).length, 32);
   assert.deepEqual(COMPANY_CATALOG.filter((drink) => !drink.active).map((drink) => [drink.id, drink.name, drink.category, drink.packaging, drink.unit]), [
     ['company-drink-33', '愛之味純濃燕麥', '其他', '寶特瓶', '瓶'],
-    ['company-drink-34', '光泉燕麥奶', '牛奶／豆漿', '窄瓶鋁箔包', '包'],
+    ['company-drink-34', '光泉燕麥奶', '牛乳／植物奶', '窄瓶鋁箔包', '包'],
     ['company-drink-35', '雪碧', '汽水', '小型鐵罐', '罐'],
     ['company-drink-36', '紅牌蜂蜜奶茶', '茶飲', '鋁箔包', '包'],
     ['company-drink-37', '立頓蜂蜜紅茶', '茶飲', '寶特瓶', '瓶'],
     ['company-drink-38', '蘋果西打', '汽水', '小型鐵罐', '罐'],
-    ['company-drink-39', '克寧草莓優酪乳', '牛奶／豆漿', '窄瓶鋁箔包', '包'],
+    ['company-drink-39', '克寧草莓優酪乳', '牛乳／植物奶', '窄瓶鋁箔包', '包'],
     ['company-drink-40', '愛之味麥仔茶', '茶飲', '鋁箔包', '包'],
   ]);
   for (const drink of COMPANY_CATALOG.slice(32)) {
@@ -38,8 +38,8 @@ test('the eight formerly purchased drinks begin archived without fabricated quan
 });
 
 test('semantic milk category is first while tea and rice drink stay distinct', () => {
-  assert.deepEqual(CATEGORIES_ORDER, ['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
-  assert.deepEqual(COMPANY_CATALOG.filter((drink) => drink.active && drink.category === '牛奶／豆漿').map((drink) => drink.name), [
+  assert.deepEqual(CATEGORIES_ORDER, ['牛乳／植物奶', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
+  assert.deepEqual(COMPANY_CATALOG.filter((drink) => drink.active && drink.category === '牛乳／植物奶').map((drink) => drink.name), [
     '光泉牛乳', '光泉巧克力牛乳', '統一豆漿',
   ]);
   const category = (name) => COMPANY_CATALOG.find((drink) => drink.name === name).category;
@@ -49,7 +49,7 @@ test('semantic milk category is first while tea and rice drink stay distinct', (
   assert.equal(category('光泉薏仁糙米漿'), '其他');
   assert.equal(category('蜂蜜燕麥'), '其他');
   assert.deepEqual(Object.fromEntries(CATEGORIES_ORDER.map((name) => [name, COMPANY_CATALOG.filter((drink) => drink.active && drink.category === name).length])), {
-    '牛奶／豆漿': 3, '茶飲': 7, '咖啡': 0, '果汁': 4, '汽水': 9, '其他': 6, '大瓶飲料': 3,
+    '牛乳／植物奶': 3, '茶飲': 7, '咖啡': 0, '果汁': 4, '汽水': 9, '其他': 6, '大瓶飲料': 3,
   });
 });
 
@@ -204,7 +204,7 @@ test('version-one typo correction preserves the product ID, counts, archive stat
   data.catalogVersion = 1;
   data.drinks = data.drinks.slice(0, 29);
   const drink = data.drinks.find((item) => item.id === 'company-drink-09');
-  Object.assign(drink, { name: '立頓巧克力牛奶', category: '牛奶／豆漿', stock: 14, perCase: 12, active: false, lastCountAt: '2026-10-30T00:00:00Z' });
+  Object.assign(drink, { name: '立頓巧克力牛奶', category: '牛乳／植物奶', stock: 14, perCase: 12, active: false, lastCountAt: '2026-10-30T00:00:00Z' });
   data.events = [{ id: 'milk-history', drinkId: drink.id, type: 'count', quantity: 14, createdAt: drink.lastCountAt }];
   const before = structuredClone(data);
   const result = prepareCompanyCatalog(data);

@@ -1,14 +1,21 @@
 /** Company-confirmed products; case size defaults to the owner's requested 24. */
 export const DEFAULT_CASE_SIZE = 24;
-export const CATEGORIES_ORDER = Object.freeze(['牛奶／豆漿', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
+export const CATEGORIES_ORDER = Object.freeze(['牛乳／植物奶', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
+
+/** Read legacy labels in one category while retaining IDs, quantities and history. */
+export function canonicalDrinkCategory(category, name = '') {
+  if (['牛奶／豆漿', '牛乳／豆漿', '牛奶/豆漿', '牛乳/豆漿'].includes(category)) return '牛乳／植物奶';
+  const corrections = { '午后時光重乳奶茶': '茶飲', '義美寶吉葡萄汁': '果汁', '波蜜蜂蜜檸檬': '果汁' };
+  return category === '其他' && Object.hasOwn(corrections, name) ? corrections[name] : category;
+}
 
 const COMPANY_CATALOG_ROWS = [
-  ['光泉牛乳', '牛奶／豆漿', '窄瓶鋁箔包'],
-  ['光泉巧克力牛乳', '牛奶／豆漿', '窄瓶鋁箔包'],
+  ['光泉牛乳', '牛乳／植物奶', '窄瓶鋁箔包'],
+  ['光泉巧克力牛乳', '牛乳／植物奶', '窄瓶鋁箔包'],
   ['光泉薏仁糙米漿', '其他', '窄瓶鋁箔包'],
   ['tree top瓶果汁', '果汁', '窄瓶鋁箔包'],
   ['光泉柳橙汁', '果汁', '窄瓶鋁箔包'],
-  ['統一豆漿', '牛奶／豆漿', '鋁箔包'],
+  ['統一豆漿', '牛乳／植物奶', '鋁箔包'],
   ['波蜜芭樂汁', '果汁', '鋁箔包'],
   ['立頓原味奶茶', '茶飲', '鋁箔包'],
   ['立頓巧克力奶茶', '茶飲', '鋁箔包'],
@@ -36,12 +43,12 @@ const COMPANY_CATALOG_ROWS = [
   ['Moriyama紅茶', '大瓶飲料', '大瓶裝'],
   ['Moriyama奶茶', '大瓶飲料', '大瓶裝'],
   ['愛之味純濃燕麥', '其他', '寶特瓶', false],
-  ['光泉燕麥奶', '牛奶／豆漿', '窄瓶鋁箔包', false],
+  ['光泉燕麥奶', '牛乳／植物奶', '窄瓶鋁箔包', false],
   ['雪碧', '汽水', '小型鐵罐', false],
   ['紅牌蜂蜜奶茶', '茶飲', '鋁箔包', false],
   ['立頓蜂蜜紅茶', '茶飲', '寶特瓶', false],
   ['蘋果西打', '汽水', '小型鐵罐', false],
-  ['克寧草莓優酪乳', '牛奶／豆漿', '窄瓶鋁箔包', false],
+  ['克寧草莓優酪乳', '牛乳／植物奶', '窄瓶鋁箔包', false],
   ['愛之味麥仔茶', '茶飲', '鋁箔包', false],
 ];
 
@@ -144,7 +151,7 @@ function prepareCatalogVersion(data) {
     const existing = new Set(data.drinks.map((drink) => drink.id));
     const additions = COMPANY_CATALOG.slice(data.catalogVersion >= 3 ? 35 : data.catalogVersion >= 2 ? 32 : 29).filter((drink) => !existing.has(drink.id)).map((drink) => ({ ...drink }));
     const drinks = data.drinks.map((drink) => data.catalogVersion < 2 && drink.id === 'company-drink-09' && drink.name === '立頓巧克力牛奶'
-      ? { ...drink, name: '立頓巧克力奶茶', category: drink.category === '牛奶／豆漿' ? '茶飲' : drink.category }
+      ? { ...drink, name: '立頓巧克力奶茶', category: ['牛奶／豆漿','牛乳／豆漿','牛乳／植物奶'].includes(drink.category) ? '茶飲' : drink.category }
       : drink);
     return { ...data, drinks: [...drinks, ...additions], catalogVersion: 4 };
   }
@@ -178,7 +185,9 @@ export function prepareCompanyCatalog(data) {
   if (!Array.isArray(prepared.drinks) || !Array.isArray(prepared.events) || !Array.isArray(prepared.wishes)) {
     throw new Error('庫存資料格式不正確，無法準備公司飲料清單。');
   }
-  const correctedNames = prepared.drinks.map((drink) => {
+  const correctedNames = prepared.drinks.map((source) => {
+    const category = canonicalDrinkCategory(source.category, source.name);
+    const drink = category === source.category ? source : { ...source, category };
     if (drink.id === 'company-drink-07' && drink.name === '波利芭樂汁') return { ...drink, name: '波蜜芭樂汁' };
     if (drink.id === 'company-drink-14' && drink.name === '波蜜一日蔬果') return { ...drink, name: '一日蔬果100%蘋果柳橙蔬果汁' };
     if (drink.id === 'company-drink-22' && ['Milkiis水蜜桃', 'Miilkis水蜜桃'].includes(drink.name)) return { ...drink, name: 'Milkis水蜜桃' };
