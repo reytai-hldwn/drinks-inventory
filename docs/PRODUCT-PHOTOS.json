@@ -607,6 +607,24 @@
       "source": "https://www.bomy.com.tw/160ml%E7%B3%BB%E5%88%97/",
       "imageUrl": "https://www.bomy.com.tw/wp-content/uploads/2022/04/b60eb83bf533eecf1bde65940925a981.jpg",
       "sha256": "e57e99922b1cda33fc9f2ceb3adafa549c1945104cf4b3beaa332e4431229233"
+    },
+    {
+      "file": "calpis-happy-growth-160.jpg",
+      "original": "可爾必思開心成長原味 160 毫升鋁箔包",
+      "originalSize": [
+        1000,
+        1000
+      ],
+      "crop": [
+        306,
+        164,
+        398,
+        724
+      ],
+      "checkedAt": "2026-11-03",
+      "source": "https://24h.pchome.com.tw/prod/DBAB04-A9008IMTD",
+      "imageUrl": "https://cs-a.ecimg.tw/items/DBAB04A9008IMTD/l000002_1786412789.jpg",
+      "sha256": "644fcc96bb4455f0aa7ec87a75d78d1c13c6a17dcfdb17e40d777f86bbc30328"
     }
   ],
   "pending": [],

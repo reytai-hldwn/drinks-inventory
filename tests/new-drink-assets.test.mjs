@@ -52,7 +52,7 @@ test('new labels retain original serving values and distinguish missing lemon in
 
 test('new drink photos preserve source pixels, remove exterior backgrounds and use small local display files', async () => {
   const audit = JSON.parse(await readFile(new URL('../docs/PRODUCT-PHOTOS.json', import.meta.url)));
-  for (const [name] of arrivals) {
+  for (const name of [...arrivals.map(([name]) => name), '可爾必思開心成長160ml']) {
     const photo = findProductPhoto(name);
     const source = await readFile(new URL('../' + photo.src, import.meta.url));
     const display = await readFile(new URL('../' + photo.displaySrc, import.meta.url));
@@ -67,4 +67,26 @@ test('new drink photos preserve source pixels, remove exterior backgrounds and u
     assert.doesNotMatch(markup, /https:\/\//, 'viewing the fridge never contacts a merchant');
     assert.match(drinkPack({ name }, { defer: true }), /data-product-src=/);
   }
+});
+
+test('confirmed Taiwan Calpis carton has its own complete serving, calcium and allergen information', () => {
+  const drink = { name: '可爾必思開心成長160ml', packaging: '鋁箔包', stock: null, unit: '包' };
+  const info = findDrinkInformation(drink);
+  assert.equal(info.container, '160 毫升');
+  assert.deepEqual(info.nutrition, {
+    basis:'每份 160 毫升，本包裝含 1 份', energyKcal:90, proteinG:0.5, fatG:0,
+    saturatedFatG:0, transFatG:0, carbohydrateG:21.9, sugarG:20.9, sodiumMg:27, calciumMg:91,
+    per100:{energyKcal:56,proteinG:0.3,fatG:0,saturatedFatG:0,transFatG:0,carbohydrateG:13.7,sugarG:13.1,sodiumMg:17,calciumMg:57},
+  });
+  assert.match(info.allergens, /乳製品及大豆/);
+  assert.match(info.ingredients, /牛奶鈣/);
+  assert.match(info.source.url, /momoshop\.com\.tw/);
+  assert.equal(info.source.labelUrl, undefined, 'front photo must not be presented as a nutrition-label image');
+  assert.equal(findDrinkInformation({ ...drink, packaging:'鐵罐' }), null);
+  assert.equal(findDrinkInformation({ ...drink, name:'可爾必思開心成長330ml' }), null);
+  assert.equal(findDrinkInformation({ ...drink, name:'可爾必思水語160ml' }), null);
+  const html = renderDrinkInformation(drink);
+  assert.match(html, /91 毫克/);
+  assert.match(html, /160 毫升/);
+  assert.equal(drink.stock, null);
 });
