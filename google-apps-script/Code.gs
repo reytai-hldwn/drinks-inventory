@@ -455,6 +455,7 @@ function doGet(e) {
     else if (parameters.action === 'warehouse') data = warehouseData_();
     else if (parameters.action === 'popularity') data = popularityData_();
     else if (parameters.action === 'admin') data = adminSummaryData_();
+    else if (parameters.action === 'gacha') data = gachaOptions_();
     else if (!parameters.action || parameters.action === 'public') data = publicData_();
     else data = { ok: false, error: 'unsupported_action' };
   } catch (error) {
@@ -988,7 +989,7 @@ function publicData_(spreadsheet, catalog) {
   });
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = websiteFormUrls_();
-  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1, zeroStockVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
+  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1, zeroStockVersion: 1, gachaVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),
@@ -1934,6 +1935,12 @@ function zeroStockLatestEventId_(events,id) {
   var latest=null;
   events.forEach(function(event){if((event.drinkId||event.supplyId)===id&&event.accepted!==false&&['count','restock'].indexOf(event.type)>=0&&(!latest||Date.parse(event.createdAt)>=Date.parse(latest.createdAt)))latest=event;});
   return latest?latest.id:null;
+}
+
+// Read only: reveal eligible IDs, never private quantities or histories.
+function gachaOptions_() {
+  var ss=requiredSpreadsheet_(),catalog=catalog_(ss),inventory=computeInventory_(catalog,historyEvents_(ss));
+  return {ok:true,version:1,snapshotAt:new Date().toISOString(),eligibleIds:inventory.filter(function(entry){return entry.drink.active&&Number.isSafeInteger(entry.stock)&&entry.stock>0;}).map(function(entry){return entry.drink.id;})};
 }
 
 function prepareZeroRestockFulfilments_(ss,effects,requestId,stamp) {
