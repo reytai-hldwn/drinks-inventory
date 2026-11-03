@@ -53,7 +53,11 @@ const drinkInformationByName = new Map(DRINK_INFORMATION.flatMap((row) => row.na
 
 export function findDrinkInformation(drink) {
   const info = drinkInformationByName.get(typeof drink === 'string' ? drink : drink?.name) || null;
-  return info && typeof drink === 'object' && drink?.packaging && drink.packaging !== info.packaging ? null : info;
+  const packaging = typeof drink === 'object' ? drink?.packaging : null;
+  // These arrivals were confirmed by name and capacity before their packaging
+  // was classified. Explicitly different packaging still requires a new check.
+  const confirmedUnclassified = packaging === '其他' && info?.acceptUnclassifiedPackaging === true;
+  return info && packaging && packaging !== info.packaging && !confirmedUnclassified ? null : info;
 }
 
 const NUTRIENT_ROWS = [
