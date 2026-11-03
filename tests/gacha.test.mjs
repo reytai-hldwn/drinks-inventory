@@ -24,10 +24,10 @@ test('a Taiwan calendar day persists the fortune and selected ID through reload 
 });
 
 test('drink selection uses only server-confirmed eligible, active IDs and leaves inventory untouched',()=>{
- const drinks=[{id:'known',name:'可爾必思開心成長160ml',active:true,packaging:'鋁箔包'},{id:'zero',name:'無庫存',active:true},{id:'old',name:'歷史',active:false},{id:'unknown',name:'待盤點',active:true}],before=structuredClone(drinks);
+ const drinks=[{id:'known',name:'可爾必思開心成長160ml',active:true,packaging:'鋁箔包',unit:'包'},{id:'zero',name:'無庫存',active:true},{id:'old',name:'歷史',active:false},{id:'unknown',name:'待盤點',active:true}],before=structuredClone(drinks);
  assert.equal(chooseGachaDrink(drinks,['old','known','known'],()=>0).id,'known');assert.equal(chooseGachaDrink(drinks,[],()=>0),null);
  const state={draw:{...drawGacha({random:()=>0}),drinkId:'known'},loading:false,spinning:false},html=renderGacha(state,drinks);
- assert.match(html,/可爾必思/);assert.match(html,/160 毫升/);assert.match(html,/data-action="view-drink"/);assert.doesNotMatch(html,/無庫存|歷史|待盤點/);assert.deepEqual(drinks,before);
+ assert.match(html,/要來一包可爾必思嗎？/);assert.match(html,/160 毫升/);assert.match(html,/data-action="view-drink"/);assert.doesNotMatch(html,/無庫存|歷史|待盤點/);assert.deepEqual(drinks,before);
 });
 
 test('gacha endpoint reveals only eligible IDs and does not create stocktakes, arrivals or sheets',()=>{

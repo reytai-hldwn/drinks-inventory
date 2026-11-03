@@ -102,11 +102,9 @@ function updateChrome() {
   document.title = `${viewNames[view]} · 宏穩茶水間`;
   const inAdmin = adminViews.has(view) && (store.canManage || store.canEdit);
   document.body.dataset.area = inAdmin ? 'admin' : 'front';
-  document.body.dataset.gachaReady = String(!!store.supportsGacha);
   document.body.dataset.view = view;
   document.querySelectorAll('[data-editor]').forEach((element) => { element.hidden = !inAdmin; });
   document.querySelectorAll('[data-front]').forEach((element) => { element.hidden = inAdmin; });
-  const gachaLink=document.querySelector('[data-gacha]');if(gachaLink)gachaLink.hidden=inAdmin||!store.supportsGacha;
   document.querySelectorAll('nav [data-view]').forEach((element) => {
     const active = element.dataset.view === view || (element.dataset.view === 'restock' && Object.hasOwn(restockViews, view));
     element.classList.toggle('active', active);
