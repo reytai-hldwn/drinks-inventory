@@ -16,6 +16,7 @@ on:
       - 'scripts/build-site.mjs'
       - 'tests/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/deploy-pages.yml'
 
 permissions:
@@ -39,6 +40,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Install test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Check JavaScript
         run: npm run check
       - name: Run tests
