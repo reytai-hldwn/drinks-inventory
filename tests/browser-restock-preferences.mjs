@@ -36,7 +36,7 @@ try{
      await new Promise(resolve=>setTimeout(resolve,100));return route.fulfill({contentType:'text/html',body:backend.ctx.doPost({parameter}).body});
     }
     const parameter=Object.fromEntries(new URL(request.url()).searchParams);let body=backend.ctx.doGet({parameter}).body;
-    if(legacy)body=body.replace('"restockPreferenceEntry":{"version":1}','"restockPreferenceEntry":{}');
+    if(legacy)body=body.replace(/"restockPreferenceEntry":\{[^}]*\}/,'"restockPreferenceEntry":{}');
     return route.fulfill({contentType:'application/javascript',body});
    });return{context,page};
   };

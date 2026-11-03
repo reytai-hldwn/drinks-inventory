@@ -24,7 +24,7 @@ try{for(const width of [1440,390]){
   assert.ok(Date.now()-beganAt<3000);assert.deepEqual(reads,['admin'],'entry does not request full warehouse history');
   assert.match(await page.locator('#admin-low-stock').innerText(),/正在整理/);assert.equal(await page.locator('.admin-card').count(),5);
   release();await page.waitForSelector('.admin-low-list');assert.match(await page.locator('.admin-low-list').innerText(),/牛乳.*9/s);assert.equal(await page.locator('.admin-low-list .needs-restock').count(),1);
-  await page.locator('.admin-low-heading a').click();await page.waitForSelector('[data-stock-drink-id]');
+  await page.locator('#admin-low-stock .admin-low-heading a').click();await page.waitForSelector('[data-stock-drink-id]');
   assert.deepEqual(await page.locator('[data-filter]').allTextContents(),['10 以內','供應中','歷史品項']);assert.equal(await page.locator('[data-filter=low]').getAttribute('aria-pressed'),'true');assert.equal(await page.locator('[data-stock-drink-id]').count(),1);
   await page.locator('[data-stock-drink-id=milk] [data-restock-toggle]').check();await page.waitForFunction(()=>!document.querySelector('[data-stock-drink-id=milk] [data-restock-toggle]').disabled);
   const reason=page.locator('[data-stock-drink-id=milk] .restock-reason-button');assert.equal(await reason.innerText(),'非長青品項，可以換成新品試試看！');assert.ok(await reason.evaluate(e=>parseFloat(getComputedStyle(e).fontSize))<await page.locator('.restock-toggle').evaluate(e=>parseFloat(getComputedStyle(e).fontSize)));

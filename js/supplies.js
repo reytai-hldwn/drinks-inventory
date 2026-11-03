@@ -2,7 +2,9 @@
 export const SUPPLY_KINDS = Object.freeze({ snack:'零食', noodle: '泡麵', toner: '碳粉' });
 export const SNACK_CATEGORIES = Object.freeze(['太空包','巧克力','甜/鹹餅乾','燕麥棒/餅','其他鹹食','其他甜食']);
 export const SNACK_UNITS = Object.freeze(['包','盒','條','個','顆']);
-export const supplyNeedsExpiry = kind => kind==='snack'||kind==='noodle';
+export const supplyNeedsExpiry = kind => kind==='noodle';
+// Existing snack expiry entries stay readable even though new snack entries need no date.
+export const supplySupportsExpiryHistory = kind => kind==='snack'||kind==='noodle';
 
 export const SUPPLY_CATALOG = Object.freeze([
   ['supply-snack-01','多力多滋雙倍起司口味','snack','包','太空包'],
@@ -106,14 +108,13 @@ export function normalizeSupplyWarehouse(payload) {
     const expiresOn=event.expiresOn||null,batchId=event.batchId||null;
     if(expiresOn!==null&&!validSupplyExpiry(expiresOn))throw new Error('保存期限格式不正確。');
     if(['expiry-close','expiry-set'].includes(event.type)&&(typeof batchId!=='string'||batchId.length>240||!batchId))throw new Error('效期批次代號不正確。');
-    if(event.type==='restock'&&supplies.find(item=>item.id===event.supplyId)?.kind==='snack'&&!expiresOn)throw new Error('零食入庫紀錄缺少保存期限。');
-    if(event.type==='expiry-set'&&(!expiresOn||!supplyNeedsExpiry(supplies.find(item=>item.id===event.supplyId)?.kind)))throw new Error('效期補登資料不正確。');
+    if(event.type==='expiry-set'&&(!expiresOn||!supplySupportsExpiryHistory(supplies.find(item=>item.id===event.supplyId)?.kind)))throw new Error('效期補登資料不正確。');
     eventIds.add(event.id);
     return {id:event.id,supplyId:event.supplyId,type:event.type,quantity:event.quantity,createdAt:event.createdAt,recorder:event.recorder,note:event.note,expiresOn,batchId};
   });
   for(const event of supplyEvents.filter(event=>event.type==='expiry-close')){
     const batch=supplyEvents.find(batch=>batch.id===event.batchId&&['restock','expiry-set'].includes(batch.type)&&batch.supplyId===event.supplyId);
-    if(!batch||!supplyNeedsExpiry(supplies.find(item=>item.id===event.supplyId)?.kind))throw new Error('效期批次來源不正確。');
+    if(!batch||!supplySupportsExpiryHistory(supplies.find(item=>item.id===event.supplyId)?.kind))throw new Error('效期批次來源不正確。');
   }
-  return {supplies,supplyEvents,supplyEntryVersion:1,supplyExpiryVersion:payload.supplyEntry.expiryVersion===1?1:0,supplyExpirySetVersion:payload.supplyEntry.expirySetVersion===1?1:0,supplySnackVersion:payload.supplyEntry.snackVersion===1?1:0};
+  return {supplies,supplyEvents,supplyEntryVersion:1,supplyExpiryVersion:payload.supplyEntry.expiryVersion===1?1:0,supplyExpirySetVersion:payload.supplyEntry.expirySetVersion===1?1:0,supplySnackVersion:payload.supplyEntry.snackVersion===1?1:0,supplySnackPolicyVersion:payload.supplyEntry.snackPolicyVersion===2?2:0};
 }

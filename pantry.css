@@ -11,23 +11,23 @@
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-06.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+31DF-34BA}
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-07.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+34BC-45EA}
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-08.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+45EB-4F64}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-09.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+4F65-522D}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-10.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+522E-54C9}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-11.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+54CA-5754}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-12.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+5757-5A08}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-13.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+5A09-5D0E}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-14.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+5D10-6001}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-15.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+6002-62DD}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-16.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+62DF-65A4}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-17.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+65A5-687A}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-18.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+687C-6B98}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-19.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+6B9A-6E58}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-20.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+6E5B-7169}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-21.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+716C-7459}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-22.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+745A-7723}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-23.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+7724-7A45}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-24.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+7A46-7D4E}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-25.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+7D4F-7FF6}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-09.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+4F65-522E}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-10.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+5232-54CA}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-11.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+54CB-5757}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-12.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+5759-5A09}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-13.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+5A0C-5D10}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-14.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+5D11-6001}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-15.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+6002-62DF}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-16.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+62E0-65A5}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-17.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+65A7-687C}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-18.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+687E-6B9A}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-19.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+6B9B-6E5B}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-20.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+6E5C-716C}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-21.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+716E-745A}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-22.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+745B-7724}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-23.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+7725-7A46}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-24.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+7A47-7D4F}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-25.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+7D53-7FF6}
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-26.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+7FF7-82BE}
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-27.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+82BF-85E4}
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-28.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+85E5-890E}
@@ -35,15 +35,15 @@
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-30.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+8C17-8EE5}
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-31.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+8EE8-91C2}
 @font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-32.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+91C3-94AE}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-33.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+94AF-9730}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-34.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+9731-9A13}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-35.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+9A15-9CC8}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-36.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+9CC9-9FC3}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-37.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+9FC4-1D32E}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-38.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+1D32F-224C9}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-39.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+224CC-29DAF}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-40.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+29DD3-2DE5C}
-@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-41.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+2DED9-FFFFD}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-33.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+94AF-9731}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-34.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+9732-9A15}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-35.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+9A16-9CC9}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-36.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+9CCA-9FC4}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-37.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+9FC5-1D32F}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-38.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+1D330-224CC}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-39.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+224DC-29DD3}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-40.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+29DD5-2DED9}
+@font-face{font-family:"Pantry Hand Complete";src:url('./assets/fonts/pantry-hand-41.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;unicode-range:U+2DEFE-FFFFD}
 /* PANTRY_FALLBACK_FONTS_END */
 :root{--heading-font:"Pantry Hand","Pantry Hand Complete",serif}
 :root[data-theme=gold]{--bg:#fff;--paper:#fff;--ink:#4d3027;--muted:#897568;--green:#8e6841;--green-soft:#f6f0e7;--line:#e9dfd3;--orange:#aa713a;--orange-soft:#fbf1e6;--shadow:0 3px 18px #65452b06}
@@ -228,3 +228,5 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
 @media(max-width:640px){.admin-low-heading{display:block}.admin-low-heading .text-link{display:inline-block;margin-top:8px}.admin-low-list{grid-template-columns:minmax(0,1fr)}}
 
 .snack-picker{margin:0 0 18px;padding:15px;background:#faf7f0;border:1px solid #eadfcc;border-radius:9px}.snack-picker-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:12px}.snack-picker .field{min-width:0;margin-bottom:8px}.snack-picker input,.snack-picker select{width:100%;min-width:0;max-width:100%}.snack-picker [data-snack-results]{margin:4px 0 12px;line-height:1.8}.snack-picker .button{white-space:normal;text-align:left}.snack-selected-info{margin-top:-8px}#restock-supply{max-width:100%;min-width:0}@media(max-width:640px){.snack-picker-filters{grid-template-columns:minmax(0,1fr)}.restock-kind-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.restock-kind-tabs .filter-tab{min-width:0;justify-content:center;padding:11px 6px;text-align:center}}
+
+.snack-manual-restock{margin-top:10px}.snack-manual-restock .restock-toggle.is-marked{font-weight:600;color:#765a37}#admin-snack-restock .admin-low-list li{align-items:flex-start}#admin-snack-restock .admin-low-list strong{color:#654832}.snack-stock-policy{line-height:1.9}
