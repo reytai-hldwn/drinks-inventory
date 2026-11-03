@@ -106,7 +106,7 @@ test('protein snacks normalize as a category and new local/Google items use exis
   const store=await demoStore(t),arrival={kind:'snack',name:'新品蛋白棒',unit:'條',category:'蛋白質零食',quantity:3,recorder:'同事'};
   const created=await store.submitNewArrival(arrival),item=store.supplies.find(item=>item.id===created.id);
   assert.equal(item.category,'蛋白質零食');
-  assert.equal(item.stock,null);
+  assert.equal(item.stock,3);
   assert.equal(item.lastCountAt,null);
   assert.equal(store.supplyEvents.at(-1).expiresOn,null);
   const google=new GoogleInventoryStore({googleScriptUrl:endpoint},{readPublicData:async()=>structuredClone(payload)}),writes=[];
@@ -167,7 +167,7 @@ test('old admin summaries accept the ten-item envelope then display only typed l
   ],manualSnackItems:[{...summaryRow('snack','manual-unknown',null,'consider'),markedAt:countedAt},{...summaryRow('snack','manual-high',100,'consider'),markedAt:countedAt}]};
   const before=structuredClone(value),reads=[],store=new GoogleInventoryStore({googleScriptUrl:endpoint},{readPublicData:async(_url,{action})=>{reads.push(action);return structuredClone(value);}});
   const summary=await store.readAdminSummary();
-  assert.deepEqual(summary.lowItems.map(item=>item.id),['toner-zero','noodle-one','drink-ten']);
+  assert.deepEqual(summary.lowItems.map(item=>item.id),['toner-zero','noodle-one','noodle-two','drink-ten']);
   assert.deepEqual(summary.outOfStockItems.map(item=>item.id),['drink-zero','noodle-zero','snack-zero']);
   assert.deepEqual(summary.manualSnackItems.map(item=>item.stock),[null,100]);
   assert.equal(summary.outOfStockItems[0].mode,'hold');
@@ -224,7 +224,7 @@ test('explicit out-of-stock summaries support manual snacks and override legacy 
 test('out-of-stock summaries reject malformed, duplicate and non-snack manual modes',async()=>{
   const valid=summaryRow('snack','zero-snack',0,'consider'),base={ok:true,version:1,totalDrinks:0,pendingWishes:0,lowItems:[]};
   const store=new GoogleInventoryStore({googleScriptUrl:endpoint});
-  for(const change of [{kind:'toner',unit:'盒',mode:'normal'},{stock:1},{stock:null},{stock:'0'},{unit:'杯'},{mode:'bad'},{kind:'drink',unit:'瓶'},{kind:'noodle',unit:'杯'}]) {
+  for(const change of [{kind:'toner',unit:'盒',mode:'normal'},{stock:1},{stock:null},{stock:'0'},{unit:'杯'},{mode:'bad'}]) {
     store.readPublicData=async()=>({...base,outOfStockItems:[{...valid,...change}]});
     await assert.rejects(store.readAdminSummary(),/零庫存摘要/);
   }

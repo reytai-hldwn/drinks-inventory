@@ -18,7 +18,7 @@ test('confirmed supply catalog has six cup/bowl noodles and exactly four boxed t
   const backend=websiteBackend();assert.deepEqual(plain(backend.ctx.INITIAL_SUPPLIES),plain(SUPPLY_CATALOG));
 });
 
-test('new arrivals create one named item and its arrival, preserving unknown balances and recorded units',()=>{
+test('new arrivals create one named item and its arrival, initializing recorded balances and preserving units',()=>{
   for(const kind of ['drink','noodle']){
     const backend=websiteBackend(),requestId=randomUUID();
     const data={kind,name:'新品測試',unit:kind==='drink'?'罐':'碗',quantity:6,recorder:'到貨同事',note:'先登記新品',expiresOn:kind==='noodle'?'2099-12-31':null};
@@ -28,7 +28,7 @@ test('new arrivals create one named item and its arrival, preserving unknown bal
     const view=normalizeGooglePublicData(plain(backend.ctx.warehouseData_()),{warehouse:true});
     assert.equal(view.newArrivalVersion,1);
     const item=(kind==='drink'?view.data.drinks:view.supplies).find(item=>item.id===receipt.result.id);
-    assert.equal(item.name,data.name);assert.equal(item.unit,data.unit);assert.equal(item.stock,null);assert.equal(item.lastCountAt,null);
+    assert.equal(item.name,data.name);assert.equal(item.unit,data.unit);assert.equal(item.stock,6);assert.equal(item.lastCountAt,null);
     const events=kind==='drink'?view.data.events:view.supplyEvents;
     assert.equal(events.filter(event=>(event.drinkId||event.supplyId)===item.id).length,1);
     assert.equal(events.find(event=>(event.drinkId||event.supplyId)===item.id).quantity,6);
@@ -99,13 +99,13 @@ test('read-only warehouse upgrade exposes pending supply rows, without changing 
   }
 });
 
-test('supply writes preserve drinks and retries, require observed counts, and add single units with stable same-time ordering',()=>{
+test('supply writes preserve drinks and retries, replace arrival baselines with actual counts and add single units with stable same-time ordering',()=>{
   const backend=websiteBackend(),before=plain({catalog:backend.sheets.Catalog.rows,history:backend.sheets.History.rows});
   const stamp='2026-11-02T04:00:00Z',RealDate=Date;
   backend.ctx.Date=class extends RealDate{constructor(...args){super(...(args.length?args:[stamp]));}};
   const id='supply-noodle-01',toner='supply-toner-black';
   assert.equal(backend.send('supply-arrival',{supplyId:id,quantity:4,recorder:'小王',expiresOn:'2099-12-31'}).state,'accepted');
-  let data=plain(backend.ctx.warehouseData_());assert.equal(data.supplies.find(item=>item.id===id).stock,null,'an arrival cannot invent an initial balance');
+  let data=plain(backend.ctx.warehouseData_());assert.equal(data.supplies.find(item=>item.id===id).stock,4,'first arrival establishes recorded stock without creating a count');
   backend.send('supply-stocktake',{entries:[{supplyId:id,quantity:0},{supplyId:toner,quantity:3}],recorder:'小王'});
   const requestId=randomUUID(),command={supplyId:id,quantity:7,recorder:'小李',note:'本次到貨',expiresOn:'2099-12-31'};
   backend.send('supply-arrival',command,requestId);backend.send('supply-arrival',command,requestId);
@@ -195,7 +195,7 @@ test('Google store capability gates old deployments and refreshes accepted suppl
   assert.equal(second.supplies.find(item=>item.id==='supply-noodle-02').stock,6);assert.equal(second.supplyEvents.length,2);
 });
 
-test('local preview preserves its original drinks and saves pending supply counts between store instances',async t=>{
+test('local preview preserves its original drinks and saves arrival and actual-count balances between store instances',async t=>{
   const original=globalThis.localStorage;globalThis.localStorage=storage();t.after(()=>{if(original===undefined)delete globalThis.localStorage;else globalThis.localStorage=original;});
   const first=new InventoryStore();await first.init();const drinks=structuredClone(first.data.drinks);
   assert.equal(first.supplies.length,SUPPLY_CATALOG.length);assert.ok(first.supplies.every(item=>item.stock===null));
@@ -203,7 +203,7 @@ test('local preview preserves its original drinks and saves pending supply count
   const next=new InventoryStore();await next.init();assert.equal(next.supplies.find(item=>item.id==='supply-toner-blue').stock,2);
   assert.deepEqual(next.data.drinks,drinks);assert.equal(next.supplyEvents.length,2);
   const created=await next.submitNewArrival({kind:'noodle',name:'示範新品泡麵',unit:'碗',quantity:2,recorder:'小王',expiresOn:'2099-12-31'});
-  const third=new InventoryStore();await third.init();assert.equal(third.supplies.find(item=>item.id===created.id).stock,null);
+  const third=new InventoryStore();await third.init();assert.equal(third.supplies.find(item=>item.id===created.id).stock,2);
   assert.equal(third.supplyEvents.find(event=>event.supplyId===created.id).expiresOn,'2099-12-31');
   const drink=await third.submitNewArrival({kind:'drink',name:'示範新品飲料',unit:'罐',quantity:4,recorder:'小王'});
   assert.equal(third.data.drinks.find(item=>item.id===drink.id).perCase,null);

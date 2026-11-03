@@ -1,6 +1,8 @@
 import { applyInitialStocktake, blankData, safeUrl, uid } from './domain.js';
 import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE, createCompanyData, prepareCompanyCatalog } from './catalog.js';
 import { initialSupplies, prepareSupplyCatalog, SNACK_CATEGORIES, SNACK_UNITS, supplyBatches, supplyNeedsExpiry, supplySupportsExpiryHistory, supplyToday, validSupplyExpiry } from './supplies.js';
+import { recordedBalances } from './inventory-activity.js';
+import { supplyNameKey, supplyLabel } from './supplies.js';
 import { RESTOCK_MODES, isLowStockItem, restockPreferenceMode } from './restock-preferences.js';
 
 const DATA_KEY = 'office-pantry-demo-v1';
@@ -50,6 +52,9 @@ export class InventoryStore {
   get supportsSupplyExpiry() { return this.supportsSupplies; }
   get supportsSupplyExpirySet() { return this.supportsSupplyExpiry; }
   get supportsNewArrivals() { return this.mode === 'demo'; }
+  get supportsBatchArrival() { return this.mode==='demo'; }
+  get supportsSnackFlavors() { return this.mode==='demo'; }
+  get supportsManualRestock() { return this.mode==='demo'; }
   get supportsRestockPreferences() { return this.mode === 'demo'; }
   get restockPreferences() { return this.data.restockPreferences || []; }
   get supplies() { return this.data.supplies || initialSupplies(); }
@@ -169,6 +174,7 @@ export class InventoryStore {
     }
     if (!result || !validData(result.payload)) throw new Error('找不到有效的庫存資料。請確認資料庫 SQL 已完成設定。');
     this.data = result.payload;
+    if(this.mode==='demo'){this.data={...this.data,drinks:recordedBalances(this.data.drinks,this.data.events,'drinkId'),supplies:recordedBalances(this.data.supplies||[],this.data.supplyEvents||[],'supplyId')};}
     this.revision = result.revision;
     this.updatedAt = result.updated_at || result.updatedAt;
     return this.data;
@@ -177,6 +183,7 @@ export class InventoryStore {
   async save(data) {
     if (!this.canEdit) throw new Error('請先以獲授權的編輯者帳號登入。');
     if (!validData(data)) throw new Error('庫存資料格式不正確。');
+    if(this.mode==='demo')data={...data,drinks:recordedBalances(data.drinks,data.events,'drinkId'),supplies:recordedBalances(data.supplies||[],data.supplyEvents||[],'supplyId')};
     const existingEventIds = new Set(this.data.events.map((event) => event.id));
     for (const event of data.events) {
       if (!existingEventIds.has(event.id) && ['count', 'restock'].includes(event.type) &&
@@ -244,7 +251,7 @@ export class InventoryStore {
       if(entry.type==='restock'&&supplyNeedsExpiry(item.kind)&&(!validSupplyExpiry(entry.expiresOn)||entry.expiresOn<supplyToday()))throw new Error('食品入庫請填寫有效的保存期限，不能早於今天。');
       next.supplyEvents.push({id:uid(),supplyId:item.id,type:entry.type,quantity:entry.quantity,createdAt:stamp,recorder:recorder.trim(),note:entry.note,expiresOn:entry.type==='restock'&&supplySupportsExpiryHistory(item.kind)?entry.expiresOn||null:null,batchId:entry.batchId||null});
       if(entry.type==='count'){item.stock=entry.quantity;item.lastCountAt=stamp;}
-      else if(entry.type==='restock'&&item.stock!==null)item.stock+=entry.quantity;
+      else if(entry.type==='restock'){item.stock=(item.stock??0)+entry.quantity;item.lastArrivalAt=stamp;}
     }
     await this.save(next);
   }
@@ -258,19 +265,20 @@ export class InventoryStore {
     return {quantity};
   }
 
-  async submitNewArrival({kind,name,unit,quantity,recorder,note='',expiresOn=null,category}) {
+  async submitNewArrival({kind,name,unit,quantity,recorder,note='',expiresOn=null,category,flavor=''}) {
     if (!this.supportsNewArrivals || !this.canEdit) throw new Error('請從支援新品入庫的管理入口登記。');
     if (!['drink','snack','noodle'].includes(kind)) throw new Error('新品到貨僅支援飲料、零食與泡麵。');
     if (typeof name!=='string'||!name.trim()||name.trim().length>80) throw new Error('請填寫新品名稱，最多 80 字。');
     if (typeof recorder!=='string'||!recorder.trim()||recorder.trim().length>80) throw new Error('請填寫登記人，最多 80 字。');
     if (!(kind==='drink'?['包','瓶','罐']:kind==='snack'?SNACK_UNITS:['杯','碗']).includes(unit)||!Number.isSafeInteger(quantity)||quantity<1||quantity>999999) throw new Error('請確認新品單位與整數到貨數量。');
     if (typeof note!=='string'||note.length>500) throw new Error('入庫備註最多 500 字。');
+    if(typeof flavor!=='string'||flavor.trim().length>80)throw new Error('口味最多 80 字。');
     if (kind==='snack'&&!SNACK_CATEGORIES.includes(category))throw new Error('請選擇有效的零食分類。');
     if (kind==='snack'&&expiresOn!=null&&expiresOn!==''&&!validSupplyExpiry(expiresOn))throw new Error('零食保存期限格式不正確。');
     if (supplyNeedsExpiry(kind)&&(!validSupplyExpiry(expiresOn)||expiresOn<supplyToday())) throw new Error('食品入庫請填寫有效的保存期限，不能早於今天。');
     const items=kind==='drink'?this.data.drinks:this.supplies.filter(item=>item.kind===kind);
     const key=value=>value.trim().normalize('NFKC').toLowerCase();
-    if (items.some(item=>key(item.name)===key(name))) throw new Error('已經有同名品項，請沿用原品項或查看歷史清單。');
+    if (items.some(item=>kind==='snack'?supplyNameKey(item)===supplyNameKey({name,flavor}):key(item.name)===key(name))) throw new Error('已經有同名品項，請沿用原品項或查看歷史清單。');
     if ((kind==='drink'?this.data.drinks:this.supplies).length>=1000) throw new Error('品項數量已達上限。');
     const next=structuredClone(this.data),stamp=new Date().toISOString(),id=`${kind==='drink'?'custom-drink':`supply-${kind}`}-${uid()}`;
     if (kind==='drink') {
@@ -278,11 +286,42 @@ export class InventoryStore {
       next.events.push({id:uid(),drinkId:id,type:'restock',quantity,createdAt:stamp,recorder:recorder.trim(),note:note||'新品到貨入庫'});
     } else {
       next.supplies ||= initialSupplies();next.supplyEvents ||= [];
-      next.supplies.push({id,name:name.trim(),kind,unit,active:true,stock:null,lastCountAt:null,...(kind==='snack'?{category}: {})});
+      next.supplies.push({id,name:name.trim(),kind,unit,active:true,stock:null,lastCountAt:null,...(kind==='snack'?{category,flavor:flavor.trim()}: {})});
       next.supplyEvents.push({id:uid(),supplyId:id,type:'restock',quantity,createdAt:stamp,recorder:recorder.trim(),note:note||'新品到貨入庫',expiresOn:expiresOn||null,batchId:null});
     }
     await this.save(next);
     return {id,quantity};
+  }
+
+  async submitBatchArrival({entries,recorder}) {
+    if(!this.supportsBatchArrival||!this.canEdit)throw new Error('請先啟用批次入庫。');
+    if(!Array.isArray(entries)||!entries.length||entries.length>30)throw new Error('請填寫 1 到 30 列入庫品項。');
+    // Stage every row in memory; the real local revision is saved exactly once.
+    const staged=new InventoryStore();staged.data=structuredClone(this.data);staged.save=async data=>{staged.data={...data,drinks:recordedBalances(data.drinks,data.events,'drinkId'),supplies:recordedBalances(data.supplies||[],data.supplyEvents||[],'supplyId')};};
+    const items=[];
+    for(const entry of entries){
+      if(!['drink','snack','noodle','toner'].includes(entry.kind))throw new Error('請選擇有效的分類。');
+      if(entry.isNew){items.push(await staged.submitNewArrival({...entry,recorder}));continue;}
+      if(entry.kind==='drink'){
+        const item=staged.data.drinks.find(item=>item.id===entry.drinkId&&item.active!==false);
+        if(!item||!Number.isSafeInteger(entry.quantity)||entry.quantity<1||entry.quantity>999999||(item.stock??0)+entry.quantity>999999)throw new Error('請確認飲料與入庫數量。');
+        if(typeof recorder!=='string'||!recorder.trim()||recorder.trim().length>80)throw new Error('請填寫登記人，最多 80 字。');
+        if(typeof (entry.note||'')!=='string'||(entry.note||'').length>500)throw new Error('備註最多 500 字。');
+        const next=structuredClone(staged.data);next.events.push({id:uid(),drinkId:item.id,type:'restock',quantity:entry.quantity,createdAt:new Date().toISOString(),recorder:recorder.trim(),note:entry.note||''});await staged.save(next);items.push({id:item.id,quantity:entry.quantity});
+      }else{
+        if(!staged.supplies.some(item=>item.id===entry.supplyId&&item.kind===entry.kind))throw new Error('品項與分類不符。');
+        items.push(await staged.submitSupplyArrival({...entry,recorder}));
+      }
+    }
+    await this.save(staged.data);return {count:items.length,items};
+  }
+
+  async updateSupplyDetails({supplyId,name,flavor='',expectedName,expectedFlavor=''}) {
+    const item=this.supplies.find(item=>item.id===supplyId&&item.kind==='snack'&&item.active!==false);
+    if(!item||!name?.trim()||name.trim().length>80||typeof flavor!=='string'||flavor.trim().length>80)throw new Error('請確認品名與選填口味。');
+    if(item.name!==expectedName||(item.flavor||'')!==expectedFlavor)throw new Error('品名或口味已更新，請重新整理。');
+    if(this.supplies.some(other=>other.id!==item.id&&other.kind==='snack'&&supplyNameKey(other)===supplyNameKey({name,flavor})))throw new Error('已有相同品名與口味。');
+    const next=structuredClone(this.data),target=next.supplies.find(entry=>entry.id===item.id);target.name=name.trim();target.flavor=flavor.trim();await this.save(next);return {id:item.id};
   }
 
   async closeSupplyBatch({batchId,recorder,note=''}) {
@@ -311,12 +350,12 @@ export class InventoryStore {
   async setRestockPreference({kind,itemId,mode,expectedMode}) {
     if(!this.supportsRestockPreferences||!this.canEdit)throw new Error('請從管理入口設定補貨提醒。');
     if(!['drink','snack','noodle','toner'].includes(kind)||!Object.hasOwn(RESTOCK_MODES,mode))throw new Error('補貨提醒設定不正確。');
-    if((kind==='snack'&&!['normal','consider'].includes(mode))||(kind!=='snack'&&mode==='consider'))throw new Error('零食請使用「可以考慮補貨」標示，其他品項保留原補貨設定。');
+    if(kind==='snack'&&!['normal','consider'].includes(mode))throw new Error('零食請使用「可以考慮補貨」標示，其他品項保留原補貨設定。');
     const item=(kind==='drink'?this.data.drinks:this.supplies.filter(item=>item.kind===kind)).find(item=>item.id===itemId);
     if(!item||(item.active===false&&mode!=='normal'))throw new Error('找不到可設定的品項。');
     const current=restockPreferenceMode(this.restockPreferences,kind,itemId);
     if(expectedMode!==current)throw new Error('其他裝置已更新這個品項的補貨設定，請重新整理。');
-    if(kind!=='snack'&&mode!=='normal'&&current==='normal'&&!isLowStockItem(item))throw new Error('目前庫存未達補貨提醒門檻，請重新整理後確認。');
+    if(kind!=='snack'&&mode!=='normal'&&mode!=='consider'&&current==='normal'&&!isLowStockItem(item))throw new Error('目前庫存未達補貨提醒門檻，請重新整理後確認。');
     const entry={kind,itemId,mode,updatedAt:new Date().toISOString()},next=structuredClone(this.data);
     next.restockPreferences=[...this.restockPreferences.filter(entry=>entry.kind!==kind||entry.itemId!==itemId),entry];
     await this.save(next);return entry;

@@ -7,9 +7,9 @@ export const supplyNeedsExpiry = kind => kind==='noodle';
 export const supplySupportsExpiryHistory = kind => kind==='snack'||kind==='noodle';
 
 export const SUPPLY_CATALOG = Object.freeze([
-  ['supply-snack-01','多力多滋雙倍起司口味','snack','包','太空包'],
-  ['supply-snack-02','多力多滋香菜口味','snack','包','太空包'],
-  ['supply-snack-03','樂事海苔口味','snack','包','太空包'],
+  ['supply-snack-01','多力多滋','snack','包','太空包','雙倍起司'],
+  ['supply-snack-02','多力多滋','snack','包','太空包','香菜'],
+  ['supply-snack-03','樂事','snack','包','太空包','海苔'],
   ['supply-snack-04','華元蚵仔煎','snack','包','太空包'],
   ['supply-noodle-01','來一客海鮮','noodle','杯'],
   ['supply-noodle-02','滿漢大餐牛肉麵','noodle','碗'],
@@ -21,18 +21,23 @@ export const SUPPLY_CATALOG = Object.freeze([
   ['supply-toner-yellow','黃色碳粉','toner','盒'],
   ['supply-toner-red','紅色碳粉','toner','盒'],
   ['supply-toner-blue','藍色碳粉','toner','盒'],
-].map(([id,name,kind,unit,category])=>Object.freeze({id,name,kind,unit,active:true,...(kind==='snack'?{category}: {})})));
+].map(([id,name,kind,unit,category,flavor])=>Object.freeze({id,name,kind,unit,active:true,...(kind==='snack'?{category,flavor:flavor||''}: {})})));
 
 export function initialSupplies() {
   return SUPPLY_CATALOG.map(item=>({...item,stock:null,lastCountAt:null}));
 }
 
+export const supplyLabel = item => item.flavor ? `${item.name}｜${item.flavor}` : item.name;
+export function supplyNameKey(item) { const aliases={'多力多滋雙倍起司口味':['多力多滋','雙倍起司'],'多力多滋香菜口味':['多力多滋','香菜'],'樂事海苔口味':['樂事','海苔']},alias=Object.hasOwn(aliases,item.name.trim().normalize('NFKC').toLowerCase())?aliases[item.name.trim().normalize('NFKC').toLowerCase()]:null;if(!item.flavor&&alias)item={name:alias[0],flavor:alias[1]};return `${item.name.trim().normalize('NFKC').toLowerCase()}\u0000${(item.flavor||'').trim().normalize('NFKC').toLowerCase()}`; }
+
 /** Upgrade local previews once without changing any observed stock/history. */
 export function prepareSupplyCatalog(data) {
   if((data.supplies!=null&&!Array.isArray(data.supplies))||(data.supplyEvents!=null&&!Array.isArray(data.supplyEvents)))throw new Error('本機庫存或紀錄格式不正確，原資料已保留。');
-  const supplies=Array.isArray(data.supplies)?data.supplies:[];
+  const legacy={'supply-snack-01':'多力多滋雙倍起司口味','supply-snack-02':'多力多滋香菜口味','supply-snack-03':'樂事海苔口味'};
+  let changed=false;
+  const supplies=(Array.isArray(data.supplies)?data.supplies:[]).map(item=>{const seed=SUPPLY_CATALOG.find(seed=>seed.id===item.id);if(seed&&legacy[item.id]===item.name&&!item.flavor){changed=true;return {...item,name:seed.name,flavor:seed.flavor};}return item;});
   const missing=SUPPLY_CATALOG.filter(seed=>!supplies.some(item=>item.id===seed.id));
-  if(!missing.length&&Array.isArray(data.supplies)&&Array.isArray(data.supplyEvents))return data;
+  if(!changed&&!missing.length&&Array.isArray(data.supplies)&&Array.isArray(data.supplyEvents))return data;
   return {...data,supplies:[...supplies,...missing.map(item=>({...item,stock:null,lastCountAt:null}))],supplyEvents:Array.isArray(data.supplyEvents)?data.supplyEvents:[]};
 }
 
@@ -94,6 +99,7 @@ export function normalizeSupplyWarehouse(payload) {
   const supplies=payload.supplies.map(item=>{
     if(!item||typeof item.id!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(item.id)||ids.has(item.id)||typeof item.name!=='string'||!item.name.trim()||item.name.length>80||!Object.hasOwn(SUPPLY_KINDS,item.kind)||!['碗','杯',...SNACK_UNITS].includes(item.unit)||typeof item.active!=='boolean')throw new Error('零食、泡麵與碳粉品項格式不正確。');
     const known=SUPPLY_CATALOG.find(known=>known.id===item.id);
+    if(item.flavor!==undefined&&(typeof item.flavor!=='string'||item.flavor.length>80))throw new Error('口味最多 80 字。');
     if(item.kind==='snack'&&(payload.supplyEntry.snackVersion!==1||!SNACK_UNITS.includes(item.unit)||!SNACK_CATEGORIES.includes(item.category)))throw new Error('零食分類、單位或部署版本不正確。');
     if(item.kind==='noodle'&&!['杯','碗'].includes(item.unit))throw new Error('泡麵請使用杯或碗登記。');
     if(known&&(known.kind!==item.kind||known.unit!==item.unit))throw new Error('零食、泡麵與碳粉單位不符合已確認設定。');
@@ -101,7 +107,7 @@ export function normalizeSupplyWarehouse(payload) {
     if(item.stock!==null&&!validCount(item.stock))throw new Error('零食、泡麵與碳粉庫存數量不正確。');
     if(item.lastCountAt!==null&&!validDate(item.lastCountAt))throw new Error('零食、泡麵與碳粉盤點時間不正確。');
     ids.add(item.id);
-    return {id:item.id,name:item.name.trim(),kind:item.kind,unit:item.unit,active:item.active,stock:item.stock,lastCountAt:item.lastCountAt,...(item.kind==='snack'?{category:item.category}: {})};
+    return {id:item.id,name:item.name.trim(),kind:item.kind,unit:item.unit,active:item.active,stock:item.stock,lastCountAt:item.lastCountAt,...(item.lastArrivalAt?{lastArrivalAt:validDate(item.lastArrivalAt)?item.lastArrivalAt:(()=>{throw new Error('入庫時間不正確。');})()}:{}),...(item.kind==='snack'?{category:item.category,flavor:item.flavor||''}: {})};
   });
   const supplyEvents=payload.supplyEvents.map(event=>{
     if(!event||typeof event.id!=='string'||!event.id||event.id.length>240||eventIds.has(event.id)||!ids.has(event.supplyId)||!['count','restock','expiry-close','expiry-set'].includes(event.type)||!validCount(event.quantity)||(['restock','expiry-set'].includes(event.type)&&event.quantity===0)||(event.type==='expiry-close'&&event.quantity!==0)||!validDate(event.createdAt)||event.accepted===false||typeof event.recorder!=='string'||!event.recorder.trim()||event.recorder.length>80||typeof event.note!=='string'||event.note.length>500)throw new Error('零食、泡麵與碳粉異動紀錄不正確。');
@@ -116,5 +122,5 @@ export function normalizeSupplyWarehouse(payload) {
     const batch=supplyEvents.find(batch=>batch.id===event.batchId&&['restock','expiry-set'].includes(batch.type)&&batch.supplyId===event.supplyId);
     if(!batch||!supplySupportsExpiryHistory(supplies.find(item=>item.id===event.supplyId)?.kind))throw new Error('效期批次來源不正確。');
   }
-  return {supplies,supplyEvents,supplyEntryVersion:1,supplyExpiryVersion:payload.supplyEntry.expiryVersion===1?1:0,supplyExpirySetVersion:payload.supplyEntry.expirySetVersion===1?1:0,supplySnackVersion:payload.supplyEntry.snackVersion===1?1:0,supplySnackPolicyVersion:payload.supplyEntry.snackPolicyVersion===2?2:0};
+  return {supplies,supplyEvents,supplyEntryVersion:1,supplyExpiryVersion:payload.supplyEntry.expiryVersion===1?1:0,supplyExpirySetVersion:payload.supplyEntry.expirySetVersion===1?1:0,snackFlavorVersion:payload.supplyEntry.snackFlavorVersion===1?1:0,supplySnackVersion:payload.supplyEntry.snackVersion===1?1:0,supplySnackPolicyVersion:payload.supplyEntry.snackPolicyVersion===2?2:0};
 }

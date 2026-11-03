@@ -55,7 +55,7 @@ test('anonymous stocktake and arrival require recorder and validate whole counts
   assert.deepEqual(plain(accepted.map(event => event.recorder)), ['小王', '小王', '小李']);
   assert.equal(ctx.computeInventory_(catalog, events)[0].stock, 32);
   assert.equal(ctx.computeInventory_(catalog, events)[1].stock, 0);
-  assert.equal(ctx.computeInventory_(catalog, [{ id: 'a', drinkId: 'tea', type: 'restock', quantity: 5, accepted: true, createdAt: '2026-10-04T00:00:00Z' }])[0].stock, null);
+  assert.equal(ctx.computeInventory_(catalog, [{ id: 'a', drinkId: 'tea', type: 'restock', quantity: 5, accepted: true, createdAt: '2026-10-04T00:00:00Z' }])[0].stock, 5);
   const seen = Object.fromEntries(events.map(event => [event.id.slice(0, event.id.lastIndexOf(':')), true]));
   assert.deepEqual(plain(ctx.intakeEvents_(catalog, seen)), []);
   ctx.ADMIN_EMAILS = []; assert.doesNotThrow(() => ctx.setupConfig());
