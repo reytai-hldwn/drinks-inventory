@@ -617,13 +617,12 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     effects.result.count = effects.recorderCorrections.length;
   } else if (operation === 'restock-preference') {
     var kind = data.kind, mode = data.mode;
-    if (['drink','snack','noodle','toner'].indexOf(kind) < 0 || ['normal','hold','replace'].indexOf(mode) < 0) throw websiteInputError_('補貨提醒設定不正確。');
-    if (kind === 'snack' && mode !== 'normal') throw websiteInputError_('零食依庫存排序，不使用低庫存補貨提醒。');
+    if (['drink','snack','noodle','toner'].indexOf(kind) < 0 || (kind === 'snack' ? ['normal','consider'] : ['normal','hold','replace']).indexOf(mode) < 0) throw websiteInputError_('補貨提醒設定不正確。');
     var item = (kind === 'drink' ? catalog : supplyCatalog_(ss).filter(function (entry) { return entry.kind === kind; })).filter(function (entry) { return entry.id === data.itemId; })[0];
     if (!item || (!item.active && mode !== 'normal')) throw websiteInputError_('找不到可設定的品項。');
     var preferences = restockPreferences_(ss), currentMode = restockMode_(preferences,kind,item.id);
     if (data.expectedMode !== currentMode) throw websiteInputError_('其他裝置已更新這個品項的補貨設定，請重新整理。');
-    if (mode !== 'normal' && currentMode === 'normal') {
+    if (kind !== 'snack' && mode !== 'normal' && currentMode === 'normal') {
       var current = kind === 'drink' ? computeInventory_(catalog,historyEvents_(ss)).filter(function (entry) { return entry.drink.id === item.id; })[0] : supplyInventory_(supplyCatalog_(ss),supplyEvents_(ss)).filter(function (entry) { return entry.id === item.id; })[0];
       if (!current.lastCountAt || current.stock === null || current.stock > 10) throw websiteInputError_('目前庫存不在 10 以內，請重新整理後確認。');
     }
@@ -656,8 +655,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
       var supplies = supplyCatalog_(ss);
       if (supplies.length >= 1000) throw websiteInputError_('品項數量已達上限。');
       if (supplies.some(function (item) { return item.kind === kind && productNameKey_(item.name) === productNameKey_(name); })) throw websiteInputError_('已經有同名品項，請沿用原品項或查看庫存清單。');
-      var expiresOn = validSupplyExpiry_(data.expiresOn);
-      if (!expiresOn || expiresOn < supplyToday_(stamp)) throw websiteInputError_('零食或泡麵入庫請填寫有效的保存期限，不能早於今天。');
+      var expiresOn = websiteSupplyExpiry_(kind,data.expiresOn,stamp);
       id = id.replace('custom-drink-', 'supply-' + kind + '-');
       effects.supplyCatalog = [id, sheetText_(name), kind, data.unit, true, category];
       effects.supplyHistory = [['website:' + request.requestId + ':' + id, stamp, 'restock', id, sheetText_(name), quantity, sheetText_(note || '新品到貨入庫'), sheetText_(recorder), '採計', expiresOn, '']];
@@ -676,7 +674,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     if (operation === 'supply-expiry-set') {
       var item = activeSupply(data.supplyId), events = supplyEvents_(ss);
       var current = supplyInventory_(supplies, events).filter(function (entry) { return entry.id === item.id; })[0];
-      if (!supplyNeedsExpiry_(item.kind) || !current.lastCountAt || !(current.stock > 0)) throw websiteInputError_('請先完成實際盤點，再補登現有零食或泡麵的保存期限。');
+      if (!supplyTracksExpiry_(item.kind) || !current.lastCountAt || !(current.stock > 0)) throw websiteInputError_('請先完成實際盤點，再補登現有零食或泡麵的保存期限。');
       var ownEvents = events.filter(function (event) { return event.supplyId === item.id; });
       if (data.expectedStock !== current.stock || data.expectedEventId !== ownEvents[ownEvents.length - 1].id) throw websiteInputError_('這個品項已有新紀錄，請重新整理後核對數量與效期。');
       if (!Array.isArray(data.batches) || !data.batches.length || data.batches.length > 20) throw websiteInputError_('請填寫 1 到 20 批現有庫存的保存期限。');
@@ -694,7 +692,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     } else if (operation === 'supply-expiry-close') {
       var events = supplyEvents_(ss);
       var batch = events.filter(function (event) { return event.id === data.batchId && ['restock','expiry-set'].indexOf(event.type) >= 0; })[0];
-      if (!batch || !supplyNeedsExpiry_(activeSupply(batch.supplyId).kind)) throw websiteInputError_('找不到可標記的食品入庫批次。');
+      if (!batch || !supplyTracksExpiry_(activeSupply(batch.supplyId).kind)) throw websiteInputError_('找不到可標記的食品入庫批次。');
       var open = openSupplyBatches_(batch.supplyId, events).some(function (event) { return event.id === batch.id; });
       effects.result.alreadyClosed = !open;
       if (open) {
@@ -719,11 +717,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
       var current = supplyInventory_(supplies, supplyEvents_(ss)).filter(function (entry) { return entry.id === item.id; })[0];
       if (current.stock !== null && current.stock + quantity > 999999) throw websiteInputError_('累計庫存不可超過 999999，請確認數量。');
       var note = websiteText_(data.note || '', '入庫備註', 500, false);
-      var expiresOn = '';
-      if (supplyNeedsExpiry_(item.kind)) {
-        expiresOn = validSupplyExpiry_(data.expiresOn);
-        if (!expiresOn || expiresOn < supplyToday_(stamp)) throw websiteInputError_('零食或泡麵入庫請填寫有效的保存期限，不能早於今天。');
-      }
+      var expiresOn = supplyTracksExpiry_(item.kind) ? websiteSupplyExpiry_(item.kind,data.expiresOn,stamp) : '';
       effects.supplyHistory.push(['website:' + request.requestId + ':' + item.id, stamp, 'restock', item.id, sheetText_(item.name), quantity, sheetText_(note || '網站快速入庫'), sheetText_(recorder), '採計', expiresOn, '']);
       effects.result.quantity = quantity;
     }
@@ -826,7 +820,7 @@ function applyWebsiteRequest_(ss, effects) {
     if (!heading) wishSheet.getRange(1,8,1,1).setValues([['來源歷史品項 ID']]);
   }
   if (effects.restockPreference) {
-    if (effects.restockPreference[2] === 'snack' && effects.restockPreference[4] !== 'normal') throw websiteInputError_('零食依庫存排序，不使用低庫存補貨提醒。');
+    if ((effects.restockPreference[2] === 'snack' ? ['normal','consider'] : ['normal','hold','replace']).indexOf(effects.restockPreference[4]) < 0) throw websiteInputError_('補貨提醒設定不正確。');
     var sheet = ss.getSheetByName(SHEETS.restockPreferences);
     if (sheet && sheet.getLastRow() > 0 && !restockPreferenceSheetMatches_(sheet)) throw websiteInputError_('RestockPreferences 已有其他用途，請先確認工作表。');
     websiteAppendMissing_(ensureSheet_(ss,SHEETS.restockPreferences,RESTOCK_PREFERENCE_HEADERS),[effects.restockPreference]);
@@ -923,7 +917,11 @@ function adminSummaryData_() {
     return {kind:item.kind,id:item.id,name:item.name,unit:item.unit,stock:item.stock,mode:restockMode_(preferences,item.kind,item.id)};
   }));
   lowItems.sort(function (a,b) { return a.stock - b.stock; });
-  return {ok:true,version:1,totalDrinks:catalog.length,pendingWishes:wishRows_(ss).filter(function (wish) { return wish.status === 'pending'; }).length,lowItems:lowItems};
+  var manualSnackItems = sortInventoryEntries_(supplies.filter(function (item) { return item.kind === 'snack' && item.active && restockMode_(preferences,'snack',item.id) === 'consider'; })).map(function (item) {
+    var preference = preferences.filter(function (entry) { return entry.kind === 'snack' && entry.itemId === item.id; })[0];
+    return {kind:'snack',id:item.id,name:item.name,unit:item.unit,stock:item.stock,mode:'consider',markedAt:preference.updatedAt};
+  });
+  return {ok:true,version:1,totalDrinks:catalog.length,pendingWishes:wishRows_(ss).filter(function (wish) { return wish.status === 'pending'; }).length,lowItems:lowItems,manualSnackItems:manualSnackItems};
 }
 
 function popularityData_() {
@@ -1023,10 +1021,10 @@ function warehouseData_() {
   var active = result.drinks.filter(function (drink) { return drink.active; });
   result.lastInventoryAt = active.length && active.every(function (drink) { return drink.lastCountAt; })
     ? active.map(function (drink) { return drink.lastCountAt; }).sort()[0] : null;
-  result.supplyEntry = { version: 1, expiryVersion: 1, expirySetVersion: 1, recorderCorrectionVersion: 1, snackVersion: 1 };
+  result.supplyEntry = { version: 1, expiryVersion: 1, expirySetVersion: 1, recorderCorrectionVersion: 1, snackVersion: 1, snackPolicyVersion: 2 };
   result.supplyEvents = supplyEvents_(ss);
   result.supplies = supplyInventory_(supplyCatalog_(ss), result.supplyEvents);
-  result.restockPreferenceEntry = {version:1};
+  result.restockPreferenceEntry = {version:1,snackManualVersion:1};
   result.restockPreferences = restockPreferences_(ss);
   return result;
 }
@@ -1042,7 +1040,7 @@ function restockPreferences_(ss) {
   sheet.getRange(2,1,sheet.getLastRow()-1,7).getValues().forEach(function (row) {
     if (row[6] !== '採計') return;
     var kind=String(row[2]),itemId=String(row[3]),mode=String(row[4]),updatedAt=iso_(row[1]);
-    if (['drink','snack','noodle','toner'].indexOf(kind)<0 || !/^[A-Za-z0-9_-]{1,160}$/.test(itemId) || ['normal','hold','replace'].indexOf(mode)<0 || !updatedAt) throw new Error('Invalid restock preference');
+    if (['drink','snack','noodle','toner'].indexOf(kind)<0 || !/^[A-Za-z0-9_-]{1,160}$/.test(itemId) || ['normal','hold','replace','consider'].indexOf(mode)<0 || (mode === 'consider' && kind !== 'snack') || !updatedAt) throw new Error('Invalid restock preference');
     var key=kind+':'+itemId;
     if (!latest[key] || Date.parse(updatedAt)>=Date.parse(latest[key].updatedAt)) latest[key]={kind:kind,itemId:itemId,mode:mode,updatedAt:updatedAt};
   });
@@ -1054,7 +1052,7 @@ function restockMode_(preferences, kind, itemId) {
   return found ? found.mode : 'normal';
 }
 
-function restockModeLabel_(mode) { return mode==='hold'?'暫不需要補貨':mode==='replace'?'可以準備替換新品項':''; }
+function restockModeLabel_(mode) { return mode==='consider'?'可以考慮補貨':mode==='hold'?'暫不需要補貨':mode==='replace'?'可以準備替換新品項':''; }
 
 function sortInventoryEntries_(entries) {
   function stock(entry) { return entry.lastCountAt && entry.stock!==null ? entry.stock : Infinity; }
@@ -1063,7 +1061,16 @@ function sortInventoryEntries_(entries) {
 
 // Reading a newly upgraded deployment needs no setupOnce or sheet mutation.
 // The first explicit supply write creates the new tables inside the same lock.
-function supplyNeedsExpiry_(kind) { return kind === 'snack' || kind === 'noodle'; }
+function supplyNeedsExpiry_(kind) { return kind === 'noodle'; }
+// Retain old dated snack batches for history and idempotent command recovery.
+function supplyTracksExpiry_(kind) { return kind === 'snack' || kind === 'noodle'; }
+
+function websiteSupplyExpiry_(kind, value, stamp) {
+  if (!supplyNeedsExpiry_(kind) && (value === undefined || value === null || value === '')) return '';
+  var expiry = validSupplyExpiry_(value);
+  if (!expiry || (supplyNeedsExpiry_(kind) && expiry < supplyToday_(stamp))) throw websiteInputError_(supplyNeedsExpiry_(kind) ? '泡麵入庫請填寫有效的保存期限，不能早於今天。' : '保存期限格式不正確。');
+  return expiry;
+}
 
 function supplyCatalog_(ss) {
   var sheet = ss.getSheetByName(SHEETS.supplyCatalog), seen = Object.create(null);
@@ -1172,7 +1179,7 @@ function renderSupplyWarehouse_(ss) {
   sheet.clearContents();
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   if (inventory.length) sheet.getRange(2, 1, inventory.length, headers.length).setValues(inventory.map(function (item) {
-    return [item.id, sheetText_(item.name), item.kind === 'snack' ? '零食' : item.kind === 'noodle' ? '泡麵' : '碳粉', item.unit, item.stock === null ? '待盤點' : item.stock, item.lastCountAt || '', supplyNeedsExpiry_(item.kind) ? openSupplyBatches_(item.id,events).map(function (event) { return (event.expiresOn || '效期待補') + (event.type === 'expiry-set' ? '｜效期核對 ' : '｜入庫 ') + event.quantity + ' ' + item.unit; }).join('\n') : '', item.kind === 'snack' ? '' : restockModeLabel_(restockMode_(preferences,item.kind,item.id)), item.category || ''];
+    return [item.id, sheetText_(item.name), item.kind === 'snack' ? '零食' : item.kind === 'noodle' ? '泡麵' : '碳粉', item.unit, item.stock === null ? '待盤點' : item.stock, item.lastCountAt || '', supplyNeedsExpiry_(item.kind) ? openSupplyBatches_(item.id,events).map(function (event) { return (event.expiresOn || '效期待補') + (event.type === 'expiry-set' ? '｜效期核對 ' : '｜入庫 ') + event.quantity + ' ' + item.unit; }).join('\n') : '', item.kind === 'snack' ? (restockMode_(preferences,'snack',item.id) === 'consider' ? '可以考慮補貨' : '') : restockModeLabel_(restockMode_(preferences,item.kind,item.id)), item.category || ''];
   }));
   styleHeader_(sheet, 1, headers.length); sheet.setFrozenRows(1);
 }
