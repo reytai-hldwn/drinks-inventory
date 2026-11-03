@@ -10,5 +10,5 @@ test('published heading-font shards cover ordered ranges with present WOFF2 file
   assert.ok(row.glyphs>0&&row.glyphs<=512);const bytes=await readFile(new URL(row.file,root));assert.equal(bytes.subarray(0,4).toString(),'wOF2');assert.equal(bytes.length,row.bytes);assert.ok(row.bytes<300000);
   assert.ok(css.includes(row.file));assert.ok(css.includes(`unicode-range:U+${row.start.toString(16).toUpperCase()}-${row.end.toString(16).toUpperCase()}`));
  }
- assert.ok(!css.includes("url('./assets/pantry-hand-complete.woff2')"));assert.ok(css.includes('--heading-font:"Pantry Hand","Pantry Hand Complete",serif'));
+ assert.ok(!css.includes("url('./assets/pantry-hand-complete.woff2')"));assert.ok(css.includes('--heading-font:"Pantry Product Characters","Pantry Hand","Pantry Hand Complete",serif'));
 });
