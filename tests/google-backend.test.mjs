@@ -373,7 +373,7 @@ test('quick product intake is idempotent, validates actual submissions and prese
     response('empty-name', answers('  ')), response('long-name', answers('x'.repeat(81))),
     response('no-recorder', answers('不採計飲料', '茶飲', '寶特瓶', ' ')),
     response('bad-category', answers('不採計分類', '=bad()')), response('bad-packaging', answers('不採計包裝', '茶飲', '=bad()')),
-    response('new-can', answers('新汽水', '汽水', '小型鐵罐')), response('new-carton', answers('新牛乳', '牛乳／植物奶', '窄瓶鋁箔包')),
+    response('new-can', answers('新汽水', '汽水', '小型鐵罐')), response('new-carton', answers('新牛乳', '牛奶／豆漿', '窄瓶鋁箔包')),
   ];
   ctx.FormApp = { openById: () => ({ getResponses: () => responses }) };
   assert.equal(ctx.syncNewProducts_(ss), 3);
@@ -385,6 +385,8 @@ test('quick product intake is idempotent, validates actual submissions and prese
   assert.ok(added.every(drink => drink.active && drink.perCase === 24 && drink.threshold === 10));
   assert.ok(added.every(drink => /^custom-drink-[a-f0-9]{64}$/.test(drink.id) && drink.id.length <= 80));
   assert.equal(added[0].name, '新飲料');
+  assert.equal(added[2].category, '牛乳／植物奶', 'older product-form category choices normalize before validation');
+  assert.equal(catalog.rows[4][2], '牛乳／植物奶');
   assert.equal(intake.rows.filter(row => row[7] === '採計').length, 3);
   assert.equal(intake.rows.find(row => row[0] === 'bad-category')[4], "'=bad()");
   assert.equal(intake.rows.find(row => row[0] === 'bad-packaging')[5], "'=bad()");
