@@ -52,6 +52,7 @@ export class InventoryStore {
   get supportsSupplyExpiry() { return this.supportsSupplies; }
   get supportsSupplyExpirySet() { return this.supportsSupplyExpiry; }
   get supportsNewArrivals() { return this.mode === 'demo'; }
+  get supportsArchivedArrivals() { return this.mode==='demo'; }
   get supportsBatchArrival() { return this.mode==='demo'; }
   get supportsSnackFlavors() { return this.mode==='demo'; }
   get supportsManualRestock() { return this.mode==='demo'; }
@@ -242,9 +243,10 @@ export class InventoryStore {
     const next=structuredClone(this.data),seen=new Set(),stamp=new Date().toISOString();
     next.supplies ||= initialSupplies(); next.supplyEvents ||= [];
     for(const entry of entries){
-      const item=next.supplies.find(item=>item.id===entry.supplyId&&item.active!==false);
+      const item=next.supplies.find(item=>item.id===entry.supplyId&&(item.active!==false||(entry.type==='restock'&&entry.restoreArchived===true)));
       if(!item||seen.has(entry.supplyId)||!['count','restock','expiry-close'].includes(entry.type)||!Number.isSafeInteger(entry.quantity)||entry.quantity<0||entry.quantity>999999||(entry.type==='restock'&&entry.quantity===0)||(entry.type==='expiry-close'&&entry.quantity!==0))throw new Error('請填寫有效且不重複的品項與整數數量。');
       seen.add(item.id);
+      if(entry.type==='restock'&&entry.restoreArchived===true)item.active=true;
       if(entry.type==='restock'&&item.stock!==null&&item.stock+entry.quantity>999999)throw new Error('累計庫存不可超過 999999。');
       if(typeof entry.note!=='string'||entry.note.length>500)throw new Error('入庫備註最多 500 字。');
       if(entry.type==='restock'&&item.kind==='snack'&&entry.expiresOn!=null&&entry.expiresOn!==''&&!validSupplyExpiry(entry.expiresOn))throw new Error('零食保存期限格式不正確。');
@@ -260,8 +262,8 @@ export class InventoryStore {
     return this.saveSupplyEvents(entries.map(entry=>({...entry,type:'count',note:'網站實際盤點'})),recorder);
   }
 
-  async submitSupplyArrival({supplyId,quantity,recorder,note='',expiresOn=null}) {
-    await this.saveSupplyEvents([{supplyId,quantity,type:'restock',note,expiresOn}],recorder);
+  async submitSupplyArrival({supplyId,quantity,recorder,note='',expiresOn=null,restoreArchived=false}) {
+    await this.saveSupplyEvents([{supplyId,quantity,type:'restock',note,expiresOn,restoreArchived}],recorder);
     return {quantity};
   }
 
@@ -303,11 +305,11 @@ export class InventoryStore {
       if(!['drink','snack','noodle','toner'].includes(entry.kind))throw new Error('請選擇有效的分類。');
       if(entry.isNew){items.push(await staged.submitNewArrival({...entry,recorder}));continue;}
       if(entry.kind==='drink'){
-        const item=staged.data.drinks.find(item=>item.id===entry.drinkId&&item.active!==false);
+        const item=staged.data.drinks.find(item=>item.id===entry.drinkId&&(item.active!==false||entry.restoreArchived===true));
         if(!item||!Number.isSafeInteger(entry.quantity)||entry.quantity<1||entry.quantity>999999||(item.stock??0)+entry.quantity>999999)throw new Error('請確認飲料與入庫數量。');
         if(typeof recorder!=='string'||!recorder.trim()||recorder.trim().length>80)throw new Error('請填寫登記人，最多 80 字。');
         if(typeof (entry.note||'')!=='string'||(entry.note||'').length>500)throw new Error('備註最多 500 字。');
-        const next=structuredClone(staged.data);next.events.push({id:uid(),drinkId:item.id,type:'restock',quantity:entry.quantity,createdAt:new Date().toISOString(),recorder:recorder.trim(),note:entry.note||''});await staged.save(next);items.push({id:item.id,quantity:entry.quantity});
+        const next=structuredClone(staged.data);if(entry.restoreArchived===true)next.drinks.find(drink=>drink.id===item.id).active=true;next.events.push({id:uid(),drinkId:item.id,type:'restock',quantity:entry.quantity,createdAt:new Date().toISOString(),recorder:recorder.trim(),note:entry.note||''});await staged.save(next);items.push({id:item.id,quantity:entry.quantity});
       }else{
         if(!staged.supplies.some(item=>item.id===entry.supplyId&&item.kind===entry.kind))throw new Error('品項與分類不符。');
         items.push(await staged.submitSupplyArrival({...entry,recorder}));
