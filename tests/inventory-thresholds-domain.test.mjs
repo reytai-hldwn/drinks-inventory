@@ -167,7 +167,7 @@ test('old admin summaries accept the ten-item envelope then display only typed l
   ],manualSnackItems:[{...summaryRow('snack','manual-unknown',null,'consider'),markedAt:countedAt},{...summaryRow('snack','manual-high',100,'consider'),markedAt:countedAt}]};
   const before=structuredClone(value),reads=[],store=new GoogleInventoryStore({googleScriptUrl:endpoint},{readPublicData:async(_url,{action})=>{reads.push(action);return structuredClone(value);}});
   const summary=await store.readAdminSummary();
-  assert.deepEqual(summary.lowItems.map(item=>item.id),['toner-zero','noodle-one','noodle-two','drink-ten']);
+  assert.deepEqual(summary.lowItems.map(item=>item.id),['toner-zero','drink-ten']);
   assert.deepEqual(summary.outOfStockItems.map(item=>item.id),['drink-zero','noodle-zero','snack-zero']);
   assert.deepEqual(summary.manualSnackItems.map(item=>item.stock),[null,100]);
   assert.equal(summary.outOfStockItems[0].mode,'hold');
@@ -189,8 +189,8 @@ test('legacy warehouse summary fallback uses typed counts, excludes uncounted st
   const reads=[],publicStorage=storage(),store=new GoogleInventoryStore({googleScriptUrl:endpoint},{publicStorage,readPublicData:async(_url,{action})=>{reads.push(action);return action==='admin'?{ok:false,error:'unsupported_action'}:structuredClone(payload);}});
   const summary=await store.readAdminSummary();
   assert.deepEqual(reads,['admin','warehouse']);
-  assert.deepEqual(summary.lowItems.map(item=>item.id),['supply-toner-black','supply-noodle-01','supply-noodle-03','drink-ten']);
-  assert.equal(summary.lowItems[1].mode,'hold');
+  assert.deepEqual(summary.lowItems.map(item=>item.id),['supply-toner-black','drink-ten']);
+  assert.ok(!summary.lowItems.some(item=>item.kind==='noodle'),'unmarked noodles stay out of the overview reminder');
   assert.deepEqual(summary.outOfStockItems.map(item=>item.id),['drink-zero','supply-snack-01','supply-noodle-02']);
   assert.equal(summary.outOfStockItems[1].mode,'consider');
   assert.deepEqual(summary.manualSnackItems.map(item=>item.stock),[0,null]);

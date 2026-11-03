@@ -44,7 +44,7 @@ try {
     await page.waitForSelector('.fridge.is-ready');
     assert.equal(await page.locator('.fridge-product').count(), 4);
     for (let i = 0; i < names.length; i++) {
-      const card = page.locator('.fridge-product').filter({ hasText: names[i] });
+      const card = i===3?page.locator('.fridge-product[data-drink-id="new-3"]'):page.locator('.fridge-product').filter({ hasText: names[i] });
       await card.scrollIntoViewIfNeeded();
       const img = card.locator('.drink-product-photo');
       await img.evaluate(image => image.decode());
@@ -56,7 +56,8 @@ try {
       if (i===3) {
         assert.equal(await page.locator('.nutrition-table tbody tr').count(), 9);
         assert.ok((await page.locator('.drink-information').innerText()).includes('乳製品及大豆'));
-        assert.equal(await page.locator('.drink-detail-hero .category-label').innerText(),'牛乳／植物奶');
+        assert.equal(await card.locator('h4').innerText(),'可爾必思');
+        assert.equal(await page.locator('.drink-detail-hero .category-label').innerText(),'其他');
         assert.equal(await page.evaluate(async()=>{const f=await document.fonts.load('700 22px "Pantry Product Characters"','爾思');return f.length===1&&f[0].status==='loaded';}),true);
       }
       else if (i < 2) assert.equal(await page.locator('.nutrition-table tbody tr').count(), 8);

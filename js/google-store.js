@@ -262,6 +262,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     batchArrivalVersion:warehouse&&payload.websiteEntry?.batchArrivalVersion===1?1:0,
     newArrivalVersion: warehouse && payload.websiteEntry?.newArrivalVersion === 1 ? 1 : 0,
     drinkCategoryVersion: warehouse && payload.websiteEntry?.drinkCategoryVersion === 1 ? 1 : 0,
+    zeroStockVersion: warehouse && payload.websiteEntry?.zeroStockVersion === 1 ? 1 : 0,
     ...(warehouse ? normalizeSupplyWarehouse(payload) : {supplies:[],supplyEvents:[],supplyEntryVersion:0,supplyExpiryVersion:0,supplyExpirySetVersion:0}),
     ...(warehouse ? normalizeRestockPreferences(payload) : {restockPreferences:[],restockPreferenceVersion:0}),
   };
@@ -314,6 +315,7 @@ export class GoogleInventoryStore {
     this.websiteEntryVersion = 0;
     this.newArrivalVersion = 0;
     this.drinkCategoryVersion = 0;
+    this.zeroStockVersion = 0;
     this.lastWriteNeedsRefresh = false;
     this.completedWrites = new Set();
     this.readPublicData = options.readPublicData || fetchGooglePublicData;
@@ -344,6 +346,7 @@ export class GoogleInventoryStore {
   get canEdit() { return false; }
   get canManage() { return true; }
   get supportsArchivedArrivals() { return this.supportsWebsiteEntry&&this.archivedArrivalVersion===1; }
+  get supportsZeroStockDecisions() { return this.zeroStockVersion===1; }
   get supportsBatchArrival() { return this.supportsWebsiteEntry&&this.batchArrivalVersion===1; }
   get supportsSnackFlavors() { return this.supportsSupplies&&this.snackFlavorVersion===1; }
   get supportsManualRestock() { return this.supportsRestockPreferences&&this.manualAllVersion===1; }
@@ -459,6 +462,7 @@ export class GoogleInventoryStore {
     this.websiteEntryVersion = result.websiteEntryVersion;
     this.newArrivalVersion = result.newArrivalVersion || 0;
     this.drinkCategoryVersion = result.drinkCategoryVersion || 0;
+    this.zeroStockVersion = result.zeroStockVersion || 0;
     this.archivedArrivalVersion=result.archivedArrivalVersion||0;this.batchArrivalVersion=result.batchArrivalVersion||0;this.snackFlavorVersion=result.snackFlavorVersion||0;this.manualAllVersion=result.manualAllVersion||0;
     this.supplies = result.supplies || [];
     this.supplyEvents = result.supplyEvents || [];
@@ -532,7 +536,7 @@ export class GoogleInventoryStore {
         if(ids.has(key))throw new Error('後台摘要有重複品項。');ids.add(key);
         return {id,name,kind:row.kind,unit:row.unit,stock:row.stock,mode:row.mode,flavor:row.flavor===undefined?'':textField(row.flavor,'口味',80,false)};
       });
-      const lowItems=legacyLowItems.filter(item=>inventoryLowThreshold(item.kind)!==null&&item.stock<=inventoryLowThreshold(item.kind)&&(item.stock>0||item.kind==='toner')&&(item.kind!=='snack'||item.mode==='consider')).sort((a,b)=>Number(b.mode==='consider')-Number(a.mode==='consider')||a.stock-b.stock);
+      const lowItems=legacyLowItems.filter(item=>inventoryLowThreshold(item.kind)!==null&&item.stock<=inventoryLowThreshold(item.kind)&&(item.stock>0||item.kind==='toner')&&(!['snack','noodle'].includes(item.kind)||item.mode==='consider')).sort((a,b)=>Number(b.mode==='consider')-Number(a.mode==='consider')||a.stock-b.stock);
       const empty=value.outOfStockItems===undefined?legacyLowItems.filter(item=>['drink','snack','noodle'].includes(item.kind)&&item.stock===0):value.outOfStockItems;
       if(!Array.isArray(empty)||empty.length>2000)throw new Error('後台零庫存摘要格式不正確。');
       const emptyIds=new Set();
@@ -541,7 +545,8 @@ export class GoogleInventoryStore {
             !(row.kind==='drink'?['包','瓶','罐']:row.kind==='snack'?SNACK_UNITS:['杯','碗']).includes(row.unit)||row.stock!==0)throw new Error('後台零庫存摘要格式不正確。');
         const id=textField(row.id,'品項代號',160),name=textField(row.name,'品項名稱',80),key=`${row.kind}:${id}`;
         if(emptyIds.has(key))throw new Error('後台零庫存摘要有重複品項。');emptyIds.add(key);
-        return {id,name,kind:row.kind,unit:row.unit,stock:0,mode:row.mode,flavor:row.flavor===undefined?'':textField(row.flavor,'口味',80,false)};
+        if(row.zeroStockPending!==undefined&&typeof row.zeroStockPending!=='boolean')throw new Error('無庫存處理狀態不正確。');
+        return {id,name,kind:row.kind,unit:row.unit,stock:0,mode:row.mode,zeroStockPending:row.zeroStockPending===true,flavor:row.flavor===undefined?'':textField(row.flavor,'口味',80,false)};
       });
       const manual=value.manualSnackItems===undefined?[]:value.manualSnackItems;
       if(!Array.isArray(manual)||manual.length>1000)throw new Error('零食手動補貨摘要格式不正確。');
@@ -576,7 +581,9 @@ export class GoogleInventoryStore {
         const countedAt=googleDateField(group.countedAt,'盤點時間',true),items=group.items.map(activityRow);
         if(items.some(item=>item.type!=='count'||item.kind!==group.kind||item.createdAt!==countedAt))throw new Error('盤點摘要內容不一致。');return {kind:group.kind,countedAt,items};
       });
-      this.adminSummary={totalDrinks:value.totalDrinks,pendingWishes:value.pendingWishes,lowItems,outOfStockItems,manualSnackItems,restockItems:marked,activityVersion:value.activityVersion===1?1:0,recentArrivals,recentCounts};this.adminSummaryReadAt=this.now();
+      this.zeroStockVersion=value.zeroStockVersion===1?1:0;
+      if(this.zeroStockVersion===1)this.websiteEntryVersion=1;
+      this.adminSummary={totalDrinks:value.totalDrinks,pendingWishes:value.pendingWishes,lowItems,outOfStockItems,manualSnackItems,restockItems:marked,activityVersion:value.activityVersion===1?1:0,recentArrivals,recentCounts,snapshotAt:googleDateField(value.snapshotAt,'摘要時間',true)};this.adminSummaryReadAt=this.now();
       return this.adminSummary;
     })();
     try { return await this.adminSummaryRequest; } finally { this.adminSummaryRequest=null; }
@@ -706,6 +713,7 @@ export class GoogleInventoryStore {
     this.pendingGoogleReads.clear();
     this.adminSummaryReadAt = -Infinity;
     if (this.applyWishReceipt(operation, data, result, pending.requestId)) return result;
+    if (operation==='zero-stock-decision' && this.applyZeroStockReceipt(data,result)) return result;
     if (['stocktake', 'arrival', 'product', 'new-arrival','batch-arrival'].includes(operation)) this.popularityReadAt = -Infinity;
     try { await this.read(); } catch { this.lastWriteNeedsRefresh = true; }
     return result;
@@ -821,6 +829,31 @@ export class GoogleInventoryStore {
   async addDrink({ name, category, packaging, recorder }) {
     const storedCategory = category === '牛乳／植物奶' && this.drinkCategoryVersion !== 1 ? '牛奶／豆漿' : category;
     return this.sendWebsiteCommand('product', { name: name.trim(), category: storedCategory, packaging, recorder: recorder.trim() });
+  }
+
+  async setZeroStockDecision(data) {
+    if(!this.supportsZeroStockDecisions)throw new Error('請先更新原 Apps Script 部署，啟用無庫存處理功能。');
+    if(!['drink','snack','noodle'].includes(data.kind)||!['pending','undecided','archive'].includes(data.decision))throw new Error('請選擇有效的處理方式。');
+    return this.sendWebsiteCommand('zero-stock-decision',data);
+  }
+
+  applyZeroStockReceipt(data,result) {
+    const mode=data.decision==='pending'?'consider':'normal';
+    if(result?.operation!=='zero-stock-decision'||result.kind!==data.kind||result.itemId!==data.itemId||result.decision!==data.decision||result.mode!==mode||result.active!==(data.decision!=='archive')||result.stock!==0||!Number.isFinite(Date.parse(result.snapshotAt)))return false;
+    const summary=this.adminSummary;
+    if(!summary)return false;
+    if(Date.parse(result.snapshotAt)<Math.max(Date.parse(summary.snapshotAt)||0,Date.parse(this.snapshotAt)||0))return true;
+    const matches=entry=>(entry.kind||'drink')===data.kind&&(entry.id||entry.itemId)===data.itemId;
+    const row=summary.outOfStockItems.find(matches);
+    if(!row)return false;
+    const updatedAt=result.snapshotAt,entry={kind:data.kind,itemId:data.itemId,mode,updatedAt,...(data.decision==='pending'?{zeroStockPending:true}:{})};
+    this.restockPreferences=[...this.restockPreferences.filter(old=>old.kind!==data.kind||old.itemId!==data.itemId),entry];
+    this.data.drinks=this.data.drinks.map(item=>data.kind==='drink'&&item.id===data.itemId?{...item,active:result.active}:item);
+    this.supplies=this.supplies.map(item=>matches(item)?{...item,active:result.active}:item);
+    this.adminSummary={...summary,snapshotAt:updatedAt,outOfStockItems:summary.outOfStockItems.flatMap(item=>matches(item)?(result.active?[{...item,mode,zeroStockPending:data.decision==='pending'}]:[]):[item]),restockItems:[...summary.restockItems.filter(item=>!matches(item)),...(mode==='consider'?[{...row,mode}]:[])],manualSnackItems:[...summary.manualSnackItems.filter(item=>!matches(item)),...(data.kind==='snack'&&mode==='consider'?[{...row,mode,markedAt:updatedAt}]:[])]};
+    this.adminSummaryReadAt=this.now();this.revision=JSON.stringify({data:this.data,zeroStockReceipt:result});
+    if(!result.active){this.popularityReadAt=-Infinity;try{(this.publicStorage||globalThis.localStorage)?.removeItem(`holdwin-public-cache-v1:${validateGoogleScriptUrl(this.url)}`);}catch{/* cache is optional */}}
+    return true;
   }
 
   async login() { throw new Error('管理入口不用登入，請直接開啟倉庫或使用盤點、入庫表單。'); }

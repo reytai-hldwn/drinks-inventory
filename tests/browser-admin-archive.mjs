@@ -57,6 +57,22 @@ try{for(const width of [1440,390]){
     if(kind!=='drink')assert.equal(await page.locator('#supply-search').inputValue(),'','empty-stock drilldown clears an earlier nonmatching supply search');
     await page.evaluate(()=>{location.hash='admin';});await page.waitForSelector('#admin-empty-stock');
   }
+  await openSection('#admin-empty-stock');
+  const beforeDecisions=structuredClone(b.sheets.History.rows),warehouseReads=reads.filter(action=>action==='warehouse').length;
+  await page.locator('[data-empty-item="drink:empty"] [data-action=empty-pending]').click();await page.waitForSelector('[data-empty-item="drink:empty"] [data-action=empty-undecided]');
+  assert.equal(reads.filter(action=>action==='warehouse').length,warehouseReads,'accepted admin receipt avoids a full warehouse read');
+  assert.equal(b.ctx.restockPreferences_(b.ss).find(item=>item.itemId==='empty').zeroStockPending,true);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:`/tmp/pantry-empty-decisions-${width}.png`,fullPage:true});
+  await page.locator('[data-empty-item="drink:empty"] [data-action=empty-undecided]').click();await page.waitForSelector('[data-empty-item="drink:empty"] [data-action=empty-pending]');
+  await page.locator('[data-empty-item="drink:empty"] [data-action=empty-archive]').click();await page.waitForFunction(()=>!document.querySelector('[data-empty-item="drink:empty"]'));
+  assert.deepEqual(b.sheets.History.rows,beforeDecisions);assert.equal(b.sheets.Catalog.rows.find(row=>row[0]==='empty')[7],false);
+  await page.evaluate(()=>{location.hash='restock';});await page.waitForSelector('#restock-drink');await page.locator('#restock-drink').selectOption('empty');await page.locator('#restock-form [name=loose]').fill('3');await page.locator('#restock-form [name=recorder]').fill('虛構到貨者');await page.locator('#restock-form [type=submit]').click();await page.waitForFunction(()=>!document.querySelector('#restock-form [type=submit]').disabled);
+  assert.equal(b.sheets.Catalog.rows.find(row=>row[0]==='empty')[7],true);
+  for(const [kind,id] of [['snack','supply-snack-01'],['noodle','supply-noodle-02']]){
+    await page.evaluate(()=>{location.hash='admin';});await page.waitForSelector('#admin-empty-stock');await openSection('#admin-empty-stock');await page.locator(`[data-empty-item="${kind}:${id}"] [data-action=empty-archive]`).click();await page.waitForFunction(key=>![...document.querySelectorAll('[data-empty-item]')].some(row=>row.dataset.emptyItem===key),`${kind}:${id}`);
+    await page.evaluate(()=>{location.hash='products';});await page.waitForSelector('[data-action=warehouse-kind]');await page.locator(`[data-action=warehouse-kind][data-id=${kind}]`).click();await page.locator('[data-action=supply-stock-filter][data-id=archived]').click();const row=page.locator(`[data-supply-id=${id}]`);assert.equal(await row.count(),1);assert.equal(await row.locator('[data-action=supply-count]').count(),0);
+    await row.locator('[data-action=supply-arrival]').click();await page.locator('#supply-arrival-form [name=quantity]').fill('2');await page.locator('#supply-arrival-form [name=recorder]').fill('虛構到貨者');if(kind==='noodle')await page.locator('#supply-arrival-form [name=expiresOn]').fill('2099-01-01');await page.locator('#supply-arrival-form [type=submit]').click();await page.waitForFunction(()=>!document.querySelector('#modal').open);assert.equal(b.sheets.SupplyCatalog.rows.find(row=>row[0]===id)[4],true);
+  }
   await page.evaluate(()=>{location.hash='archive';});await page.waitForSelector('[data-action=archive-wish]');const archiveButton=page.locator('[data-action=archive-wish]');assert.match(await archiveButton.innerText(),/我還想喝，希望有機會可以再買/);
   await archiveButton.click();await page.locator('#archive-wish-form [name=voterName]').fill('Rey');await page.locator('#archive-wish-form [type=submit]').click();await page.waitForSelector('[data-action=archive-wish].is-voted');assert.equal(posts.filter(command=>command.operation==='archive-wish').length,1);assert.equal(b.sheets.WishReview.rows.length,2);assert.equal(b.sheets.WishVotes.rows.length,2);
   assert.match(await page.locator('.archive-wish-actions').innerText(),/1 人還想喝/);await page.locator('.archive-wish-actions [data-action=view-wish-supporters]').click();assert.match(await page.locator('.wish-supporter-list').innerText(),/Rey/);await page.locator('#modal [data-action=close-modal]').first().click();

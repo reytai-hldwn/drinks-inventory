@@ -46,7 +46,8 @@ export function normalizeRestockPreferences(payload) {
   const restockPreferences=payload.restockPreferences.map(entry=>{
     if(!entry||!['drink','snack','noodle','toner'].includes(entry.kind)||typeof entry.itemId!=='string'||!/^[A-Za-z0-9_-]{1,160}$/.test(entry.itemId)||!Object.hasOwn(RESTOCK_MODES,entry.mode)||typeof entry.updatedAt!=='string'||!Number.isFinite(Date.parse(entry.updatedAt)))throw new Error('補貨提醒設定格式不正確。');
     const key=`${entry.kind}:${entry.itemId}`;if(keys.has(key))throw new Error('補貨提醒設定重複。');keys.add(key);
-    return{kind:entry.kind,itemId:entry.itemId,mode:entry.mode,updatedAt:entry.updatedAt};
+    if(entry.zeroStockPending!==undefined&&typeof entry.zeroStockPending!=='boolean')throw new Error('無庫存處理狀態不正確。');
+    return{kind:entry.kind,itemId:entry.itemId,mode:entry.mode,updatedAt:entry.updatedAt,...(entry.zeroStockPending===true?{zeroStockPending:true}:{})};
   });
   return{restockPreferences,restockPreferenceVersion:1,...(payload.restockPreferenceEntry.snackManualVersion===1?{snackManualVersion:1}:{}),...(payload.restockPreferenceEntry.manualAllVersion===1?{manualAllVersion:1}:{})};
 }

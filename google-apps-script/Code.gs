@@ -569,6 +569,11 @@ function submitWebsiteRequest_(request) {
     }
     if (['wish','vote','archive-wish'].indexOf(effects.operation) >= 0) {
       PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
+    } else if (effects.zeroStockDecision) {
+      if (effects.zeroStockDecision.kind === 'drink') {
+        var inventory=computeInventory_(catalog_(ss),historyEvents_(ss));renderWarehouse_(ss,inventory);
+        if(effects.zeroStockDecision.decision==='archive'){renderArchive_(ss,inventory);PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT',new Date().toISOString());}
+      } else renderSupplyWarehouse_(ss);
     } else if (effects.recorderCorrections) {
       // Recorder corrections have no stock or generated inventory changes.
     } else if (effects.batch) {
@@ -649,6 +654,18 @@ function prepareWebsiteRequest_(ss, request, stamp) {
       return ['website:' + request.requestId + ':' + index,stamp,id,sheetText_(previous),sheetText_(recorder),'採計'];
     });
     effects.result.count = effects.recorderCorrections.length;
+  } else if (operation === 'zero-stock-decision') {
+    if (['drink','snack','noodle'].indexOf(data.kind)<0 || ['pending','undecided','archive'].indexOf(data.decision)<0) throw websiteInputError_('請選擇有效的無庫存處理方式。');
+    var kind=data.kind,items=kind==='drink'?catalog:supplyCatalog_(ss).filter(function(item){return item.kind===kind;}),item=items.filter(function(item){return item.id===data.itemId;})[0];
+    var stockEvents=kind==='drink'?historyEvents_(ss):supplyEvents_(ss);
+    var current=kind==='drink'?computeInventory_(catalog,stockEvents).filter(function(entry){return entry.drink.id===data.itemId;})[0]:supplyInventory_(supplyCatalog_(ss),stockEvents).filter(function(entry){return entry.id===data.itemId;})[0];
+    if(!item||!item.active||!current||current.stock!==0)throw websiteInputError_('這個品項已不在無庫存清單，請重新整理。');
+    var preferences=restockPreferences_(ss),mode=restockMode_(preferences,kind,item.id);
+    if(data.expectedMode!==mode)throw websiteInputError_('其他裝置已更新處理狀態，請重新整理。');
+    var desired=data.decision==='pending'?'consider':'normal';
+    effects.zeroStockDecision={kind:kind,id:item.id,decision:data.decision,expectedMode:mode,expectedEventId:zeroStockLatestEventId_(stockEvents,item.id)};
+    effects.restockPreference=['website:'+request.requestId,stamp,kind,item.id,desired,data.decision==='pending'?'zero-stock:pending':'zero-stock:'+data.decision,'採計'];
+    Object.assign(effects.result,{kind:kind,itemId:item.id,decision:data.decision,mode:desired,active:data.decision!=='archive',stock:0,snapshotAt:stamp});
   } else if (operation === 'restock-preference') {
     var kind = data.kind, mode = data.mode;
     if (['drink','snack','noodle','toner'].indexOf(kind) < 0 || (kind==='snack'?['normal','consider']:['normal','consider','hold','replace']).indexOf(mode) < 0) throw websiteInputError_('補貨提醒設定不正確。');
@@ -829,6 +846,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     effects.product = ['website:' + request.requestId, stamp, id, sheetText_(name), category, data.packaging, sheetText_(recorder), '採計'];
     effects.result.id = id;
   } else throw websiteInputError_('不支援的網站操作。');
+  if(operation==='arrival'||operation==='supply-arrival')prepareZeroRestockFulfilments_(ss,effects,request.requestId,stamp);
   return effects;
 }
 
@@ -842,6 +860,10 @@ function websiteAppendMissing_(sheet, rows) {
 
 function applyWebsiteRequest_(ss, effects) {
   var snapshotAt = new Date().toISOString();
+  var fulfilments=effects.batch?effects.batch.reduce(function(rows,child){return rows.concat(child.restockFulfilments||[]);},[]):effects.restockFulfilments||[];
+  var preferenceSheet=ss.getSheetByName(SHEETS.restockPreferences);
+  if(fulfilments.length&&preferenceSheet&&preferenceSheet.getLastRow()>0&&!restockPreferenceSheetMatches_(preferenceSheet))throw websiteInputError_('補貨設定工作表格式已變更，請先確認。');
+  if(effects.zeroStockDecision){applyZeroStockDecision_(ss,effects);return;}
   var restoreUpdates=prepareArrivalRestores_(ss,effects);
   if (effects.batch) {
     var drinks=catalog_(ss),supplies=supplyCatalog_(ss);
@@ -857,6 +879,7 @@ function applyWebsiteRequest_(ss, effects) {
     if(products.length){websiteAppendMissing_(ensureSheet_(ss,SHEETS.products,PRODUCT_INTAKE_HEADERS),products);PropertiesService.getScriptProperties().setProperty('HOLDWIN_CATALOG_FORMS_DIRTY','true');}
     websiteAppendMissing_(ss.getSheetByName(SHEETS.history),collect('history'));
     applyArrivalRestores_(restoreUpdates);
+    applyZeroRestockFulfilments_(ss,effects.batch.reduce(function(rows,child){return rows.concat(child.restockFulfilments||[]);},[]));
     return;
   }
   if(effects.supplyDetails){
@@ -916,6 +939,7 @@ function applyWebsiteRequest_(ss, effects) {
   }
   websiteAppendMissing_(ss.getSheetByName(SHEETS.history), effects.history);
   applyArrivalRestores_(restoreUpdates);
+  applyZeroRestockFulfilments_(ss,effects.restockFulfilments||[]);
   websiteAppendMissing_(ss.getSheetByName(SHEETS.wishes), effects.wish ? [effects.wish] : []);
   if (effects.vote) {
     var voteSheet = ss.getSheetByName(SHEETS.votes);
@@ -964,7 +988,7 @@ function publicData_(spreadsheet, catalog) {
   });
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = websiteFormUrls_();
-  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
+  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1, zeroStockVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),
@@ -975,15 +999,15 @@ function adminSummaryData_() {
   var ss=requiredSpreadsheet_(),preferences=restockPreferences_(ss),catalog=catalog_(ss),events=historyEvents_(ss),supplyEvents=supplyEvents_(ss);
   var drinks=computeInventory_(catalog,events).map(function(entry){return Object.assign({},entry.drink,{kind:'drink',stock:entry.stock,lastCountAt:entry.lastCountAt,lastArrivalAt:entry.lastArrivalAt});});
   var supplies=supplyInventory_(supplyCatalog_(ss),supplyEvents),items=drinks.concat(supplies);
-  function summary(item){return {kind:item.kind,id:item.id,name:item.name,flavor:item.flavor||'',unit:item.unit,stock:item.stock,mode:restockMode_(preferences,item.kind,item.id)};}
+  function summary(item){var row={kind:item.kind,id:item.id,name:item.name,flavor:item.flavor||'',unit:item.unit,stock:item.stock,mode:restockMode_(preferences,item.kind,item.id)};if(preferences.some(function(entry){return entry.kind===item.kind&&entry.itemId===item.id&&entry.zeroStockPending===true;}))row.zeroStockPending=true;return row;}
   var active=items.filter(function(item){return item.active;});
   var restockItems=active.filter(function(item){return restockMode_(preferences,item.kind,item.id)==='consider';}).map(summary).sort(function(a,b){return (a.stock===null?Infinity:a.stock)-(b.stock===null?Infinity:b.stock);});
-  var lowItems=active.filter(function(item){return item.stock!==null&&(item.kind!=='snack'||restockMode_(preferences,item.kind,item.id)==='consider')&&(item.kind==='toner'?item.stock===0:item.stock>0&&item.stock<=(item.kind==='noodle'?3:10));}).map(summary).sort(function(a,b){return a.stock-b.stock;});
+  var lowItems=active.filter(function(item){return item.stock!==null&&(['snack','noodle'].indexOf(item.kind)<0||restockMode_(preferences,item.kind,item.id)==='consider')&&(item.kind==='toner'?item.stock===0:item.stock>0&&item.stock<=(item.kind==='noodle'?3:10));}).map(summary).sort(function(a,b){return a.stock-b.stock;});
   var outOfStockItems=active.filter(function(item){return item.kind!=='toner'&&item.stock===0;}).map(summary);
   var manualSnackItems=restockItems.filter(function(item){return item.kind==='snack';}).map(function(item){var preference=preferences.filter(function(entry){return entry.kind==='snack'&&entry.itemId===item.id;})[0];return Object.assign({},item,{markedAt:preference.updatedAt});});
   var rows=events.concat(supplyEvents).filter(function(event){return event.accepted!==false&&['count','restock'].indexOf(event.type)>=0;}).map(function(event){var item=items.filter(function(item){return item.id===(event.drinkId||event.supplyId);})[0];return item?{id:event.id,itemId:item.id,kind:item.kind,name:item.name,flavor:item.flavor||'',unit:item.unit,quantity:event.quantity,createdAt:event.createdAt,type:event.type}:null;}).filter(Boolean).sort(function(a,b){return Date.parse(b.createdAt)-Date.parse(a.createdAt);});
   var recentCounts=['drink','snack','noodle','toner'].map(function(kind){var counts=rows.filter(function(event){return event.kind===kind&&event.type==='count';}),stamp=counts.length?counts[0].createdAt:null;return {kind:kind,countedAt:stamp,items:counts.filter(function(event){return event.createdAt===stamp;}).slice(0,1000)};});
-  return {ok:true,version:1,activityVersion:1,totalDrinks:catalog.length,pendingWishes:wishRows_(ss).filter(function(wish){return wish.status==='pending';}).length,restockItems:restockItems,lowItems:lowItems,outOfStockItems:outOfStockItems,manualSnackItems:manualSnackItems,recentArrivals:rows.filter(function(event){return event.type==='restock';}).slice(0,12),recentCounts:recentCounts};
+  return {ok:true,version:1,zeroStockVersion:1,snapshotAt:new Date().toISOString(),activityVersion:1,totalDrinks:catalog.length,pendingWishes:wishRows_(ss).filter(function(wish){return wish.status==='pending';}).length,restockItems:restockItems,lowItems:lowItems,outOfStockItems:outOfStockItems,manualSnackItems:manualSnackItems,recentArrivals:rows.filter(function(event){return event.type==='restock';}).slice(0,12),recentCounts:recentCounts};
 }
 
 function popularityData_() {
@@ -1104,7 +1128,7 @@ function restockPreferences_(ss) {
     var kind=String(row[2]),itemId=String(row[3]),mode=String(row[4]),updatedAt=iso_(row[1]);
     if (['drink','snack','noodle','toner'].indexOf(kind)<0 || !/^[A-Za-z0-9_-]{1,160}$/.test(itemId) || ['normal','hold','replace','consider'].indexOf(mode)<0 || !updatedAt) throw new Error('Invalid restock preference');
     var key=kind+':'+itemId;
-    if (!latest[key] || Date.parse(updatedAt)>=Date.parse(latest[key].updatedAt)) latest[key]={kind:kind,itemId:itemId,mode:mode,updatedAt:updatedAt};
+    if (!latest[key] || Date.parse(updatedAt)>=Date.parse(latest[key].updatedAt)) { latest[key]={kind:kind,itemId:itemId,mode:mode,updatedAt:updatedAt};if(row[5]==='zero-stock:pending'&&mode==='consider')latest[key].zeroStockPending=true; }
   });
   return Object.keys(latest).map(function (key) { return latest[key]; });
 }
@@ -1401,8 +1425,9 @@ function initializeCatalog_(ss) {
 }
 
 function canonicalDrinkCategory_(category, name) {
+  if(name==='可爾必思開心成長160ml'&&['牛乳／植物奶','牛奶／豆漿'].indexOf(category)>=0)return '其他';
   if (['牛奶／豆漿','牛乳／豆漿','牛奶/豆漿','牛乳/豆漿'].indexOf(category) >= 0) return '牛乳／植物奶';
-  var corrections = {'午后時光重乳奶茶':'茶飲','義美寶吉葡萄汁':'果汁','波蜜蜂蜜檸檬':'果汁'};
+  var corrections = {'午后時光重乳奶茶':'茶飲','義美寶吉葡萄汁':'果汁','波蜜蜂蜜檸檬':'果汁','光泉薏仁糙米漿':'牛乳／植物奶'};
   return category === '其他' && Object.prototype.hasOwnProperty.call(corrections,name) ? corrections[name] : category;
 }
 
@@ -1881,3 +1906,44 @@ function prepareArrivalRestores_(ss,effects) {
   });
 }
 function applyArrivalRestores_(updates) { updates.forEach(function(update){if(update.current!==true)update.sheet.getRange(update.row,update.column,1,1).setValues([[true]]);});if(updates.some(function(update){return update.kind==='drink';}))PropertiesService.getScriptProperties().setProperty('HOLDWIN_CATALOG_FORMS_DIRTY','true'); }
+
+// A zero-stock decision changes availability/preferences, never stock or history.
+function applyZeroStockDecision_(ss,effects) {
+  var action=effects.zeroStockDecision,kind=action.kind;
+  var catalog=kind==='drink'?catalog_(ss):supplyCatalog_(ss),item=catalog.filter(function(item){return item.id===action.id&&(kind==='drink'||item.kind===kind);})[0];
+  var stockEvents=kind==='drink'?historyEvents_(ss):supplyEvents_(ss);
+  var inventory=kind==='drink'?computeInventory_(catalog,stockEvents).filter(function(entry){return entry.drink.id===action.id;})[0]:supplyInventory_(catalog,stockEvents).filter(function(entry){return entry.id===action.id;})[0];
+  var sheet=ss.getSheetByName(SHEETS.restockPreferences),marker=effects.restockPreference[0],own=false;
+  if(sheet&&sheet.getLastRow()>0&&!restockPreferenceSheetMatches_(sheet))throw websiteInputError_('補貨設定工作表格式已變更。');
+  if(sheet&&sheet.getLastRow()>1)own=sheet.getRange(2,1,sheet.getLastRow()-1,1).getValues().some(function(row){return row[0]===marker;});
+  if(!item||!inventory||inventory.stock!==0||(!item.active&&!(own&&action.decision==='archive')))throw websiteInputError_('這個品項已不在無庫存清單，請重新整理。');
+  if(zeroStockLatestEventId_(stockEvents,action.id)!==action.expectedEventId)throw websiteInputError_('庫存紀錄已更新，請重新整理後再處理。');
+  var mode=restockMode_(restockPreferences_(ss),kind,action.id);
+  if(mode!==action.expectedMode&&!(own&&mode===effects.restockPreference[4]))throw websiteInputError_('其他裝置已更新處理狀態，請重新整理。');
+  var target=ss.getSheetByName(kind==='drink'?SHEETS.catalog:SHEETS.supplyCatalog),column=kind==='drink'?8:5;
+  var rows=target.getRange(2,1,target.getLastRow()-1,column).getValues(),index=rows.map(function(row){return String(row[0]);}).indexOf(action.id);
+  if(index<0)throw websiteInputError_('品項已變更，請重新整理。');
+  websiteAppendMissing_(ensureSheet_(ss,SHEETS.restockPreferences,RESTOCK_PREFERENCE_HEADERS),[effects.restockPreference]);
+  if(action.decision==='archive'){
+    target.getRange(index+2,column,1,1).setValues([[false]]);
+    if(kind==='drink')PropertiesService.getScriptProperties().setProperty('HOLDWIN_CATALOG_FORMS_DIRTY','true');
+  }
+}
+
+function zeroStockLatestEventId_(events,id) {
+  var latest=null;
+  events.forEach(function(event){if((event.drinkId||event.supplyId)===id&&event.accepted!==false&&['count','restock'].indexOf(event.type)>=0&&(!latest||Date.parse(event.createdAt)>=Date.parse(latest.createdAt)))latest=event;});
+  return latest?latest.id:null;
+}
+
+function prepareZeroRestockFulfilments_(ss,effects,requestId,stamp) {
+  var row=(effects.history||effects.supplyHistory||[]).filter(function(row){return row[2]==='restock';})[0];
+  if(!row)return;
+  var kind=effects.history?'drink':(supplyCatalog_(ss).filter(function(item){return item.id===row[3];})[0]||{}).kind;
+  if(['drink','snack','noodle'].indexOf(kind)<0)return;
+  var current=kind==='drink'?computeInventory_(catalog_(ss),historyEvents_(ss)).filter(function(entry){return entry.drink.id===row[3];})[0]:supplyInventory_(supplyCatalog_(ss),supplyEvents_(ss)).filter(function(entry){return entry.id===row[3];})[0];
+  if(current&&current.stock===0&&restockPreferences_(ss).some(function(entry){return entry.kind===kind&&entry.itemId===row[3]&&entry.mode==='consider'&&entry.zeroStockPending===true;}))effects.restockFulfilments=[['website:'+requestId+':fulfilled',stamp,kind,row[3],'normal','無庫存品項已到貨','採計']];
+}
+function applyZeroRestockFulfilments_(ss,rows) {
+  if(rows.length)websiteAppendMissing_(ensureSheet_(ss,SHEETS.restockPreferences,RESTOCK_PREFERENCE_HEADERS),rows);
+}
