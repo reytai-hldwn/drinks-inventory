@@ -1,5 +1,5 @@
 {
-  "source": "使用者提供：飲料圖片.zip、飲料圖片補.zip",
+  "source": "使用者提供：飲料圖片.zip、飲料圖片補.zip；2026-11-03 新入庫飲料依使用者確認容量，補充官方／零售公開商品照片（各筆附來源）。",
   "photos": [
     {
       "file": "sun-moon-black-tea.png",
@@ -553,6 +553,60 @@
         600,
         600
       ]
+    },
+    {
+      "file": "afternoon-rich-milk-tea-330.jpg",
+      "original": "午后時光重乳奶茶 330 毫升",
+      "originalSize": [
+        500,
+        700
+      ],
+      "crop": [
+        77,
+        49,
+        349,
+        612
+      ],
+      "checkedAt": "2026-11-03",
+      "source": "https://24h.pchome.com.tw/prod/DBAB7J-A9009I35B",
+      "imageUrl": "https://cs-a.ecimg.tw/items/DBAB7JA9009I35B/i010001_1564120714.jpg",
+      "sha256": "d8e5539ff1a6c11507d90fea37fe773ee2c46826d75ab2cceb7d0972d4d8d3de"
+    },
+    {
+      "file": "imei-grape-juice-125.jpg",
+      "original": "義美寶吉葡萄汁 125 毫升",
+      "originalSize": [
+        600,
+        600
+      ],
+      "crop": [
+        279,
+        197,
+        211,
+        347
+      ],
+      "checkedAt": "2026-11-03",
+      "source": "https://imec.imeifoods.com.tw/products/mixedgrapejuice",
+      "imageUrl": "https://cdn-general.cybassets.com/s/files/26284/ckeditor/pictures/content_71e282a8-2154-411e-8622-f5b4e84594cd.jpg",
+      "sha256": "6df168bee2912e27c86dbc5f8fe3402c40f216ba09adde1f11d88c8349562922"
+    },
+    {
+      "file": "bomy-honey-lemon-160.jpg",
+      "original": "波蜜蜂蜜檸檬 160 毫升",
+      "originalSize": [
+        800,
+        600
+      ],
+      "crop": [
+        309,
+        163,
+        170,
+        357
+      ],
+      "checkedAt": "2026-11-03",
+      "source": "https://www.bomy.com.tw/160ml%E7%B3%BB%E5%88%97/",
+      "imageUrl": "https://www.bomy.com.tw/wp-content/uploads/2022/04/b60eb83bf533eecf1bde65940925a981.jpg",
+      "sha256": "e57e99922b1cda33fc9f2ceb3adafa549c1945104cf4b3beaa332e4431229233"
     }
   ],
   "pending": [],

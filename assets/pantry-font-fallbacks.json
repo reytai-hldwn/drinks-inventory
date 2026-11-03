@@ -12,7 +12,7 @@
     "start": 674,
     "end": 7767,
     "glyphs": 512,
-    "bytes": 29128,
+    "bytes": 29132,
     "probe": 674
   },
   {
@@ -36,7 +36,7 @@
     "start": 9489,
     "end": 12111,
     "glyphs": 512,
-    "bytes": 47996,
+    "bytes": 47992,
     "probe": 9489
   },
   {
@@ -44,7 +44,7 @@
     "start": 12112,
     "end": 12768,
     "glyphs": 512,
-    "bytes": 94428,
+    "bytes": 94432,
     "probe": 12112
   },
   {
@@ -52,7 +52,7 @@
     "start": 12769,
     "end": 13505,
     "glyphs": 512,
-    "bytes": 82780,
+    "bytes": 82776,
     "probe": 12769
   },
   {
@@ -74,265 +74,265 @@
   {
     "file": "./assets/fonts/pantry-hand-09.woff2",
     "start": 20329,
-    "end": 21038,
+    "end": 21042,
     "glyphs": 512,
-    "bytes": 153764,
+    "bytes": 153256,
     "probe": 20329
   },
   {
     "file": "./assets/fonts/pantry-hand-10.woff2",
-    "start": 21042,
-    "end": 21707,
+    "start": 21043,
+    "end": 21710,
     "glyphs": 512,
-    "bytes": 135116,
-    "probe": 21042
+    "bytes": 135272,
+    "probe": 21043
   },
   {
     "file": "./assets/fonts/pantry-hand-11.woff2",
-    "start": 21708,
-    "end": 22361,
+    "start": 21711,
+    "end": 22364,
     "glyphs": 512,
-    "bytes": 166944,
-    "probe": 21708
+    "bytes": 166928,
+    "probe": 21711
   },
   {
     "file": "./assets/fonts/pantry-hand-12.woff2",
-    "start": 22362,
-    "end": 23052,
+    "start": 22365,
+    "end": 23058,
     "glyphs": 512,
-    "bytes": 160776,
-    "probe": 22362
+    "bytes": 161356,
+    "probe": 22365
   },
   {
     "file": "./assets/fonts/pantry-hand-13.woff2",
-    "start": 23053,
-    "end": 23825,
+    "start": 23059,
+    "end": 23829,
     "glyphs": 512,
     "bytes": 170072,
-    "probe": 23053
+    "probe": 23059
   },
   {
     "file": "./assets/fonts/pantry-hand-14.woff2",
-    "start": 23826,
-    "end": 24578,
+    "start": 23830,
+    "end": 24581,
     "glyphs": 512,
-    "bytes": 166324,
-    "probe": 23826
+    "bytes": 166348,
+    "probe": 23830
   },
   {
     "file": "./assets/fonts/pantry-hand-15.woff2",
-    "start": 24579,
-    "end": 25312,
+    "start": 24582,
+    "end": 25315,
     "glyphs": 512,
-    "bytes": 169568,
-    "probe": 24579
+    "bytes": 170056,
+    "probe": 24582
   },
   {
     "file": "./assets/fonts/pantry-hand-16.woff2",
-    "start": 25313,
-    "end": 26023,
+    "start": 25316,
+    "end": 26027,
     "glyphs": 512,
-    "bytes": 194976,
-    "probe": 25313
+    "bytes": 194616,
+    "probe": 25316
   },
   {
     "file": "./assets/fonts/pantry-hand-17.woff2",
-    "start": 26024,
-    "end": 26750,
+    "start": 26028,
+    "end": 26755,
     "glyphs": 512,
-    "bytes": 145760,
-    "probe": 26024
+    "bytes": 145928,
+    "probe": 26028
   },
   {
     "file": "./assets/fonts/pantry-hand-18.woff2",
-    "start": 26753,
-    "end": 27547,
+    "start": 26756,
+    "end": 27553,
     "glyphs": 512,
-    "bytes": 203032,
-    "probe": 26753
+    "bytes": 202968,
+    "probe": 26756
   },
   {
     "file": "./assets/fonts/pantry-hand-19.woff2",
-    "start": 27550,
-    "end": 28252,
+    "start": 27554,
+    "end": 28255,
     "glyphs": 512,
-    "bytes": 148768,
-    "probe": 27550
+    "bytes": 148376,
+    "probe": 27554
   },
   {
     "file": "./assets/fonts/pantry-hand-20.woff2",
-    "start": 28253,
-    "end": 29038,
+    "start": 28256,
+    "end": 29043,
     "glyphs": 512,
-    "bytes": 191632,
-    "probe": 28253
+    "bytes": 191824,
+    "probe": 28256
   },
   {
     "file": "./assets/fonts/pantry-hand-21.woff2",
-    "start": 29041,
-    "end": 29787,
+    "start": 29044,
+    "end": 29790,
     "glyphs": 512,
-    "bytes": 171472,
-    "probe": 29041
+    "bytes": 171792,
+    "probe": 29044
   },
   {
     "file": "./assets/fonts/pantry-hand-22.woff2",
-    "start": 29788,
-    "end": 30501,
+    "start": 29791,
+    "end": 30505,
     "glyphs": 512,
-    "bytes": 179104,
-    "probe": 29788
+    "bytes": 178616,
+    "probe": 29791
   },
   {
     "file": "./assets/fonts/pantry-hand-23.woff2",
-    "start": 30502,
-    "end": 31303,
+    "start": 30507,
+    "end": 31306,
     "glyphs": 512,
-    "bytes": 167676,
-    "probe": 30502
+    "bytes": 168544,
+    "probe": 30507
   },
   {
     "file": "./assets/fonts/pantry-hand-24.woff2",
-    "start": 31304,
-    "end": 32083,
+    "start": 31307,
+    "end": 32089,
     "glyphs": 512,
-    "bytes": 203568,
-    "probe": 31304
+    "bytes": 203064,
+    "probe": 31307
   },
   {
     "file": "./assets/fonts/pantry-hand-25.woff2",
-    "start": 32085,
-    "end": 32759,
+    "start": 32090,
+    "end": 32762,
     "glyphs": 512,
-    "bytes": 190932,
-    "probe": 32085
+    "bytes": 191140,
+    "probe": 32090
   },
   {
     "file": "./assets/fonts/pantry-hand-26.woff2",
-    "start": 32760,
-    "end": 33473,
+    "start": 32763,
+    "end": 33478,
     "glyphs": 512,
-    "bytes": 169064,
-    "probe": 32760
+    "bytes": 167892,
+    "probe": 32763
   },
   {
     "file": "./assets/fonts/pantry-hand-27.woff2",
-    "start": 33476,
-    "end": 34278,
+    "start": 33479,
+    "end": 34285,
     "glyphs": 512,
-    "bytes": 176180,
-    "probe": 33476
+    "bytes": 176968,
+    "probe": 33479
   },
   {
     "file": "./assets/fonts/pantry-hand-28.woff2",
-    "start": 34280,
-    "end": 35088,
+    "start": 34292,
+    "end": 35093,
     "glyphs": 512,
-    "bytes": 195168,
-    "probe": 34280
+    "bytes": 194180,
+    "probe": 34292
   },
   {
     "file": "./assets/fonts/pantry-hand-29.woff2",
-    "start": 35090,
-    "end": 35864,
+    "start": 35096,
+    "end": 35868,
     "glyphs": 512,
-    "bytes": 182028,
-    "probe": 35090
+    "bytes": 181748,
+    "probe": 35096
   },
   {
     "file": "./assets/fonts/pantry-hand-30.woff2",
-    "start": 35865,
-    "end": 36587,
+    "start": 35869,
+    "end": 36601,
     "glyphs": 512,
-    "bytes": 183196,
-    "probe": 35865
+    "bytes": 183256,
+    "probe": 35869
   },
   {
     "file": "./assets/fonts/pantry-hand-31.woff2",
-    "start": 36593,
-    "end": 37316,
+    "start": 36602,
+    "end": 37320,
     "glyphs": 512,
-    "bytes": 176184,
-    "probe": 36593
+    "bytes": 176504,
+    "probe": 36602
   },
   {
     "file": "./assets/fonts/pantry-hand-32.woff2",
-    "start": 37317,
-    "end": 38064,
+    "start": 37321,
+    "end": 38068,
     "glyphs": 512,
-    "bytes": 193252,
-    "probe": 37317
+    "bytes": 192464,
+    "probe": 37321
   },
   {
     "file": "./assets/fonts/pantry-hand-33.woff2",
-    "start": 38065,
-    "end": 38706,
+    "start": 38069,
+    "end": 38713,
     "glyphs": 512,
-    "bytes": 163792,
-    "probe": 38065
+    "bytes": 165436,
+    "probe": 38069
   },
   {
     "file": "./assets/fonts/pantry-hand-34.woff2",
-    "start": 38707,
-    "end": 39445,
+    "start": 38715,
+    "end": 39454,
     "glyphs": 512,
-    "bytes": 193776,
-    "probe": 38707
+    "bytes": 193188,
+    "probe": 38715
   },
   {
     "file": "./assets/fonts/pantry-hand-35.woff2",
-    "start": 39446,
-    "end": 40137,
+    "start": 39456,
+    "end": 40141,
     "glyphs": 512,
-    "bytes": 210732,
-    "probe": 39446
+    "bytes": 210344,
+    "probe": 39456
   },
   {
     "file": "./assets/fonts/pantry-hand-36.woff2",
-    "start": 40138,
-    "end": 40900,
+    "start": 40142,
+    "end": 40904,
     "glyphs": 512,
-    "bytes": 217676,
-    "probe": 40138
+    "bytes": 217420,
+    "probe": 40142
   },
   {
     "file": "./assets/fonts/pantry-hand-37.woff2",
-    "start": 40901,
-    "end": 119599,
+    "start": 40905,
+    "end": 119603,
     "glyphs": 512,
-    "bytes": 104256,
-    "probe": 40901
+    "bytes": 102904,
+    "probe": 40905
   },
   {
     "file": "./assets/fonts/pantry-hand-38.woff2",
-    "start": 119600,
-    "end": 140492,
+    "start": 119604,
+    "end": 140580,
     "glyphs": 512,
-    "bytes": 103380,
-    "probe": 119600
+    "bytes": 104532,
+    "probe": 119604
   },
   {
     "file": "./assets/fonts/pantry-hand-39.woff2",
-    "start": 140508,
-    "end": 171475,
+    "start": 140723,
+    "end": 171574,
     "glyphs": 512,
-    "bytes": 186508,
-    "probe": 140508
+    "bytes": 186716,
+    "probe": 140723
   },
   {
     "file": "./assets/fonts/pantry-hand-40.woff2",
-    "start": 171477,
-    "end": 188121,
+    "start": 171581,
+    "end": 188601,
     "glyphs": 512,
-    "bytes": 169892,
-    "probe": 171477
+    "bytes": 169408,
+    "probe": 171581
   },
   {
     "file": "./assets/fonts/pantry-hand-41.woff2",
-    "start": 188158,
+    "start": 188612,
     "end": 1048573,
-    "glyphs": 404,
-    "bytes": 134328,
-    "probe": 188158
+    "glyphs": 400,
+    "bytes": 133580,
+    "probe": 188612
   }
 ]

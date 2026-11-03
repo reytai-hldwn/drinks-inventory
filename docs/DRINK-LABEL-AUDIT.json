@@ -1,14 +1,14 @@
 {
-  "checkedAt": "2026-11-01",
+  "checkedAt": "2026-11-03",
   "note": "完整狀態只表示基本八項數值齊全（含明示的參考／推估版本），成分與過敏原是否已核對分別列示；不代表已取得所有現場包裝原標籤，也不將未確認警語當成無過敏原。",
   "summary": {
-    "total": 40,
-    "basicNutritionComplete": 40,
+    "total": 43,
+    "basicNutritionComplete": 42,
     "partial": 0,
-    "pending": 0,
+    "pending": 1,
     "referencePackages": 5,
-    "missingIngredients": 2,
-    "missingAllergens": 21
+    "missingIngredients": 3,
+    "missingAllergens": 22
   },
   "products": [
     {
@@ -791,6 +791,77 @@
         "checkedAt": "2026-11-01",
         "scope": "依使用者指示，以指定 590 毫升版本的每 100 毫升欄推估 300 毫升。原包裝每份 295 毫升、本瓶 2 份，熱量 53.2 大卡、糖 8.8 公克、鈉 41 毫克；參考配方含異麥芽寡醣，與鋁箔包可能不同。原頁未列明過敏原警語。",
         "url": "https://online.uni-prosperity.com.tw/zh/%E6%84%9B%E4%B9%8B%E5%91%B3/1003504600124.html"
+      }
+    },
+    {
+      "id": null,
+      "name": "午后時光重乳奶茶",
+      "catalogSource": "new-arrival",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "330 毫升",
+      "referenceNote": null,
+      "basis": "每份 330 毫升，本包裝含 1 份",
+      "source": {
+        "type": "retailer-label",
+        "label": "PChome 24h・午后時光重乳奶茶 330 毫升包裝及商品規格",
+        "checkedAt": "2026-11-03",
+        "scope": "直接核對濃版 330 毫升包裝側面的每份與每 100 毫升營養欄，成分及牛奶過敏原警語依同商品規格轉錄；不套用冷藏版或草莓口味。",
+        "url": "https://24h.pchome.com.tw/prod/DBAB7J-A9009I35B",
+        "labelUrl": "https://cs-a.ecimg.tw/items/DBAB7JA9009I35B/i010001_1564120714.jpg"
+      }
+    },
+    {
+      "id": null,
+      "name": "義美寶吉葡萄汁",
+      "catalogSource": "new-arrival",
+      "active": true,
+      "status": "basic-nutrition-complete",
+      "ingredientsChecked": true,
+      "allergensChecked": true,
+      "missingNutrients": [],
+      "container": "125 毫升",
+      "referenceNote": null,
+      "basis": "每份 125 毫升，本包裝含 1 份",
+      "source": {
+        "type": "official",
+        "label": "義美食品線上購・小寶吉葡萄綜合果汁 125 毫升官方規格及營養表",
+        "checkedAt": "2026-11-03",
+        "scope": "成分、共用管線過敏原警語及每份／每 100 毫升營養值，均依義美官網 125 毫升葡萄綜合版轉錄。不同包裝改版可能有配方差異，請以手上包裝為準。",
+        "url": "https://imec.imeifoods.com.tw/products/mixedgrapejuice",
+        "labelUrl": "https://cdn-general.cybassets.com/s/files/14472/ckeditor/pictures/content_ee95027e-43ec-428b-a6f0-c1d0b794b036.jpg"
+      }
+    },
+    {
+      "id": null,
+      "name": "波蜜蜂蜜檸檬",
+      "catalogSource": "new-arrival",
+      "active": true,
+      "status": "pending",
+      "ingredientsChecked": false,
+      "allergensChecked": false,
+      "missingNutrients": [
+        "energyKcal",
+        "proteinG",
+        "fatG",
+        "saturatedFatG",
+        "transFatG",
+        "carbohydrateG",
+        "sugarG",
+        "sodiumMg"
+      ],
+      "container": "160 毫升",
+      "referenceNote": null,
+      "basis": null,
+      "source": {
+        "type": "official",
+        "label": "波蜜官方・160 毫升系列",
+        "checkedAt": "2026-11-03",
+        "scope": "已核對蜂蜜檸檬 160 毫升鋁箔包與產品照片；官網及已查通路未提供可核對的完整成分、過敏原及營養表，相關欄位保留待確認。",
+        "url": "https://www.bomy.com.tw/160ml%E7%B3%BB%E5%88%97/"
       }
     }
   ]

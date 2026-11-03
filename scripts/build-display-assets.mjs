@@ -16,8 +16,8 @@ image('assets/pantry-scene-approved.png','-crop','347x475+1388+388','+repage','-
 image('assets/pantry-scene-approved.png','-crop','218x252+47+584','+repage','-define','webp:lossless=true','assets/pantry-coffee.webp');
 for(const variant of ['wide','portrait']) image(`assets/pantry-office-${variant}.png`,'-quality','90',`assets/pantry-office-${variant}.webp`);
 for(const photo of PRODUCT_PHOTOS.filter(photo=>photo.enabled!==false)){
-  const height=photo.crop?.[3]||photo.height,scale=Math.min(1,396/height);
-  image(photo.src,'-resize',`${(scale*100).toFixed(3)}%`,'-quality','91',resolve(root,photo.displaySrc));
+  const height=photo.crop?.[3]||photo.height,scale=Math.min(1,(photo.displayMaxHeight || 396)/height);
+  image(photo.src,'-resize',`${(scale*100).toFixed(3)}%`,'-quality',String(photo.displayQuality || 91),resolve(root,photo.displaySrc));
 }
 const names=(await readdir('js')).filter(name=>name.endsWith('.js')).sort();
 const text=(await Promise.all(['index.html',...names.map(name=>`js/${name}`)].map(name=>readFile(name,'utf8')))).join('\n');
