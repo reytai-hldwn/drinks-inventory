@@ -454,6 +454,11 @@ body[data-view=overview] main{max-width:none;padding:29px 34px 12px}
 .empty-stock-group-title{display:flex;align-items:baseline;gap:10px;margin:22px 0 4px;font-size:15px}.empty-stock-group-title small{font-family:var(--body-font);font-size:11px;font-weight:400;color:var(--muted)}.empty-stock-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center}.empty-stock-list li>span{min-width:0;overflow-wrap:anywhere}.empty-stock-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}.empty-stock-actions .button{font-size:11px;padding:8px 11px;white-space:normal}.empty-stock-list .needs-restock>b{color:var(--red,#a84636)}
 @media(min-width:1100px){.empty-stock-list li{grid-template-columns:minmax(0,1fr) auto auto}.empty-stock-actions{grid-column:auto;justify-content:flex-end}}
 
+/* Measured consumption rankings: warm paper cards and honest empty states. */
+.ranking-controls{display:grid;grid-template-columns:140px 100px minmax(130px,.8fr) minmax(180px,1.2fr);gap:14px;margin:20px 0}.ranking-controls .field{min-width:0;margin:0;font-size:11px;color:var(--muted)}.ranking-controls input,.ranking-controls select{width:100%;min-width:0}.ranking-archive{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.ranking-archive input{width:auto;accent-color:#a17b4d}.ranking-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 24px}.ranking-stats>div{border-bottom:1px solid var(--line);padding:10px 0 18px;display:grid;gap:12px;min-width:0}.ranking-stats span{font-size:11px;color:var(--muted)}.ranking-stats strong{font-size:30px;font-weight:500;line-height:1.4}.ranking-stats small{font-size:12px;margin-left:8px;font-weight:400}.ranking-stats .ranking-date{font-size:18px;align-self:center}.ranking-podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:28px}.ranking-winner{padding:22px 18px;border:1px solid #e7ddcf;background:#fcfaf7;border-radius:24px 20px 23px 18px;text-align:center;min-width:0;position:relative}.ranking-place-1{border-color:#c79e67;background:#fff9ec}.ranking-medal{display:inline-grid;place-items:center;width:38px;height:38px;border:1px solid #c6a36f;border-radius:50%;color:#a67b3f;font-size:25px}.ranking-product{height:155px;display:flex;align-items:center;justify-content:center}.ranking-item-icon{font-size:68px;line-height:1}.ranking-winner-caption{font-size:11px;color:#977a53;letter-spacing:.08em;margin:8px 0}.ranking-winner h2{font-size:20px;line-height:1.8;margin:4px 0 12px;overflow-wrap:anywhere}.ranking-rate{font-size:12px;color:#836c58;margin:0}.ranking-rate strong{font-size:30px;color:#6b482d;font-weight:500}.ranking-rate small{display:block;color:var(--muted);font-size:11px;margin-top:5px}.ranking-list{padding:24px;margin-bottom:20px}.ranking-list ol{list-style:none;margin:0;padding:0}.ranking-list ol>li{border-bottom:1px solid var(--line);padding:20px 0}.ranking-list ol>li:last-child{border:0}.ranking-row{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:15px;align-items:center}.ranking-position{font-size:20px;font-weight:500;color:#b18c5a}.ranking-name{display:grid;gap:7px;min-width:0;overflow-wrap:anywhere}.ranking-name>strong{font-size:14px;line-height:1.7}.ranking-name>small{font-size:10px;color:var(--muted)}.ranking-bar,.ranking-mini-bar{height:6px;background:#f4eee4;border-radius:5px;overflow:hidden;display:block}.ranking-bar i,.ranking-mini-bar i{height:100%;display:block;background:#c2a06b;border-radius:5px}.ranking-row-rate{text-align:right;display:grid;gap:5px;min-width:55px}.ranking-row-rate strong{font-size:23px;font-weight:500;color:#876034}.ranking-row-rate small{font-size:10px;color:var(--muted)}.ranking-evidence{margin:12px 0 0 47px}.ranking-evidence>summary{cursor:pointer;font-size:11px;color:#9a7546;padding:5px 0}.ranking-evidence>.subtle{font-size:11px;line-height:1.9}.ranking-intervals{list-style:none;margin:12px 0;padding:0}.ranking-intervals li{display:grid;grid-template-columns:minmax(0,1fr) 80px auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px dashed #eadfcf;font-size:11px}.ranking-intervals small{display:block;color:var(--muted);font-size:10px;line-height:1.8;margin-top:4px}.ranking-intervals b{font-weight:400;text-align:right}.ranking-flavors{padding-top:5px}.ranking-flavors h4{font-size:12px}.ranking-flavors ul,.ranking-waiting ul{list-style:none;padding:0;margin:10px 0 0}.ranking-flavors li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;font-size:11px}.ranking-flavors b{font-weight:400;color:var(--muted)}.ranking-waiting{margin:20px 0;padding:22px}.ranking-waiting>summary{display:flex;justify-content:space-between;gap:12px;font-size:14px;cursor:pointer}.ranking-waiting>summary span{font-size:11px;color:var(--muted)}.ranking-waiting li{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 0;border-top:1px solid var(--line);font-size:12px}.ranking-waiting li span{display:grid;gap:7px;min-width:0;overflow-wrap:anywhere}.ranking-waiting li small{font-size:10px;color:var(--muted)}.ranking-waiting li b{font-weight:400;color:var(--muted);font-size:11px;text-align:right;flex-shrink:0}.ranking-method{padding:22px;font-size:12px;color:var(--muted);line-height:2;margin-top:20px}.ranking-method>summary{cursor:pointer;color:var(--ink)}.ranking-empty{padding:45px 25px;text-align:center;line-height:2;margin-bottom:20px}.ranking-empty>span{font-size:38px;color:#b28a50}.ranking-empty h2{font-size:24px}.ranking-empty p{font-size:13px;color:var(--muted);max-width:580px;margin:15px auto 22px}
+@media(max-width:1100px){.ranking-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.ranking-search{grid-column:1/-1}.ranking-winner h2{font-size:17px}.ranking-rate strong{font-size:26px}}
+@media(max-width:640px){.ranking-stats{gap:12px}.ranking-stats strong{font-size:24px}.ranking-stats .ranking-date{font-size:13px;overflow-wrap:anywhere}.ranking-stats small{font-size:10px;margin-left:3px}.ranking-podium{grid-template-columns:1fr;gap:12px}.ranking-winner{display:grid;grid-template-columns:76px minmax(0,1fr);column-gap:16px;text-align:left;padding:20px;min-height:165px}.ranking-medal{position:absolute;right:12px;top:10px;width:28px;height:28px;font-size:20px}.ranking-product{grid-column:1;grid-row:1/5;height:130px;align-self:center}.ranking-winner-caption{margin:5px 25px 2px 0}.ranking-winner h2{font-size:18px;margin:4px 18px 4px 0}.ranking-rate strong{font-size:27px}.ranking-rate small{display:inline;margin-left:8px}.ranking-list{padding:18px}.ranking-list .section-heading h2{font-size:18px}.ranking-row{grid-template-columns:24px minmax(0,1fr) auto;gap:10px}.ranking-row-rate strong{font-size:20px}.ranking-evidence{margin-left:0}.ranking-intervals li{grid-template-columns:minmax(0,1fr) auto;gap:12px}.ranking-mini-bar{display:none}.ranking-waiting{padding:20px}.ranking-waiting li{gap:12px}.ranking-waiting li b{max-width:115px;flex-shrink:1}.ranking-empty h2{font-size:22px}.ranking-flavors li{flex-wrap:wrap}}
+
 </style>
 
 
@@ -976,6 +981,70 @@ function fulfilZeroRestocks(previous, next) {
     if(old&&hasRecordedStock(old)&&old.stock===0&&restockPreferenceMode(previous.restockPreferences||[],kind,id)==='consider'&&(previous.restockPreferences||[]).some(entry=>entry.kind===kind&&entry.itemId===id&&entry.zeroStockPending===true))fulfilled.add(`${kind}:${id}`);
   }
   return fulfilled.size?{...next,restockPreferences:(next.restockPreferences||[]).map(entry=>fulfilled.has(`${entry.kind}:${entry.itemId}`)?{kind:entry.kind,itemId:entry.itemId,mode:'normal',updatedAt:new Date().toISOString()}:entry)}:next;
+}
+
+/** Read-only, measured consumption between completed real stocktakes. */
+const CONSUMPTION_KINDS = Object.freeze({drink:'飲料',snack:'零食'});
+const CONSUMPTION_DAY = 86400000;
+
+function buildConsumptionRecords({drinks=[],supplies=[],events=[],supplyEvents=[]}, now=Date.now()) {
+  const until=+new Date(now),rows=new Map(),supplyKinds=new Map();
+  for(const item of supplies)supplyKinds.set(item.id,item.kind);
+  for(const item of [...drinks.map(item=>({...item,kind:'drink'})),...supplies]){
+    if(Object.hasOwn(CONSUMPTION_KINDS,item.kind))rows.set(`${item.kind}:${item.id}`,{...item,counts:0,latestCountAt:null,segments:[],invalidEvents:0,timeline:[]});
+  }
+  for(const [index,event] of [...events,...supplyEvents].entries()){
+    const kind=event.drinkId?'drink':supplyKinds.get(event.supplyId),row=rows.get(`${kind}:${event.drinkId||event.supplyId}`),stamp=Date.parse(event.createdAt);
+    if(!row||event.accepted===false||!['count','restock'].includes(event.type)||!Number.isFinite(stamp)||stamp>until)continue;
+    row.timeline.push({event,index,stamp});
+  }
+  for(const row of rows.values()){
+    let previous=null,received=0,invalid=false;
+    row.timeline.sort((a,b)=>a.stamp-b.stamp||a.index-b.index);
+    for(const current of row.timeline){
+      const event=current.event,valid=Number.isSafeInteger(event.quantity)&&event.quantity>=0;
+      if(event.type==='restock'){
+        if(previous){if(valid&&Number.isSafeInteger(received+event.quantity))received+=event.quantity;else invalid=true;}
+        continue;
+      }
+      if(!valid){row.invalidEvents++;previous=null;received=0;invalid=false;continue;}
+      row.counts++;row.latestCountAt=event.createdAt;
+      if(previous){
+        const days=(current.stamp-previous.stamp)/CONSUMPTION_DAY,amount=previous.event.quantity+received-event.quantity;
+        const status=invalid||!Number.isSafeInteger(amount)?'invalid':amount<0?'adjustment':days<1?'short':previous.event.quantity===0&&received===0&&event.quantity===0?'unavailable':'ready';
+        row.segments.push({startAt:previous.event.createdAt,endAt:event.createdAt,startQuantity:previous.event.quantity,arrivals:received,endQuantity:event.quantity,consumed:status==='ready'?amount:null,days,status});
+      }
+      previous=current;received=0;invalid=false;
+    }
+    delete row.timeline;
+  }
+  return [...rows.values()];
+}
+
+function consumptionPeriod(records,{days=90,now=Date.now()}={}) {
+  const until=+new Date(now),since=days===0?-Infinity:until-days*CONSUMPTION_DAY;
+  return records.map(row=>{
+    // Keep complete intervals inside the window; never prorate unobserved days.
+    const segments=row.segments.filter(segment=>Date.parse(segment.startAt)>=since&&Date.parse(segment.endAt)<=until),measured=segments.filter(segment=>segment.status==='ready');
+    const observedDays=measured.reduce((sum,segment)=>sum+segment.days,0),consumed=measured.reduce((sum,segment)=>sum+segment.consumed,0),weekly=observedDays?consumed/observedDays*7:null;
+    const issue=segments.some(segment=>['invalid','adjustment'].includes(segment.status))||row.invalidEvents>0;
+    const reason=row.counts===0?'尚未實際盤點':row.counts===1?'等待下次盤點':issue?'盤點差額待確認':segments.some(segment=>segment.status==='unavailable')?'區間內沒有庫存':segments.some(segment=>segment.status==='short')?'兩次盤點未滿一天':'期間內尚無完整盤點區間';
+    return {...row,measured,observedDays,consumed,weekly,issue,reason};
+  });
+}
+
+/** Drink packages can be ranked together; snacks retain their physical-unit filter. All filters stay local. */
+function selectConsumption(records,state={}) {
+  const kind=Object.hasOwn(CONSUMPTION_KINDS,state.kind)?state.kind:'drink';
+  const kindRows=records.filter(row=>row.kind===kind&&(state.archived||row.active!==false));
+  const unitCounts=new Map();for(const row of kindRows)unitCounts.set(row.unit,(unitCounts.get(row.unit)||0)+1);
+  const units=[...(kind==='drink'?['*']:[]),...[...unitCounts].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'zh-TW')).map(([unit])=>unit)],unit=units.includes(state.unit)?state.unit:units[0]||'';
+  const categories=[...new Set(kindRows.filter(row=>(unit==='*'||row.unit===unit)).map(row=>row.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  const category=categories.includes(state.category)?state.category:'';
+  const query=String(state.query||'').normalize('NFKC').trim().toLocaleLowerCase();
+  const items=kindRows.filter(row=>(unit==='*'||row.unit===unit)&&(!category||row.category===category)&&(!query||`${row.name} ${row.flavor||''}`.normalize('NFKC').toLocaleLowerCase().includes(query)));
+  const nameOrder=(a,b)=>a.name.localeCompare(b.name,'zh-TW')||(a.flavor||'').localeCompare(b.flavor||'','zh-TW')||a.id.localeCompare(b.id);
+  return {kind,unit,units,category,categories,items,kindRows:kindRows.filter(row=>(unit==='*'||row.unit===unit)),ranked:items.filter(row=>row.weekly!==null&&row.weekly>0).sort((a,b)=>b.weekly-a.weekly||nameOrder(a,b)),pending:items.filter(row=>row.weekly===null).sort(nameOrder),zero:items.filter(row=>row.weekly===0).sort(nameOrder),observed:items.filter(row=>row.weekly!==null).length};
 }
 
 /** Company-confirmed products; case size defaults to the owner's requested 24. */
@@ -3110,6 +3179,35 @@ function syncFridgeDoor(element, isOpen) {
   else FRIDGE_DOOR_TIMERS.set(element, setTimeout(finishOpening, officeAnimation ? OFFICE_OPEN_DURATION : FRIDGE_OPEN_DURATION));
 }
 
+
+const rankNumber=value=>value>0&&value<0.1?'低於 0.1':new Intl.NumberFormat('zh-TW',{maximumFractionDigits:1}).format(value);
+const rankDate=value=>new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'numeric',day:'numeric'}).format(new Date(value));
+const rankName=row=>`${row.kind==='drink'?fridgeDisplayName(row.name):row.name}${row.flavor?`｜${row.flavor}`:''}`;
+const rankArt=row=>row.kind==='drink'?drinkPack(row):`<span class="ranking-item-icon" aria-hidden="true">${row.kind==='snack'?'🍿':row.kind==='noodle'?'🍜':'▧'}</span>`;
+
+function renderConsumptionControls(selection,state) {
+  return `<div class="warehouse-kind-tabs" role="group" aria-label="排行榜品類">${Object.entries(CONSUMPTION_KINDS).map(([kind,label])=>`<button type="button" class="filter-tab${selection.kind===kind?' selected':''}" data-action="ranking-kind" data-id="${kind}" aria-pressed="${selection.kind===kind}">${label}</button>`).join('')}</div><div class="ranking-controls"><label class="field">觀察期間<select data-ranking-filter="days"><option value="30"${state.days===30?' selected':''}>最近 30 天</option><option value="90"${state.days===90?' selected':''}>最近 90 天</option><option value="0"${state.days===0?' selected':''}>全部紀錄</option></select></label><label class="field">比較單位<select data-ranking-filter="unit"${selection.units.length?'':' disabled'}>${selection.units.map(unit=>`<option value="${h(unit)}"${unit===selection.unit?' selected':''}>${unit==='*'?'全部包裝':h(unit)}</option>`).join('')||'<option>尚無品項</option>'}</select></label><label class="field">分類<select data-ranking-filter="category"><option value="">所有分類</option>${selection.categories.map(category=>`<option${category===selection.category?' selected':''}>${h(category)}</option>`).join('')}</select></label><label class="field ranking-search">搜尋品項或口味<input type="search" id="ranking-search" maxlength="80" value="${h(state.query||'')}" placeholder="找找大家愛吃、愛喝的…"></label><label class="ranking-archive"><input type="checkbox" data-ranking-filter="archived"${state.archived?' checked':''}>包含歷史品項</label></div>`;
+}
+
+function rankEvidence(row,selection) {
+  const measured=row.measured.slice(-12),max=Math.max(...measured.map(segment=>segment.consumed/segment.days*7),0);
+  const flavors=row.kind==='snack'?selection.kindRows.filter(other=>other.name===row.name&&other.id!==row.id):[];
+  return `<details class="ranking-evidence"><summary>看看這個排名怎麼來</summary><p class="subtle">共 ${row.measured.length} 個完成的盤點區間，觀察 ${rankNumber(row.observedDays)} 天。${row.issue?'部分差額異常區間未列入估算。':''}</p><ul class="ranking-intervals">${measured.map(segment=>{
+    const rate=segment.consumed/segment.days*7;
+    return `<li><span>${rankDate(segment.startAt)}–${rankDate(segment.endAt)}<small>盤點 ${segment.startQuantity} ＋入庫 ${segment.arrivals} −盤點 ${segment.endQuantity} ＝ ${segment.consumed} ${h(row.unit)}</small></span><span class="ranking-mini-bar" aria-hidden="true"><i style="width:${max?Math.round(rate/max*100):0}%"></i></span><b>${rankNumber(rate)}<small>${h(row.unit)}／週</small></b></li>`;
+  }).join('')}</ul>${row.measured.length>12?'<p class="subtle">上方顯示最近 12 個完整區間。</p>':''}${flavors.length?`<div class="ranking-flavors"><h4>同品項的其他口味</h4><ul>${flavors.map(other=>`<li><span>${h(other.flavor||'未填口味')}</span><b>${other.weekly===null?h(other.reason):`${rankNumber(other.weekly)} ${h(other.unit)}／週`}</b></li>`).join('')}</ul></div>`:''}</details>`;
+}
+
+function renderConsumptionResults(selection) {
+  const latest=selection.items.map(row=>row.latestCountAt).filter(Boolean).sort((a,b)=>Date.parse(b)-Date.parse(a))[0];
+  const top=selection.ranked.slice(0,3),maximum=selection.ranked[0]?.weekly||0;
+  const stats=`<div class="ranking-stats"><div><span>可估算消耗</span><strong>${selection.observed}<small>種</small></strong></div><div><span>等待更多紀錄</span><strong>${selection.pending.length}<small>種</small></strong></div><div><span>最近實際盤點</span><strong class="ranking-date">${latest?rankDate(latest):'尚無紀錄'}</strong></div></div>`;
+  const podium=top.length?`<section class="ranking-podium" aria-label="每週消耗前三名">${top.map((row,index)=>`<article class="ranking-winner ranking-place-${index+1}"><span class="ranking-medal" aria-label="第 ${index+1} 名">${['♛','②','③'][index]}</span><div class="ranking-product">${rankArt(row)}</div><p class="ranking-winner-caption">${index===0?'本期人氣王':index===1?'大家的心頭好':'默默被偏愛'}</p><h2>${h(rankName(row))}</h2><p class="ranking-rate"><strong>${rankNumber(row.weekly)}</strong> ${h(row.unit)}<small>平均每週</small></p>${row.active===false?'<span class="pill pill-muted">歷史品項</span>':''}</article>`).join('')}</section>`:`<section class="panel ranking-empty"><span aria-hidden="true">${selection.zero.length?'☕':'☆'}</span><h2>${selection.items.length===0?'這個分類還沒有相符品項':selection.zero.length?'這段期間尚未觀察到消耗':'排行榜準備中'}</h2><p>${selection.items.length===0?'換個單位、分類或搜尋文字看看。':selection.zero.length?'已有可比較的盤點紀錄，但數量沒有減少；這些品項會列在下方。':'每個品項完成兩次至少相隔一天的實際盤點後，就能算出每週平均消耗。只有入庫或一次盤點時，先不列排名。'}</p>${selection.items.length?'<a class="button button-outline" href="#count">前往快速盤點 ↗</a>':''}</section>`;
+  const list=selection.ranked.length?`<section class="panel ranking-list"><div class="section-heading"><h2>每週消耗排行榜</h2><span class="subtle">${selection.unit==='*'?'包／瓶／罐':h(selection.unit)}／週 · 共 ${selection.ranked.length} 種</span></div><ol>${selection.ranked.slice(0,20).map((row,index)=>`<li data-ranking-item="${h(row.id)}"><div class="ranking-row"><b class="ranking-position">${String(index+1).padStart(2,'0')}</b><div class="ranking-name"><strong>${h(rankName(row))}</strong><small>${h(row.category||CONSUMPTION_KINDS[row.kind])}${row.active===false?' · 歷史品項':''} · ${row.measured.length} 個盤點區間</small><span class="ranking-bar" aria-hidden="true"><i style="width:${Math.max(1,Math.round(row.weekly/maximum*100))}%"></i></span></div><span class="ranking-row-rate"><strong>${rankNumber(row.weekly)}</strong><small>${h(row.unit)}／週</small></span></div>${rankEvidence(row,selection)}</li>`).join('')}</ol>${selection.ranked.length>20?'<p class="subtle">顯示前 20 名，可用搜尋找特定品項。</p>':''}</section>`:'';
+  const unranked=(rows,title,zero=false)=>rows.length?`<details class="panel ranking-waiting"><summary>${title}<span>${rows.length} 種</span></summary><ul>${rows.slice(0,50).map(row=>`<li><span><strong>${h(rankName(row))}</strong><small>${row.counts} 次實際盤點${row.latestCountAt?` · 最近 ${rankDate(row.latestCountAt)}`:''}</small></span><b>${zero?`0 ${h(row.unit)}／週`:h(row.reason)}</b></li>`).join('')}</ul>${rows.length>50?'<p class="subtle">顯示前 50 種，可用搜尋縮小範圍。</p>':''}</details>`:'';
+  return `${stats}${podium}${list}${unranked(selection.zero,'本期未觀察到消耗',true)}${unranked(selection.pending,'正在累積紀錄')}<details class="panel ranking-method"><summary>怎麼看這份排行榜？</summary><p>兩次實際盤點之間，用「上次盤點＋期間入庫−這次盤點」估算消耗，再按觀察天數換算成每週平均。飲料可將包、瓶、罐一起按消耗件數比較；零食保留相同單位比較。沒有實際紀錄的品項不列為零消耗。</p><p>只採選定期間內完整、至少一天的盤點區間；數量異常與整段沒有庫存的區間不列入。盤點也可能包含報廢或調整，因此這是消耗估算。</p></details>`;
+}
+
 /** A normal HTML POST needs no CORS permission. Only the server's read-only
  *  receipt confirms success; an iframe load or an opaque response never does. */
 function submitGoogleWebsiteCommand(endpoint, command, options = {}) {
@@ -4534,7 +4632,8 @@ const packagingTypes = ['窄瓶鋁箔包', '鋁箔包', '鐵罐', '小型鐵罐'
 const restockViews = { restock: 'drink', 'restock-snack':'snack', 'restock-noodle': 'noodle', 'restock-toner': 'toner' };
 const NEW_ARRIVAL_VALUE = '__new__';
 const viewNames = { overview: '飲料冰箱', wishes: '採買許願池', archive: '歷史品項', admin: '管理後台', products: '倉庫庫存', count: '快速盤點', restock: '到貨入庫 · 飲料', 'restock-snack':'到貨入庫 · 零食', 'restock-noodle': '到貨入庫 · 泡麵', 'restock-toner': '到貨入庫 · 碳粉', 'manage-wishes': '願望管理', history: '異動紀錄' };
-const adminViews = new Set(['admin', 'products', 'count', ...Object.keys(restockViews), 'manage-wishes', 'history']);
+viewNames.consumption = '消耗排行榜';
+const adminViews = new Set(['admin', 'consumption', 'products', 'count', ...Object.keys(restockViews), 'manage-wishes', 'history']);
 let view = 'overview';
 let wishFilter = 'all';
 const wishKind = (wish) => wish?.kind === 'snack' ? 'snack' : 'drink';
@@ -4565,6 +4664,8 @@ let countKind = 'drink';
 let popularityLoading = false;
 let popularityError = false;
 let adminZeroItems = [];
+const rankingState = {kind:'drink',days:90,unit:'',category:'',query:'',archived:false};
+let rankingCache = null;
 
 const formatDate = (value, time = false) => value ? new Intl.DateTimeFormat('zh-TW', {
   timeZone: 'Asia/Taipei', ...(time ? { year: 'numeric' } : {}), month: '2-digit', day: '2-digit', ...(time ? { hour: '2-digit', minute: '2-digit', hour12: false } : {}),
@@ -5132,6 +5233,20 @@ function renderAdmin(){
   loadAdminSummary();
 }
 
+function rankingData() {
+  const refs=[store.data.drinks,store.supplies,store.data.events,store.supplyEvents],minute=Math.floor(Date.now()/60000);
+  if(!rankingCache||rankingCache.minute!==minute||refs.some((ref,index)=>ref!==rankingCache.refs[index])){
+    const now=Date.now();rankingCache={refs,minute,now,records:buildConsumptionRecords({drinks:refs[0],supplies:refs[1],events:refs[2],supplyEvents:refs[3]},now)};
+  }
+  if(rankingCache.days!==rankingState.days){rankingCache.days=rankingState.days;rankingCache.metrics=consumptionPeriod(rankingCache.records,{days:rankingState.days,now:rankingCache.now});}
+  return rankingCache.metrics;
+}
+function renderConsumption() {
+  const selection=selectConsumption(rankingData(),rankingState);rankingState.unit=selection.unit;rankingState.category=selection.category;
+  main.innerHTML=heading('PANTRY FAVORITES','茶水間人氣排行榜','看看大家愛喝、愛吃什麼。依每週平均消耗排名，飲料的包、瓶、罐可以一起比較。')+renderConsumptionControls(selection,rankingState)+`<div id="ranking-results" aria-live="polite">${renderConsumptionResults(selection)}</div>`;
+}
+function updateRankingResults(){const target=$('#ranking-results');if(target)target.innerHTML=renderConsumptionResults(selectConsumption(rankingData(),rankingState));}
+
 function render() {
   syncFridgeScene(null);
   main.removeAttribute('aria-busy');
@@ -5144,7 +5259,7 @@ function render() {
   }
   if (store.mode === 'google' && !store.supportsWebsiteEntry && view === 'count') { renderGoogleEntry(); return; }
   if (Object.hasOwn(restockViews, view)) renderRestock();
-  else ({ overview: renderOverview, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
+  else ({ overview: renderOverview, consumption:renderConsumption, products: renderWarehouse, archive: renderArchive, admin: renderAdmin, count: renderCount, wishes: renderWishes, 'manage-wishes': renderWishes, history: renderHistory })[view]();
 }
 
 async function route() {
@@ -5454,6 +5569,9 @@ async function submitForm(form) {
 }
 
 async function runAction(action, id) {
+  if(action==='ranking-kind'){
+    if(view==='consumption'&&Object.hasOwn(CONSUMPTION_KINDS,id)){Object.assign(rankingState,{kind:id,unit:'',category:'',query:''});renderConsumption();}return;
+  }
   if(['empty-pending','empty-undecided','empty-archive'].includes(action)){
     const [kind,itemId]=id.split(':'),item=adminZeroItems.find(item=>item.kind===kind&&item.id===itemId);
     if(view!=='admin'||!item)throw new Error('請重新整理無庫存清單。');
@@ -5644,6 +5762,7 @@ document.addEventListener('click', (event) => {
 
 document.addEventListener('input', (event) => {
   inputSequence += 1;
+  if(event.target.id==='ranking-search'){rankingState.query=event.target.value;updateRankingResults();return;}
   if(event.target.matches('[data-batch-search]')){modalDirty=true;updateBatchPicker(event.target.closest('.batch-row'));return;}
   if(event.target.matches('[data-snack-query],[data-snack-category]')){updateSnackPicker(event.target.closest('form'));return;}
   if (event.target.closest('dialog form')) modalDirty = true;
@@ -5657,6 +5776,13 @@ document.addEventListener('input', (event) => {
 });
 document.addEventListener('change', (event) => {
   inputSequence += 1;
+  if(event.target.matches('[data-ranking-filter]')){
+    const key=event.target.dataset.rankingFilter;
+    if(key==='days'){const value=Number(event.target.value);if(![0,30,90].includes(value))return;rankingState.days=value;}
+    else if(key==='archived')rankingState.archived=event.target.checked;
+    else if(['category','unit'].includes(key))rankingState[key]=event.target.value;
+    renderConsumption();document.querySelector(`[data-ranking-filter="${key}"]`)?.focus();return;
+  }
   if(event.target.matches('[data-batch-kind]')){const row=event.target.closest('.batch-row'),quantity=row.querySelector('[data-batch-quantity]').value,note=row.querySelector('[data-batch-note]').value;row.innerHTML=batchRowMarkup(event.target.value);row.querySelector('[data-action=batch-remove]').dataset.id=row.id;row.querySelector('[data-batch-quantity]').value=quantity;row.querySelector('[data-batch-note]').value=note;updateBatchPicker(row);modalDirty=true;return;}
   if(event.target.matches('[data-batch-item]')){updateBatchPicker(event.target.closest('.batch-row'));modalDirty=true;return;}
   if(event.target.matches('[data-snack-query],[data-snack-category]')){updateSnackPicker(event.target.closest('form'));return;}
@@ -5867,6 +5993,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <a href="#archive" data-view="archive" data-front><span aria-hidden="true">◷</span> 歷史品項</a>
         <a href="#wishes" data-view="wishes" data-front><span aria-hidden="true">♡</span> 採買許願池</a>
         <a href="#admin" data-view="admin" data-editor hidden><span aria-hidden="true">⌂</span> 後台總覽</a>
+        <a href="#consumption" data-view="consumption" data-editor hidden><span aria-hidden="true">▥</span> 消耗排行榜</a>
         <a href="#products" data-view="products" data-editor hidden><span aria-hidden="true">▦</span> 倉庫庫存</a>
         <a href="#count" data-view="count" data-editor><span aria-hidden="true">☷</span> 快速盤點</a>
         <a href="#restock" data-view="restock" data-editor><span aria-hidden="true">↗</span> 到貨入庫</a>
