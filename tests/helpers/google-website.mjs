@@ -10,6 +10,7 @@ export function memorySheet(rows = []) {
       const range = new Proxy({
         getValues: () => Array.from({ length: count }, (_, offset) => Array.from({ length: columns }, (_, col) => rows[row - 1 + offset]?.[column - 1 + col] ?? '')),
         setValues(values) {
+          if(values.length!==count||values.some(cells=>cells.length!==columns))throw new Error('Spreadsheet range dimensions do not match values');
           values.forEach((cells, offset) => {
             rows[row - 1 + offset] ||= [];
             cells.forEach((value, col) => { rows[row - 1 + offset][column - 1 + col] = typeof value === 'string' && value.startsWith("'") ? value.slice(1) : value; });

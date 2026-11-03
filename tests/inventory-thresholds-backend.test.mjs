@@ -43,7 +43,7 @@ test('protein snacks create, persist and read through the seventh ordered catego
   const accepted=b.send('new-arrival',data,requestId);
   assert.equal(accepted.state,'accepted');assert.deepEqual(b.send('new-arrival',data,requestId),accepted);
   const id=accepted.result.id,row=b.sheets.SupplyCatalog.rows.find(entry=>entry[0]===id);
-  assert.deepEqual(row,[id,data.name,'snack','條',true,'蛋白質零食']);
+  assert.deepEqual(row,[id,data.name,'snack','條',true,'蛋白質零食','']);
   assert.equal(b.sheets.SupplyCatalog.rows.filter(entry=>entry[0]===id).length,1);
   const events=plain(b.ctx.supplyEvents_(b.ss)).filter(entry=>entry.supplyId===id);
   assert.equal(events.length,1);assert.equal(events[0].quantity,7);assert.equal(events[0].expiresOn,null);
@@ -51,12 +51,12 @@ test('protein snacks create, persist and read through the seventh ordered catego
   const reloaded=websiteBackend();
   for(const name of ['SupplyCatalog','SupplyHistory'])reloaded.sheets[name]=memorySheet(plain(b.sheets[name].rows));
   const saved=plain(reloaded.ctx.warehouseData_()).supplies.find(entry=>entry.id===id);
-  assert.equal(saved.category,'蛋白質零食');assert.equal(saved.unit,'條');assert.equal(saved.stock,null);assert.equal(saved.lastCountAt,null);
+  assert.equal(saved.category,'蛋白質零食');assert.equal(saved.unit,'條');assert.equal(saved.stock,7);assert.equal(saved.lastCountAt,null);
   assert.equal(preference(reloaded,{kind:'snack',id},'consider').state,'accepted');
   const summary=plain(reloaded.ctx.adminSummaryData_());
-  assert.equal(summary.manualSnackItems.find(entry=>entry.id===id).stock,null);assert.equal(summary.lowItems.some(entry=>entry.id===id),false);
+  assert.equal(summary.manualSnackItems.find(entry=>entry.id===id).stock,7);assert.equal(summary.lowItems.some(entry=>entry.id===id),true);
   const rendered=reloaded.sheets.SupplyWarehouse.rows.find(entry=>entry[0]===id);
-  assert.equal(rendered[6],'');assert.equal(rendered[7],'可以考慮補貨');assert.equal(rendered[8],'蛋白質零食');
+  assert.equal(rendered[6],'');assert.equal(rendered[7],'需要補貨');assert.equal(rendered[8],'蛋白質零食');
 });
 
 test('summary separates empty drinks, snacks and noodles from low stock while retaining toner zero and manual snacks',()=>{
@@ -68,13 +68,13 @@ test('summary separates empty drinks, snacks and noodles from low stock while re
     const summary=plain(b.ctx.adminSummaryData_());
     for(const target of targets){
       const low=summary.lowItems.find(entry=>entry.kind===target.kind&&entry.id===target.id);
-      assert.equal(Boolean(low),quantity<=target.threshold&&(quantity>0||target.kind==='toner'),`${target.kind} ${target.unit||''} at ${quantity}`);
+      assert.equal(Boolean(low),quantity<=(target.kind==='noodle'?3:target.threshold)&&(quantity>0||target.kind==='toner'),`${target.kind} ${target.unit||''} at ${quantity}`);
       if(low){assert.equal(low.stock,quantity);assert.equal(low.mode,'normal');if(target.unit)assert.equal(low.unit,target.unit);}
       const empty=summary.outOfStockItems.find(entry=>entry.kind===target.kind&&entry.id===target.id);
       assert.equal(Boolean(empty),quantity===0&&target.kind!=='toner',`${target.kind} ${target.unit||''} empty at ${quantity}`);
       if(empty){assert.equal(empty.stock,0);assert.equal(empty.mode,'normal');if(target.unit)assert.equal(empty.unit,target.unit);}
     }
-    assert.equal(summary.lowItems.some(entry=>entry.kind==='snack'),false);
+    assert.equal(summary.lowItems.some(entry=>entry.kind==='snack'),quantity>0&&quantity<=10);
     assert.equal(summary.lowItems.some(entry=>entry.id==='supply-noodle-03'||entry.id==='supply-toner-red'),false);
     assert.equal(summary.manualSnackItems.length,1);assert.equal(summary.manualSnackItems[0].stock,quantity);
     assert.equal(summary.outOfStockItems.some(entry=>entry.id==='supply-snack-01'),quantity===0);
@@ -98,10 +98,10 @@ test('zero-stock summary rows preserve preference modes, overlap manual snack fl
     ['toner','supply-toner-black',0,'hold'],['noodle','supply-noodle-02',1,'normal'],
   ]);
   assert.deepEqual(summary.outOfStockItems,[
-    {kind:'drink',id:'milk',name:'牛乳',unit:'包',stock:0,mode:'hold'},
-    {kind:'snack',id:'supply-snack-01',name:'多力多滋雙倍起司口味',unit:'包',stock:0,mode:'consider'},
-    {kind:'snack',id:'supply-snack-02',name:'多力多滋香菜口味',unit:'包',stock:0,mode:'normal'},
-    {kind:'noodle',id:'supply-noodle-01',name:'來一客海鮮',unit:'杯',stock:0,mode:'replace'},
+    {kind:'drink',id:'milk',name:'牛乳',flavor:'',unit:'包',stock:0,mode:'hold'},
+    {kind:'snack',id:'supply-snack-01',name:'多力多滋',flavor:'雙倍起司',unit:'包',stock:0,mode:'consider'},
+    {kind:'snack',id:'supply-snack-02',name:'多力多滋',flavor:'香菜',unit:'包',stock:0,mode:'normal'},
+    {kind:'noodle',id:'supply-noodle-01',name:'來一客海鮮',flavor:'',unit:'杯',stock:0,mode:'replace'},
   ]);
   assert.deepEqual(summary.manualSnackItems.map(item=>[item.id,item.stock]),[['supply-snack-01',0],['supply-snack-04',null]]);
   assert.equal(b.sheets.SupplyWarehouse.rows.find(row=>row[0]==='supply-snack-02')[7],'');
@@ -122,18 +122,18 @@ test('new holds and replacements require the matching typed threshold and preser
   }
 });
 
-test('arrival-only and invalid or uncounted balances never produce automatic low reminders',()=>{
+test('arrival-only balances become known without automatically marking them for refill',()=>{
   const b=websiteBackend();b.sheets.History.rows.splice(1);
   assert.equal(b.send('arrival',{drinkId:'milk',loose:1,recorder:'未盤點入庫'}).state,'accepted');
   for(const target of targets.filter(entry=>entry.kind!=='drink')){
     assert.equal(b.send('supply-arrival',{supplyId:target.id,quantity:1,expiresOn:target.kind==='noodle'?'2099-12-31':undefined,recorder:'未盤點入庫'}).state,'accepted');
   }
-  assert.deepEqual(plain(b.ctx.adminSummaryData_()).lowItems,[]);
+  assert.deepEqual(plain(b.ctx.adminSummaryData_()).restockItems,[]);
   assert.deepEqual(plain(b.ctx.adminSummaryData_()).outOfStockItems,[]);
   for(const target of targets){
     assert.equal(preference(b,target,'hold').state,'rejected');
     const item=target.kind==='drink'?b.inventory().find(entry=>entry.drink.id===target.id):inventory(b).find(entry=>entry.id===target.id);
-    assert.equal(item.stock,null);assert.equal(item.lastCountAt,null);
+    assert.equal(item.stock,1);assert.equal(item.lastCountAt,null);
     for(const stock of [null,undefined,'0',NaN,Infinity,-1,0.5]){
       assert.equal(b.ctx.inventoryIsLow_(target.kind,{stock,lastCountAt:'2026-01-01'}),false);
     }
@@ -142,7 +142,7 @@ test('arrival-only and invalid or uncounted balances never produce automatic low
   b.ctx.renderSupplyWarehouse_(b.ss);
   for(const target of targets.filter(entry=>entry.kind!=='drink'))assert.equal(b.sheets.SupplyWarehouse.rows.find(entry=>entry[0]===target.id)[7],'');
   restoreDrinkRenderer(b);b.ctx.renderWarehouse_(b.ss,b.ctx.computeInventory_(b.ctx.catalog_(b.ss),b.ctx.historyEvents_(b.ss)));
-  assert.equal(b.sheets.Warehouse.rows.find(entry=>entry?.[0]==='milk')[9],'待盤點');
+  assert.equal(b.sheets.Warehouse.rows.find(entry=>entry?.[0]==='milk')[9],'');
 });
 
 test('stored pauses remain visible after replenishment and can transition or clear without quantity events',()=>{
@@ -163,25 +163,25 @@ test('stored pauses remain visible after replenishment and can transition or cle
     assert.equal(preference(b,target,'normal','replace').state,'accepted');
     assert.equal(preference(b,target,'hold').state,'rejected');
     assert.deepEqual(sources(b),before);assert.equal(b.sheets.RestockPreferences.rows.length,4);
-    if(target.kind==='drink')assert.equal(b.sheets.Warehouse.rows.find(entry=>entry?.[0]===target.id)[9],'庫存充足');
+    if(target.kind==='drink')assert.equal(b.sheets.Warehouse.rows.find(entry=>entry?.[0]===target.id)[9],'');
     else assert.equal(b.sheets.SupplyWarehouse.rows.find(entry=>entry[0]===target.id)[7],'');
   }
 });
 
-test('generated warehouse notices follow typed thresholds while retaining existing column schemas',()=>{
+test('generated warehouse notices require manual flags and preserve columns including flavor',()=>{
   for(const quantity of [0,1,2,10,11]){
     const b=websiteBackend();for(const target of targets)count(b,target,quantity);
     count(b,{kind:'snack',id:'supply-snack-01'},quantity);
     const before=sources(b);b.ctx.renderSupplyWarehouse_(b.ss);
-    assert.equal(b.sheets.SupplyWarehouse.rows[0].length,9);
+    assert.equal(b.sheets.SupplyWarehouse.rows[0].length,10);
     for(const target of targets.filter(entry=>entry.kind!=='drink')){
       const row=b.sheets.SupplyWarehouse.rows.find(entry=>entry[0]===target.id);
-      assert.equal(row.length,9);assert.equal(row[7],quantity<=target.threshold?'需要補貨':'',`${target.kind} ${target.unit||''} notice at ${quantity}`);
+      assert.equal(row.length,10);assert.equal(row[7],'',`${target.kind} ${target.unit||''} notice at ${quantity}`);
     }
     assert.equal(b.sheets.SupplyWarehouse.rows.find(entry=>entry[0]==='supply-snack-01')[7],'');
     restoreDrinkRenderer(b);b.ctx.renderWarehouse_(b.ss,b.ctx.computeInventory_(b.ctx.catalog_(b.ss),b.ctx.historyEvents_(b.ss)));
     const row=b.sheets.Warehouse.rows.find(entry=>entry?.[0]==='milk');
-    assert.equal(row.length,11);assert.equal(row[9],quantity<=10?'需要補貨':'庫存充足');assert.equal(row[10],10);
+    assert.equal(row.length,11);assert.equal(row[9],'');assert.equal(row[10],10);
     assert.deepEqual(sources(b),before);
   }
 });
@@ -197,7 +197,7 @@ test('inactive items stay outside automatic reminders and existing snack manual 
     if(quantity!==null)count(b,target,quantity);
     if(quantity===null)assert.equal(preference(b,target,'consider').state,'accepted');
     assert.equal(plain(b.ctx.adminSummaryData_()).manualSnackItems[0].stock,quantity);
-    assert.equal(b.sheets.SupplyWarehouse.rows.find(row=>row[0]===target.id)[7],'可以考慮補貨');
+    assert.equal(b.sheets.SupplyWarehouse.rows.find(row=>row[0]===target.id)[7],'需要補貨');
     assert.equal(plain(b.ctx.adminSummaryData_()).lowItems.some(entry=>entry.kind==='snack'),false);
   }
 });
