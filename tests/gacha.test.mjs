@@ -30,7 +30,7 @@ test('a Taiwan calendar day persists the fortune and selected ID through reload 
 test('existing daily IDs retain their meaning and removed fortunes cannot return after an update',()=>{
  const now=Date.parse('2026-11-04T08:00:00Z'),local=storage(),draw=drawGacha({now,random:()=>0});
  for(const [fortuneId,text]of [['lucky-17','今天的快樂不必回測，先喝一口就知道。'],['pause-02','宇宙暫時沒給進場訊號，倒是給了你一張喝飲料的通行證。'],['pause-01','今日慢下來，先把飲料拿穩。']]){
-  saveDailyGacha(local,'daily',{...draw,fortuneId});const saved=readDailyGacha(local,'daily',now);assert.equal(saved.fortuneId,fortuneId);assert.ok(renderGacha({draw:saved},[]).includes(text));
+  saveDailyGacha(local,'daily',{...draw,fortuneId});const saved=readDailyGacha(local,'daily',now);assert.equal(saved.fortuneId,fortuneId);assert.ok(renderGacha({draw:saved},[]).replace(/<[^>]+>/g,'').includes(text));
  }
  for(const fortuneId of ['lucky-11','lucky-13','lucky-14','lucky-15','lucky-19','steady-01','steady-02','steady-03']){
   saveDailyGacha(local,'daily',{...draw,fortuneId});assert.equal(readDailyGacha(local,'daily',now),null);
@@ -40,7 +40,7 @@ test('existing daily IDs retain their meaning and removed fortunes cannot return
 test('drink selection uses only server-confirmed eligible, active IDs and leaves inventory untouched',()=>{
  const drinks=[{id:'known',name:'可爾必思開心成長160ml',active:true,packaging:'鋁箔包',unit:'包'},{id:'zero',name:'無庫存',active:true},{id:'old',name:'歷史',active:false},{id:'unknown',name:'待盤點',active:true}],before=structuredClone(drinks);
  assert.equal(chooseGachaDrink(drinks,['old','known','known'],()=>0).id,'known');assert.equal(chooseGachaDrink(drinks,[],()=>0),null);
- const state={draw:{...drawGacha({random:()=>0}),drinkId:'known'},loading:false,spinning:false},html=renderGacha(state,drinks);
+ const state={draw:{...drawGacha({random:()=>0}),drinkId:'known'},loading:false,phase:'ready'},html=renderGacha(state,drinks);
  assert.match(html,/要來一包可爾必思嗎？/);assert.match(html,/160 毫升/);assert.match(html,/data-action="view-drink"/);assert.doesNotMatch(html,/無庫存|歷史|待盤點/);assert.deepEqual(drinks,before);
 });
 
