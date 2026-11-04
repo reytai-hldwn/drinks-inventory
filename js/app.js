@@ -79,6 +79,8 @@ const supplyById = id => supplyItems().find(item=>item.id===id);
 const preferenceMode = (kind,id) => restockPreferenceMode(store.restockPreferences||[],kind,id);
 const restockPaused = (kind,id) => preferenceMode(kind,id)!=='normal';
 const sortedStock = items => sortInventoryItems(items,store.restockPreferences||[]);
+const countNameCollator = new Intl.Collator('zh-Hant-TW-u-co-stroke',{numeric:true,sensitivity:'base'});
+const sortedCountItems = items => [...items].sort((a,b)=>countNameCollator.compare(a.name,b.name)||countNameCollator.compare(a.flavor||'',b.flavor||''));
 const needsRestock = (item,kind='drink') => preferenceMode(kind,item.id)==='consider';
 const eventItem = event => event.supplyId ? supplyById(event.supplyId) : drinkById(event.drinkId);
 const eventExpiry = event => event.expiresOn || (event.batchId ? (store.supplyEvents||[]).find(batch=>batch.id===event.batchId)?.expiresOn : null);
@@ -367,7 +369,7 @@ function openSupplyForm(action,id){
   }else{
     const items=action==='supply-count'?supplyItems().filter(item=>item.id===id&&item.active!==false):supplyItems().filter(item=>item.kind===id&&item.active!==false);
     if(!items.length)throw new Error('找不到可盤點的品項。');
-    showModal(items.every(item=>item.kind==='snack')?'更新剩餘數量':'登記實際盤點',items.every(item=>item.kind==='snack')?'有確認的品項再填即可；空白保留原紀錄，確定已吃完請填 0。':'至少填一個品項即可；空白保留原紀錄，實際為零請填 0。',`<form id="supply-count-form">${recorderField()}${supplyCountTable(sortedStock(items))}<div class="form-actions"><button class="button" type="submit">${items.every(item=>item.kind==='snack')?'儲存數量':'儲存盤點'}</button>${button('取消','close-modal','type="button"','button-outline')}</div></form>`);
+    showModal(items.every(item=>item.kind==='snack')?'更新剩餘數量':'登記實際盤點',items.every(item=>item.kind==='snack')?'有確認的品項再填即可；空白保留原紀錄，確定已吃完請填 0。':'至少填一個品項即可；空白保留原紀錄，實際為零請填 0。',`<form id="supply-count-form">${recorderField()}${supplyCountTable(sortedCountItems(items))}<div class="form-actions"><button class="button" type="submit">${items.every(item=>item.kind==='snack')?'儲存數量':'儲存盤點'}</button>${button('取消','close-modal','type="button"','button-outline')}</div></form>`);
   }
 }
 
@@ -464,14 +466,14 @@ async function copyLowStock() {
 
 function countFilterControls(items) {
   const state=countFilters[countKind],options=countKind==='drink'?categories:countKind==='snack'?SNACK_CATEGORIES:[];
-  const products=[...new Set(items.filter(item=>!state.category||item.category===state.category).map(item=>item.name))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  const products=[...new Set(items.filter(item=>!state.category||item.category===state.category).map(item=>item.name))].sort(countNameCollator.compare);
   if(!products.includes(state.product))state.product='';
   return `<div class="supply-search-controls${countKind==='snack'?' has-snack-filters':''}"><label class="search-field">搜尋品項<input id="count-search" type="search" maxlength="80" value="${h(state.query)}" placeholder="搜尋品名或口味…"></label>${options.length?`<label class="field">${countKind==='drink'?'飲料':'零食'}分類<select id="count-category-filter"><option value="">所有分類</option>${options.map(value=>`<option value="${h(value)}"${state.category===value?' selected':''}>${h(value)}</option>`).join('')}</select></label>`:''}${countKind==='snack'?`<label class="field">品項名稱<select id="count-product-filter"><option value="">所有品項</option>${products.map(name=>`<option value="${h(name)}"${state.product===name?' selected':''}>${h(name)}</option>`).join('')}</select></label>`:''}</div><p class="subtle" id="count-filter-summary" role="status"></p><p class="subtle">切換篩選會保留已填數量；送出時會一併儲存各分類已填的品項，空白不更新。</p><p class="subtle" data-count-empty hidden>沒有符合篩選的品項，請調整分類或關鍵字。</p>`;
 }
 function updateCountFilters() {
   const form=main.querySelector('#count-form,#supply-count-form');if(view!=='count'||!form)return;
   const state=countFilters[countKind],rows=[...form.querySelectorAll('[data-count-item]')];
-  const products=[...new Set(rows.filter(row=>!state.category||row.dataset.countCategory===state.category).map(row=>row.dataset.countProduct))].sort((a,b)=>a.localeCompare(b,'zh-TW'));
+  const products=[...new Set(rows.filter(row=>!state.category||row.dataset.countCategory===state.category).map(row=>row.dataset.countProduct))].sort(countNameCollator.compare);
   const product=main.querySelector('#count-product-filter');
   if(product){if(!products.includes(state.product))state.product='';product.innerHTML=`<option value="">所有品項</option>${products.map(name=>`<option value="${h(name)}"${state.product===name?' selected':''}>${h(name)}</option>`).join('')}`;}
   const query=state.query.trim().normalize('NFKC').toLocaleLowerCase();
@@ -484,10 +486,10 @@ function updateCountFilters() {
 function renderCount() {
   const countTabs=`<div class="warehouse-kind-tabs" role="group" aria-label="快速盤點分類">${[['drink','飲料'],['snack','零食'],['noodle','泡麵'],['toner','碳粉']].map(([kind,label])=>`<button class="filter-tab${countKind===kind?' selected':''}" data-action="count-kind" data-id="${kind}" aria-pressed="${countKind===kind}">${label}</button>`).join('')}</div>`;
   if(countKind!=='drink'){
-    const items=sortedStock(supplyItems().filter(item=>item.kind===countKind&&item.active!==false));
+    const items=sortedCountItems(supplyItems().filter(item=>item.kind===countKind&&item.active!==false));
     main.innerHTML=heading('QUICK STOCKTAKE','快速盤點','只填有確認的品項；空白保留原紀錄，確認已用完才填 0。')+countTabs+supplyUpgradeNotice(countKind)+countFilterControls(items)+`<form id="supply-count-form">${recorderField()}${supplyCountTable(items)}<div class="sticky-actions"><span>空白不更新</span><button type="submit" class="button"${store.supportsSupplies?'':' disabled'}>儲存本次盤點</button></div></form>`;updateCountFilters();return;
   }
-  const drinks = sortedStock(activeDrinks());
+  const drinks = sortedCountItems(activeDrinks());
   main.innerHTML = heading('A FRESH COUNT', '幫飲料架點個名', '每三天或一週盤點一次，就很夠用了。請填實際剩餘的單瓶／單罐數量。') +
     '<div class="info-box">至少填寫一個品項即可送出。空白代表這次未盤點，保留原紀錄；填 0 代表實際剩餘 0。已填數量即使沒變，也會留下新的盤點紀錄。</div>' +
     (drinks.length ? `${countFilterControls(drinks)}<form id="count-form">${recorderField()}<div class="panel table-scroll"><table class="count-table"><thead><tr><th>飲料品項</th><th>上次帳面庫存</th><th>這次實際盤點</th></tr></thead><tbody>${drinks.map((drink) => `<tr data-count-item="${h(drink.id)}" data-count-category="${h(drink.category)}" data-count-product="${h(drink.name)}" data-count-label="${h(drink.name)}"><td>${drinkCell(drink)}</td><td><span class="muted">${hasRecordedStock(drink) ? `${drink.stock} ${h(drink.unit)}` : '尚無庫存紀錄'}</span>${!drink.lastCountAt && hasRecordedStock(drink) ? '<br><small class="cell-note">依入庫紀錄，尚未實際盤點</small>' : ''}</td><td><input class="count-input" type="number" inputmode="numeric" min="0" max="999999" step="1" name="${h(drink.id)}" placeholder="未盤點請留白" aria-label="${h(drink.name)}實際剩餘數量"><span class="count-unit">${h(drink.unit)}</span></td></tr>`).join('')}</tbody></table></div><div class="sticky-actions"><span>可選填 ${drinks.length} 種飲料，至少一項</span><button type="submit" class="button">✓ 儲存本次盤點</button></div></form>` : `<div class="panel">${empty('還沒有飲料品項', '先新增品項，下一步就可以盤點了。', button('＋ 新增品項', 'new-drink'))}</div>`);
