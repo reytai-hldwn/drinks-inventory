@@ -51,7 +51,7 @@ try{
   await page.waitForTimeout(200);assert.equal(await page.locator('.archive-card').count(),8,'late stats never change the route');
   await page.locator('#navigation [data-view=overview]').click();await page.waitForSelector('.popular-drink');
   const cards=page.locator('.popular-drink');assert.equal(await cards.count(),2);
-  assert.match(await cards.first().innerText(),/32.*包／週/s);assert.match(await cards.nth(1).innerText(),/20.*包／週/s);
+  assert.match(await cards.first().innerText(),/32.*包／工作週/s);assert.match(await cards.nth(1).innerText(),/20.*包／工作週/s);
   assert.equal(reads.filter(action=>action==='popularity').length,1,'reopening uses cached aggregate stats');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.screenshot({path:'/tmp/pantry-mobile-popularity.png',fullPage:true});
