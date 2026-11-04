@@ -2,10 +2,15 @@ import { drinkAvailability } from './drink-availability.js';
 import { CATEGORIES_ORDER, canonicalDrinkCategory, canonicalDrinkPackaging } from './catalog.js';
 import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
-import { normalizeSupplyWarehouse, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, validSupplyExpiry } from './supplies.js';
+import { normalizeSupplyWarehouse, canonicalSnackCategory, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, validSupplyExpiry } from './supplies.js';
 import { isLowStockItem, isOutOfStockItem, inventoryLowThreshold, matchesInventoryStockFilter, normalizeRestockPreferences, restockThreshold } from './restock-preferences.js';
 
 let googleCallbackSequence = 0;
+
+function legacySnackCategory(entry) {
+  return entry.kind==='snack'&&canonicalSnackCategory(entry.category)==='健康零食'
+    ? {...entry,category:'燕麥棒/餅'} : entry;
+}
 
 export function validateGoogleScriptUrl(value) {
   let url;
@@ -765,6 +770,7 @@ export class GoogleInventoryStore {
   }
 
   async submitNewArrival(data) {
+    if(data.kind==='snack')data={...data,category:canonicalSnackCategory(data.category)};
     if (data.kind === 'drink') {
       if (!CATEGORIES_ORDER.includes(data.category)) throw new Error('請選擇飲料分類。');
       if (!this.supportsDrinkArrivalCategories) throw new Error('請先更新原 Apps Script 部署，才能保存新品飲料的分類。');
@@ -776,7 +782,8 @@ export class GoogleInventoryStore {
       if(data.expiresOn!=null&&data.expiresOn!==''&&!validSupplyExpiry(data.expiresOn))throw new Error('零食保存期限格式不正確。');
     }
     if (supplyNeedsExpiry(data.kind) && !this.supportsSupplyExpiry) throw new Error('請更新 Apps Script 部署，啟用食品保存期限。');
-    return this.sendWebsiteCommand('new-arrival', data);
+    // The legacy wire value also works before the owner updates Apps Script.
+    return this.sendWebsiteCommand('new-arrival', legacySnackCategory(data));
   }
 
   async submitBatchArrival(data) {
@@ -785,7 +792,7 @@ export class GoogleInventoryStore {
     if (newDrinks.length && !this.supportsDrinkArrivalCategories) throw new Error('請先更新原 Apps Script 部署，才能保存新品飲料的分類。');
     if(data.entries?.some(entry=>entry.restoreArchived)&&!this.supportsArchivedArrivals)throw new Error('請先更新 Google 部署，才能重新入庫歷史品項。');
     if(!this.supportsBatchArrival)throw new Error('請先更新原 Apps Script 部署，啟用批次入庫。');
-    return this.sendWebsiteCommand('batch-arrival',data);
+    return this.sendWebsiteCommand('batch-arrival',{...data,entries:data.entries?.map(legacySnackCategory)});
   }
 
   async updateSupplyDetails(data) {

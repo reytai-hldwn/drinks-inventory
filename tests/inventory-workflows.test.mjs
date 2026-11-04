@@ -60,7 +60,7 @@ test('flavors share a product name but retain distinct ids, quantities and dupli
 });
 
 test('legacy seed names normalize read-only into name and flavor without rewriting source history',()=>{
- const b=websiteBackend();b.sheets.SupplyCatalog=memorySheet([['id','name','kind','unit','active','category'],['supply-snack-01','多力多滋雙倍起司口味','snack','包',true,'太空包']]);const before=plain(b.sheets.SupplyCatalog.rows),item=b.ctx.supplyCatalog_(b.ss)[0];assert.equal(item.name,'多力多滋');assert.equal(item.flavor,'雙倍起司');assert.deepEqual(b.sheets.SupplyCatalog.rows,before);
+ const b=websiteBackend();b.sheets.SupplyCatalog=memorySheet([['id','name','kind','unit','active','category'],['supply-snack-01','多力多滋雙倍起司口味','snack','包',true,'太空包']]);const before=plain(b.sheets.SupplyCatalog.rows),item=b.ctx.supplyCatalog_(b.ss)[0];assert.equal(item.name,'多力多滋');assert.equal(item.flavor,'超濃起司');assert.deepEqual(b.sheets.SupplyCatalog.rows,before);
  assert.equal(b.send('new-arrival',{kind:'snack',name:' 多力多滋雙倍起司口味 ',unit:'包',category:'太空包',quantity:1,recorder:'虛構'}).state,'rejected');
 });
 
