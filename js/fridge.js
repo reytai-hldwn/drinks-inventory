@@ -1,5 +1,5 @@
 import { escapeHtml as h, stockStatus } from './domain.js';
-import { FRIDGE_PACKAGING_ORDER, fridgeDisplayName } from './catalog.js';
+import { CATEGORIES_ORDER, FRIDGE_PACKAGING_ORDER, fridgeDisplayName } from './catalog.js';
 import { findProductPhoto } from './product-photos.js';
 
 const FRIDGE_DOOR_TIMERS = new WeakMap();
@@ -247,8 +247,12 @@ export function renderFridgePopularity(summary, { loading = false, error = false
 /** A bounded public display; inventory quantities are deliberately opt-in. */
 export function renderFridge(drinks, { isOpen = false, lastInventoryAt = null, showQuantities = false, formatDate, popularity = null, popularityLoading = false, popularityError = false, popularityOpen = false } = {}) {
   const dateLabel = typeof formatDate === 'function' ? formatDate : (value) => value || '尚未盤點';
-  const shelfCategories = [...new Set([...FRIDGE_PACKAGING_ORDER, ...drinks.map((drink) => drink.packaging || '其他')])];
-  const shelves = shelfCategories.map((name) => ({ name, drinks: drinks.filter((drink) => (drink.packaging || '其他') === name) })).filter((shelf) => shelf.drinks.length);
+  const shelfCategories = [...new Set([...CATEGORIES_ORDER, ...drinks.map((drink) => drink.category)])];
+  const packagingRank = drink => {
+    const index = FRIDGE_PACKAGING_ORDER.indexOf(drink.packaging);
+    return index < 0 ? FRIDGE_PACKAGING_ORDER.length : index;
+  };
+  const shelves = shelfCategories.map((name) => ({ name, drinks: drinks.filter((drink) => drink.category === name).sort((a,b) => packagingRank(a)-packagingRank(b)) })).filter((shelf) => shelf.drinks.length);
   const logoSrc = typeof document === 'undefined' ? '' : (document.querySelector('.brand-mark')?.getAttribute('src') || '');
   const logo = (className, size) => logoSrc ? `<img class="${className}" src="${h(logoSrc)}" alt="Holdwin Capital H 標誌" width="${size}" height="${size}">` : '';
 
