@@ -14,7 +14,7 @@ import { RESTOCK_MODES, hasRecordedStock, isLowStockItem, isOutOfStockItem, inve
 import { groupEmptyStock } from './empty-stock.js';
 import { CONSUMPTION_KINDS, buildConsumptionRecords, consumptionPeriod, selectConsumption } from './consumption.js';
 import { renderConsumptionControls, renderConsumptionResults } from './consumption-view.js';
-import { gachaDay, gachaResetDelay, drawGacha, readDailyGacha, saveDailyGacha, chooseGachaDrink, renderGacha } from './gacha.js';
+import { gachaDay, gachaResetDelay, drawGacha, readDailyGacha, saveDailyGacha, chooseGachaDrink, renderGacha, GACHA_ANIMATION_MS } from './gacha.js';
 
 const store = window.DRINKS_CONFIG?.provider === 'google' ? new GoogleInventoryStore(window.DRINKS_CONFIG) : new InventoryStore(window.DRINKS_CONFIG);
 const $ = (selector) => document.querySelector(selector);
@@ -383,7 +383,7 @@ function renderInventoryTable() {
   if(warehouse)drinks=sortedStock(drinks);
   if (!drinks.length && warehouse) { target.innerHTML = empty('這一格還沒有飲料', '換個分類或關鍵字看看。'); return; }
   if (!warehouse) {
-    target.innerHTML = renderFridge(drinks, { isOpen: fridgeOpen, lastInventoryAt: store.data.lastInventoryAt, formatDate, showQuantities: false,
+    target.innerHTML = renderFridge(drinks, { loading:store.mode==='google'&&!store.googleViewLoaded, isOpen: fridgeOpen, lastInventoryAt: store.data.lastInventoryAt, formatDate, showQuantities: false,
       popularityOpen: popularityExpanded, popularity: store.mode === 'google' ? store.popularity : getWeeklyPopularity(store.data.drinks, store.data.events), popularityLoading, popularityError });
     syncFridgeScene(target.querySelector('.pantry-stage'));
     if (fridgeOpen && popularityExpanded) loadFridgePopularity();
@@ -702,7 +702,7 @@ async function startGacha(){
   const saved=readDailyGacha(gameStorage(),gachaStorageKey);
   state.draw=saved||drawGacha();state.spinning=!saved&&!matchMedia('(prefers-reduced-motion: reduce)').matches;state.saveFailed=!saveDailyGacha(gameStorage(),gachaStorageKey,state.draw);
   renderGachaPage();
-  if(state.spinning){await new Promise(resolve=>setTimeout(resolve,650));state.spinning=false;if(view==='gacha'&&gachaState===state)renderGachaPage();}
+  if(state.spinning){await new Promise(resolve=>setTimeout(resolve,GACHA_ANIMATION_MS));state.spinning=false;if(view==='gacha'&&gachaState===state)renderGachaPage();}
   if(view==='gacha'){
     const result=$('#gacha-result');result?.focus({preventScroll:true});
     if(matchMedia('(max-width: 800px)').matches)result?.scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
@@ -1349,6 +1349,10 @@ setInterval(() => {
   else refreshCurrentView();
 }, 60000);
 
+// The closed fridge does not depend on remote inventory; paint it while Google loads.
+if(store.mode==='google'&&(!location.hash||location.hash==='#overview')){
+  renderOverview();updateChrome();main.setAttribute('aria-busy','true');
+}
 try {
   if (store.mode === 'google' && location.hash === '#admin') { /* The entry and summary do not wait for full histories. */ }
   else if (store.mode === 'google' && adminViews.has(location.hash.slice(1))) await store.readWarehouse();

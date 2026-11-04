@@ -266,6 +266,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     gachaVersion: payload.websiteEntry?.gachaVersion === 1 ? 1 : 0,
     popularityVersion: [1,2,3].includes(payload.websiteEntry?.popularityVersion) ? payload.websiteEntry.popularityVersion : 0,
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
+    fastReceiptVersion: payload.websiteEntry?.fastReceiptVersion === 1 ? 1 : 0,
     archivedArrivalVersion:warehouse&&payload.websiteEntry?.archivedArrivalVersion===1?1:0,
     batchArrivalVersion:warehouse&&payload.websiteEntry?.batchArrivalVersion===1?1:0,
     newArrivalVersion: warehouse && payload.websiteEntry?.newArrivalVersion === 1 ? 1 : 0,
@@ -323,6 +324,7 @@ export class GoogleInventoryStore {
     this.adminSummaryReadAt = -Infinity;
     this.adminSummaryRequest = null;
     this.websiteEntryVersion = 0;
+    this.fastReceiptVersion = 0;
     this.newArrivalVersion = 0;
     this.drinkCategoryVersion = 0;
     this.zeroStockVersion = 0;
@@ -405,7 +407,7 @@ export class GoogleInventoryStore {
     const result = normalizeGooglePublicData({ok:true,drinks:this.data.drinks,wishes:this.data.wishes,
       formUrls:this.formUrls,voteForm:this.voteForm,wishForm:this.wishForm,adminUrl:this.adminUrl,
       updatedAt:this.updatedAt,snapshotAt:this.snapshotAt,
-      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion,gachaVersion:this.gachaVersion}});
+      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion,gachaVersion:this.gachaVersion,fastReceiptVersion:this.fastReceiptVersion}});
     ++this.googleReadSequence;
     this.pendingGoogleReads.delete('public');
     this.applyGoogleView(result, false);
@@ -450,7 +452,7 @@ export class GoogleInventoryStore {
       try {
         const payload = { ok: true, provider: 'google', drinks: result.data.drinks, wishes: result.data.wishes,
           formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm,
-          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion,gachaVersion:result.gachaVersion } };
+          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion,gachaVersion:result.gachaVersion,fastReceiptVersion:result.fastReceiptVersion } };
         const saved = JSON.stringify({ version: 1, savedAt: this.now(), payload });
         if (saved.length < 750000) (this.publicStorage || globalThis.localStorage)?.setItem(`holdwin-public-cache-v1:${endpoint}`, saved);
       } catch { /* Storage is optional; fresh Google data still works. */ }
@@ -474,6 +476,7 @@ export class GoogleInventoryStore {
     this.archiveWishVersion = result.archiveWishVersion;
     this.gachaVersion = result.gachaVersion || 0;
     this.websiteEntryVersion = result.websiteEntryVersion;
+    this.fastReceiptVersion = result.fastReceiptVersion || 0;
     this.newArrivalVersion = result.newArrivalVersion || 0;
     this.drinkCategoryVersion = result.drinkCategoryVersion || 0;
     this.zeroStockVersion = result.zeroStockVersion || 0;
@@ -720,7 +723,7 @@ export class GoogleInventoryStore {
     catch { throw new Error('目前無法保留送出紀錄，資料尚未送出。'); }
     this.lastWriteNeedsRefresh = false;
     let result;
-    try { result = await this.submitWebsiteCommand(endpoint, { requestId: pending.requestId, operation, data }, { readReceipt: this.readReceipt }); }
+    try { result = await this.submitWebsiteCommand(endpoint, { requestId: pending.requestId, operation, data }, { readReceipt: this.readReceipt, messageReceipt:this.fastReceiptVersion===1 }); }
     catch (error) { if (error.code === 'rejected') acknowledge('rejected'); throw error; }
     // A confirmed write stays a success even if the following read fails.
     acknowledge('accepted', result);

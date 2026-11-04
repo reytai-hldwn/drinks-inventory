@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {resolve,extname,sep} from 'node:path';
 import assert from 'node:assert/strict';
 import {websiteBackend} from './helpers/google-website.mjs';
-import {GACHA_FORTUNES} from '../js/gacha.js';
+import {GACHA_FORTUNES,GACHA_ANIMATION_MS} from '../js/gacha.js';
 const {chromium}=await import(process.env.PANTRY_PLAYWRIGHT_MODULE||'playwright-core');
 const root=fileURLToPath(new URL('../',import.meta.url)),mime={'.html':'text/html','.js':'application/javascript','.css':'text/css','.woff2':'font/woff2','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.avif':'image/avif'};
 const server=createServer(async(req,res)=>{try{const path=resolve(root,new URL(req.url,'http://localhost').pathname.slice(1)||'index.html');if(!path.startsWith(root.replace(/\/$/,'')+sep))throw new Error('missing');res.setHeader('Content-Type',mime[extname(path)]||'application/octet-stream');res.end(await readFile(path));}catch{res.statusCode=404;res.end();}});
@@ -55,7 +55,20 @@ try{
  }
  {
   const b=websiteBackend(),context=await browser.newContext({viewport:{width:390,height:960},reducedMotion:'no-preference'}),{page,writes,errors}=await configured(context,b);
-  await page.goto(base+'/#gacha');await page.waitForSelector('.gacha-machine');const other=await configured(context,b);await other.page.goto(base+'/#gacha');await other.page.waitForSelector('.gacha-machine');await page.bringToFront();await page.locator('[data-action=gacha-draw]').focus();await page.keyboard.press('Enter');await page.waitForSelector('.gacha-machine.is-spinning');await page.waitForSelector('.gacha-ticket');await page.waitForSelector('.gacha-drink');assert.equal(await page.locator('.gacha-machine.is-spinning').count(),0);
+  await page.goto(base+'/#gacha');await page.waitForSelector('.gacha-machine');const other=await configured(context,b);await other.page.goto(base+'/#gacha');await other.page.waitForSelector('.gacha-machine');await page.bringToFront();await page.evaluate(()=>document.fonts.ready);
+  // Hold the completion callback so each visible phase can be inspected without timing races.
+  await page.evaluate(duration=>{const original=setTimeout;window.setTimeout=(fn,ms,...args)=>{if(ms===duration){window.finishTestGacha=()=>fn(...args);return 0;}return original(fn,ms,...args);};},GACHA_ANIMATION_MS);
+  await page.locator('[data-action=gacha-draw]').focus();await page.keyboard.press('Enter');await page.waitForSelector('.gacha-machine.is-spinning');
+  const phase=progress=>page.evaluate(({progress,duration})=>{
+   const machine=document.querySelector('.gacha-machine');for(const animation of machine.getAnimations({subtree:true})){animation.pause();animation.currentTime=progress*duration;}
+   const knob=getComputedStyle(machine.querySelector('.gacha-knob')),capsule=getComputedStyle(machine.querySelector('.gacha-capsule-out')),matrix=new DOMMatrix(knob.transform);
+   return{angle:(Math.atan2(matrix.b,matrix.a)*180/Math.PI+360)%360,capsule:Number(capsule.opacity),position:capsule.transform};
+  },{progress,duration:GACHA_ANIMATION_MS});
+  const pauseStart=await phase(.38),pauseEnd=await phase(.46);assert.ok(Math.abs(pauseStart.angle-180)<.1);assert.equal(pauseStart.angle,pauseEnd.angle,'the knob catches after half a turn');assert.equal(pauseEnd.capsule,0);assert.equal(await page.locator('.gacha-ticket').count(),0);
+  await page.screenshot({path:'/tmp/gacha-half-turn-390.png',fullPage:true});
+  const secondHalf=await phase(.62);assert.ok(secondHalf.angle>180&&secondHalf.angle<360);assert.equal(secondHalf.capsule,0,'the capsule stays inside until both half-turns finish');
+  const roll=await phase(.88);assert.equal(roll.capsule,1);assert.notEqual(roll.position,pauseEnd.position);await page.screenshot({path:'/tmp/gacha-roll-390.png',fullPage:true});
+  await phase(1);await page.evaluate(()=>window.finishTestGacha());await page.waitForSelector('.gacha-ticket');await page.waitForSelector('.gacha-drink');assert.equal(await page.locator('.gacha-machine.is-spinning').count(),0);assert.equal(await page.locator('.gacha-machine.is-dispensed .gacha-capsule-out').evaluate(node=>getComputedStyle(node).opacity),'1');
   const fortune=await page.locator('.gacha-fortune').innerText();await other.page.bringToFront();await other.page.locator('[data-action=gacha-draw]').click();await other.page.waitForSelector('.gacha-drink');assert.equal(await other.page.locator('.gacha-fortune').innerText(),fortune);assert.equal(other.reads.filter(action=>action==='gacha').length,0,'a second open tab reuses the first daily pairing');await page.bringToFront();
   await page.evaluate(()=>{Date.now=()=>Date.parse('2026-11-04T08:00:00Z');document.dispatchEvent(new Event('visibilitychange'));});await page.waitForFunction(()=>!document.querySelector('[data-action=gacha-draw]').disabled);assert.equal(await page.locator('.gacha-ticket').count(),0);assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);await context.close();
  }
