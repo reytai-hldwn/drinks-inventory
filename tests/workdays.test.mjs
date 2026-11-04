@@ -40,3 +40,14 @@ test('Friday-to-Monday consumption uses one working day in both rankings and ser
  assert.equal(popular.rows[0].weeklyRate,25);
  assert.deepEqual(JSON.parse(JSON.stringify(websiteBackend().ctx.websiteWeeklyPopularity_(drinks,events,now))),popular);
 });
+
+test('monthly public popularity excludes old and boundary-crossing usage in browser and backend',()=>{
+ const drinks=[{id:'tea',name:'測試飲料',unit:'包',active:true}],now=new Date('2026-11-04T09:00:00+08:00');
+ const events=[['old',1000,'2026-09-25'],['start',100,'2026-10-05'],['end',80,'2026-10-12']].map(([id,quantity,date])=>({id,drinkId:'tea',type:'count',quantity,createdAt:date+'T09:00:00+08:00'}));
+ const summary=getWeeklyPopularity(drinks,events,now);
+ assert.equal(summary.rows[0].weeklyRate,20);
+ assert.equal(summary.windowDays,30);
+ assert.equal(summary.windowStartAt,'2026-10-05T01:00:00.000Z');
+ assert.deepEqual(JSON.parse(JSON.stringify(websiteBackend().ctx.websiteWeeklyPopularity_(drinks,events,now))),summary);
+ assert.equal(getWeeklyPopularity(drinks,events,new Date(+now+86400000)).rows.length,0);
+});
