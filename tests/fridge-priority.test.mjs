@@ -1,15 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FRIDGE_PACKAGING_ORDER } from '../js/catalog.js';
+import { CATEGORIES_ORDER, FRIDGE_PACKAGING_ORDER } from '../js/catalog.js';
 import { renderFridge, renderFridgePopularity } from '../js/fridge.js';
 import { drinkAvailability } from '../js/drink-availability.js';
 import { websiteBackend } from './helpers/google-website.mjs';
 const plain=value=>JSON.parse(JSON.stringify(value));
 
-test('fridge shelves follow the complete packaging order regardless of beverage categories',()=>{
- const drinks=[...FRIDGE_PACKAGING_ORDER,'其他'].reverse().map((packaging,index)=>({id:'p'+index,name:'測試'+index,packaging,category:index%2?'果汁':'茶飲',unit:'包'})),before=structuredClone(drinks);
- const html=renderFridge(drinks,{isOpen:true});
- assert.deepEqual([...html.matchAll(/class="fridge-shelf-heading"[^>]*>.*?<h3>([^<]+)<\/h3>/g)].map(m=>m[1]),[...FRIDGE_PACKAGING_ORDER,'其他']);
+test('fridge retains beverage categories and orders packaging within each category without mutating input',()=>{
+ const packaging=[...FRIDGE_PACKAGING_ORDER,'其他'];
+ const drinks=['果汁','茶飲','牛乳／植物奶'].flatMap((category,group)=>[...packaging].reverse().map((packaging,index)=>({id:`p${group}-${index}`,name:'測試'+index,packaging,category,unit:'包'})));
+ drinks.push({...drinks[0],id:'same-packaging',name:'同包裝次序'});
+ const before=structuredClone(drinks),html=renderFridge(drinks,{isOpen:true});
+ const sections=[...html.matchAll(/<section class="fridge-shelf"[^>]*>([\s\S]*?)<\/section>/g)].map(match=>match[1]);
+ assert.deepEqual(sections.map(section=>section.match(/<h3>([^<]+)<\/h3>/)[1]),CATEGORIES_ORDER.filter(category=>drinks.some(drink=>drink.category===category)));
+ for(const section of sections){
+  const category=section.match(/<h3>([^<]+)<\/h3>/)[1];
+  const ids=[...section.matchAll(/data-drink-id="([^"]+)"/g)].map(match=>match[1]);
+  const expected=drinks.filter(drink=>drink.category===category).sort((a,b)=>packaging.indexOf(a.packaging)-packaging.indexOf(b.packaging)).map(drink=>drink.id);
+  assert.deepEqual(ids,expected);
+ }
  assert.match(html,/<details class="fridge-popularity">/);
  assert.match(html,/class="popularity-period">每週</);
  assert.doesNotMatch(html,/每5個工作日/);
