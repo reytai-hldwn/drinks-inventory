@@ -62,7 +62,7 @@ test('aggregate popularity matches browser calculation for arrivals, corrections
     for(const now of [at(-6),at(1)])assert.deepEqual(plain(b.ctx.websiteWeeklyPopularity_(drinks,events,new Date(now))),getWeeklyPopularity(drinks,events,new Date(now)));
   }
   b.ctx.forms_=()=>{throw new Error('stats do not need Forms');};b.ctx.supplyEvents_=()=>{throw new Error('stats do not need supplies');};
-  const result=plain(b.ctx.popularityData_());assert.equal(result.version,1);assert.doesNotMatch(JSON.stringify(result),/quantity|recorder|events|stock|history/);
+  const result=plain(b.ctx.popularityData_());assert.equal(result.version,2);assert.doesNotMatch(JSON.stringify(result),/quantity|recorder|events|stock|history/);
 });
 
 function client(b,overrides={}){

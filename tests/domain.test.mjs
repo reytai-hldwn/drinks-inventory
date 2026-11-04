@@ -30,8 +30,8 @@ test('counts arrivals between stocktakes when estimating consumption', () => {
     event('count', 20, 1), event('restock', 24, 3), event('count', 12, 8),
   ], now);
   assert.equal(result.consumed, 32);
-  assert.equal(result.days, 7);
-  assert.equal(result.dailyRate, 32 / 7);
+  assert.equal(result.days, 5);
+  assert.equal(result.dailyRate, 32 / 5);
   assert.equal(result.samples, 1);
   assert.equal(result.anomaly, false);
 });
@@ -47,7 +47,7 @@ test('uses interval duration rather than averaging interval rates', () => {
   const result = getConsumption('tea', [
     event('count', 30, 1), event('count', 28, 2), event('count', 10, 8),
   ], now);
-  assert.equal(result.dailyRate, 20 / 7);
+  assert.equal(result.dailyRate, 20 / 5);
   assert.equal(result.samples, 2);
 });
 
@@ -57,8 +57,8 @@ test('negative stocktake adjustments are flagged and excluded', () => {
   ], now);
   assert.equal(result.anomaly, true);
   assert.equal(result.consumed, 6);
-  assert.equal(result.days, 3);
-  assert.equal(result.dailyRate, 2);
+  assert.ok(Math.abs(result.days - 7 / 3) < 1e-10);
+  assert.ok(Math.abs(result.dailyRate - 18 / 7) < 1e-10);
 });
 
 test('sorts events and isolates drink histories and completed intervals', () => {

@@ -27,7 +27,7 @@ try{for(const width of [1440,390]){
  await page.goto(base+'/#consumption');await page.waitForSelector('[data-ranking-item]');
  assert.deepEqual(await page.locator('[data-action=ranking-kind]').evaluateAll(nodes=>nodes.map(node=>node.dataset.id)),['drink','snack']);
  const ids=()=>page.locator('[data-ranking-item]').evaluateAll(nodes=>nodes.map(node=>node.dataset.rankingItem));
- assert.deepEqual(await ids(),['a','b','c']);assert.equal(await page.locator('[data-ranking-filter=unit]').inputValue(),'*');assert.equal(await page.locator('.ranking-winner').count(),3);
+ assert.deepEqual(await ids(),['a','b','c']);assert.equal(await page.locator('[data-ranking-filter=unit]').inputValue(),'*');assert.equal(await page.locator('.ranking-winner').count(),3);assert.match(await page.locator('.ranking-winner').first().innerText(),/換算每工作週/);assert.match(await page.locator('.ranking-observation').first().innerText(),/觀察 5 個工作日 · 消耗 28 包/);
  await page.locator('[data-ranking-item=a] .ranking-evidence>summary').focus();await page.keyboard.press('Enter');assert.match(await page.locator('[data-ranking-item=a] .ranking-intervals').innerText(),/盤點 50 ＋入庫 0 −盤點 22 ＝ 28 包/);
  await page.screenshot({path:`/tmp/consumption-ranking-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
  await page.locator('#ranking-search').fill('Milkis');assert.deepEqual(await ids(),['b']);assert.equal(await page.evaluate(()=>document.activeElement.id),'ranking-search');await page.locator('#ranking-search').fill('');

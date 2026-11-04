@@ -9,7 +9,7 @@ const metrics=(data,days=90)=>consumptionPeriod(buildConsumptionRecords(data,now
 
 test('weighted completed intervals include arrivals and ignore current stock and later deliveries',()=>{
  const data={drinks:[item('a','包',{stock:999})],events:[event('a','count',20,24),event('a','restock',10,20),event('a','count',10,17),event('a','count',3,3),event('a','restock',100,1)]},before=structuredClone(data),[row]=metrics(data);
- assert.equal(row.consumed,27);assert.equal(row.observedDays,21);assert.equal(row.weekly,9);assert.equal(row.measured.length,2);assert.deepEqual(data,before);
+ assert.equal(row.consumed,27);assert.equal(row.observedDays,15);assert.equal(row.weekly,9);assert.equal(row.measured.length,2);assert.deepEqual(data,before);
  assert.equal(row.measured[0].arrivals,10);assert.equal(row.measured[1].arrivals,0);
 });
 
@@ -22,7 +22,7 @@ test('arrival-only and one-count records never create usage, and empty intervals
 
 test('only complete intervals in the window are counted; future, rejected and expiry events cannot create counts',()=>{
  const data={drinks:[item('a')],events:[event('a','count',100,40),event('a','count',20,20),event('a','count',10,10),event('a','count',0,5,{accepted:false}),event('a','expiry-set',0,4),event('a','count',0,-1)]};
- const [row]=metrics(data,30);assert.equal(row.counts,3);assert.equal(row.consumed,10);assert.equal(row.observedDays,10);assert.equal(row.weekly,7);
+ const [row]=metrics(data,30);assert.equal(row.counts,3);assert.equal(row.consumed,10);assert.ok(Math.abs(row.observedDays-43/6)<1e-10);assert.ok(Math.abs(row.weekly-300/43)<1e-10);
  assert.equal(metrics(data,0)[0].consumed,90);assert.equal(row.latestCountAt,event('a','count',10,10).createdAt);
 });
 
@@ -45,4 +45,19 @@ test('rankings isolate kinds, units, history and flavors, with stable ties and n
 test('new catalog items render honest readiness, escaped labels and a stocktaking link',()=>{
  const rows=metrics({drinks:[item('x','包',{name:'<script>unsafe</script>'})],events:[]}),selection=selectConsumption(rows,{kind:'drink'}),html=renderConsumptionResults(selection);
  assert.match(html,/排行榜準備中/);assert.match(html,/等待更多紀錄/);assert.match(html,/href="#count"/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);assert.equal(selection.ranked.length,0);
+});
+
+test('short working-day observations show usage beside the five-day extrapolation',()=>{
+ const until=Date.parse('2026-11-04T09:00:00+08:00');
+ const data=days=>({drinks:[item('tea')],events:[{id:'a',drinkId:'tea',type:'count',quantity:39,createdAt:new Date(until-days*day).toISOString()},{id:'b',drinkId:'tea',type:'count',quantity:19,createdAt:new Date(until).toISOString()}]});
+ const rows=consumptionPeriod(buildConsumptionRecords(data(2),until),{now:until});
+ assert.equal(rows[0].weekly,50);
+ const html=renderConsumptionResults(selectConsumption(rows,{kind:'drink'}));
+ assert.match(html,/換算每工作週/);
+ assert.match(html,/觀察 2 個工作日 · 消耗 20 包/);
+ assert.match(html,/未滿5個工作日，先看趨勢/);
+ assert.match(html,/並非最近5個工作日實際用量/);
+ const weekly=consumptionPeriod(buildConsumptionRecords(data(7),until),{now:until});
+ assert.equal(weekly[0].observedDays,5);
+ assert.doesNotMatch(renderConsumptionResults(selectConsumption(weekly,{kind:'drink'})),/未滿5個工作日，先看趨勢/);
 });
