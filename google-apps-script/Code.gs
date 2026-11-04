@@ -989,7 +989,7 @@ function publicData_(spreadsheet, catalog) {
   });
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = websiteFormUrls_();
-  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 1, archiveWishVersion: 1, zeroStockVersion: 1, gachaVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
+  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 2, archiveWishVersion: 1, zeroStockVersion: 1, gachaVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),
@@ -1013,7 +1013,20 @@ function adminSummaryData_() {
 
 function popularityData_() {
   var ss = requiredSpreadsheet_();
-  return {ok:true,version:1,popularity:websiteWeeklyPopularity_(catalog_(ss),historyEvents_(ss),new Date())};
+  return {ok:true,version:2,popularity:websiteWeeklyPopularity_(catalog_(ss),historyEvents_(ss),new Date())};
+}
+
+// Monday–Friday elapsed days in Asia/Taipei; keep aligned with js/workdays.js.
+function websiteWorkingDaysBetween_(start, end) {
+  const from = +new Date(start), until = +new Date(end);
+  if (!Number.isFinite(from) || !Number.isFinite(until) || until <= from) return 0;
+  const day = 86400000, week = 7 * day;
+  const clock = stamp => {
+    const shifted = stamp + 8 * 3600000 - 4 * day;
+    const weeks = Math.floor(shifted / week);
+    return weeks * 5 * day + Math.min(shifted - weeks * week, 5 * day);
+  };
+  return (clock(until) - clock(from)) / day;
 }
 
 // Keep this calculation aligned with js/domain.js; parity tests cover edge cases.
@@ -1048,9 +1061,9 @@ function websiteConsumption_(drinkId, events, now = new Date()) {
     }
 
     if (previousCount) {
-      const days = (event.timestamp - previousCount.timestamp) / 86400000;
+      const days = websiteWorkingDaysBetween_(previousCount.timestamp, event.timestamp);
       const consumed = previousCount.quantity + received - event.quantity;
-      if (days > 0 && consumed >= 0 && Number.isSafeInteger(consumed) && !invalidInterval) {
+      if (days >= 1 && consumed >= 0 && Number.isSafeInteger(consumed) && !invalidInterval) {
         result.days += days;
         result.consumed += consumed;
         result.samples += 1;
@@ -1084,10 +1097,10 @@ function websiteWeeklyPopularity_(drinks, events, now = new Date()) {
     // A few minutes between counts cannot support a useful weekly estimate.
     if (result.anomaly || result.dailyRate === null || result.days < 1) continue;
     observedProducts += 1;
-    if (result.dailyRate > 0) rows.push({ id: drink.id, name: drink.name, unit: drink.unit, weeklyRate: result.dailyRate * 7, days: result.days, samples: result.samples });
+    if (result.dailyRate > 0) rows.push({ id: drink.id, name: drink.name, unit: drink.unit, weeklyRate: result.dailyRate * 5, days: result.days, samples: result.samples });
   }
   rows.sort((left, right) => right.weeklyRate - left.weeklyRate || left.name.localeCompare(right.name, 'zh-Hant'));
-  return { rows: rows.slice(0, 3), countedProducts, observedProducts, calculatedAt: new Date(now).toISOString() };
+  return { rows: rows.slice(0, 3), countedProducts, observedProducts, workweekDays: 5, calculatedAt: new Date(now).toISOString() };
 }
 
 function warehouseData_() {

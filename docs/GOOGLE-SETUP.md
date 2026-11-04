@@ -90,3 +90,10 @@
 
 
 零食分類與單位由 `supplyEntry.snackVersion=1` 啟用，免填日期入庫需 `snackPolicyVersion=2`；手動補貨勾選需 `restockPreferenceEntry.snackManualVersion=1`。`SupplyCatalog` 第六欄為 `category`，只對零食使用。新品到貨的 `kind=snack` 必須附合法 `category`；零食按紀錄數量升冪排列，不設定數量門檻或效期提醒；補貨意願以零食專用 `consider` 模式手動保存。`admin` 回應的 `manualSnackItems` 與 `lowItems` 分開，原日期與事件保留。更新原部署一次即可涵蓋先前效能、歷史回購與登記人更正功能，無須重跑設定。
+
+
+### 每週消耗以5個工作日計算
+
+排行榜、冰箱熱門飲料與消耗估算，以台灣時間週一至週五的盤點間隔計算，排除週末，再換算成5個工作日。實際觀察天數及消耗量會一併顯示；未滿一個工作日的區間不採用。
+
+新版網站可從原部署的盤點、入庫紀錄算出正確結果，不必重填數量。原 Apps Script 更新為本版 Code.gs 並在原部署選「新版本」後，冰箱熱門飲料會直接使用5工作日的精簡統計摘要，減少傳輸資料；更新前仍以原始紀錄換算，不會沿用舊的7天統計。

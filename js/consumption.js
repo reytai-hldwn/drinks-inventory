@@ -1,3 +1,5 @@
+import { workingDaysBetween, WORKWEEK_DAYS } from './workdays.js';
+
 /** Read-only, measured consumption between completed real stocktakes. */
 export const CONSUMPTION_KINDS = Object.freeze({drink:'飲料',snack:'零食'});
 const CONSUMPTION_DAY = 86400000;
@@ -25,7 +27,7 @@ export function buildConsumptionRecords({drinks=[],supplies=[],events=[],supplyE
       if(!valid){row.invalidEvents++;previous=null;received=0;invalid=false;continue;}
       row.counts++;row.latestCountAt=event.createdAt;
       if(previous){
-        const days=(current.stamp-previous.stamp)/CONSUMPTION_DAY,amount=previous.event.quantity+received-event.quantity;
+        const days=workingDaysBetween(previous.stamp,current.stamp),amount=previous.event.quantity+received-event.quantity;
         const status=invalid||!Number.isSafeInteger(amount)?'invalid':amount<0?'adjustment':days<1?'short':previous.event.quantity===0&&received===0&&event.quantity===0?'unavailable':'ready';
         row.segments.push({startAt:previous.event.createdAt,endAt:event.createdAt,startQuantity:previous.event.quantity,arrivals:received,endQuantity:event.quantity,consumed:status==='ready'?amount:null,days,status});
       }
@@ -41,9 +43,9 @@ export function consumptionPeriod(records,{days=90,now=Date.now()}={}) {
   return records.map(row=>{
     // Keep complete intervals inside the window; never prorate unobserved days.
     const segments=row.segments.filter(segment=>Date.parse(segment.startAt)>=since&&Date.parse(segment.endAt)<=until),measured=segments.filter(segment=>segment.status==='ready');
-    const observedDays=measured.reduce((sum,segment)=>sum+segment.days,0),consumed=measured.reduce((sum,segment)=>sum+segment.consumed,0),weekly=observedDays?consumed/observedDays*7:null;
+    const observedDays=measured.reduce((sum,segment)=>sum+segment.days,0),consumed=measured.reduce((sum,segment)=>sum+segment.consumed,0),weekly=observedDays?consumed/observedDays*WORKWEEK_DAYS:null;
     const issue=segments.some(segment=>['invalid','adjustment'].includes(segment.status))||row.invalidEvents>0;
-    const reason=row.counts===0?'尚未實際盤點':row.counts===1?'等待下次盤點':issue?'盤點差額待確認':segments.some(segment=>segment.status==='unavailable')?'區間內沒有庫存':segments.some(segment=>segment.status==='short')?'兩次盤點未滿一天':'期間內尚無完整盤點區間';
+    const reason=row.counts===0?'尚未實際盤點':row.counts===1?'等待下次盤點':issue?'盤點差額待確認':segments.some(segment=>segment.status==='unavailable')?'區間內沒有庫存':segments.some(segment=>segment.status==='short')?'兩次盤點未滿一個工作日':'期間內尚無完整盤點區間';
     return {...row,measured,observedDays,consumed,weekly,issue,reason};
   });
 }

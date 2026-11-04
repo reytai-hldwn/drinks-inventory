@@ -31,6 +31,17 @@ function warehousePayload() {
   return value;
 }
 
+test('arrival-only drink quantities remain known without inventing a stocktake date',()=>{
+ const value=warehousePayload(),drink=value.drinks[0];
+ Object.assign(drink,{stock:48,lastCountAt:null,lastArrivalAt:'2026-11-03T08:59:30.001Z'});
+ value.events=[{id:'first-arrival',drinkId:drink.id,type:'restock',quantity:48,createdAt:drink.lastArrivalAt}];
+ const result=normalizeGooglePublicData(value,{warehouse:true});
+ assert.equal(result.data.drinks[0].stock,48);
+ assert.equal(result.data.drinks[0].lastCountAt,null);
+ assert.equal(result.data.drinks[0].lastArrivalAt,drink.lastArrivalAt);
+ assert.equal(result.data.events[0].type,'restock');
+});
+
 test('a validated public cache opens immediately, expires, isolates endpoints and never retains warehouse observations', async () => {
   const values=new Map(),storage={getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};
   let stamp=Date.parse('2026-11-02T00:00:00Z'),reads=0;
@@ -59,6 +70,23 @@ test('popularity reads are lazy and deduplicated, preserve the public view, and 
   assert.equal(store.data,data);assert.equal(store.revision,revision);assert.equal(store.inWarehouse,false);
   assert.equal(store.popularity.rows[0].weeklyRate,14);assert.equal(store.popularity.events,undefined);
   await store.readPopularity();assert.equal(reads,1);
+});
+
+test('older calendar-week deployments use weekday observations without retaining warehouse data',async()=>{
+ const calls=[],value=warehousePayload();
+ Object.assign(value.drinks[0],{stock:15,lastCountAt:'2026-11-09T01:00:00Z'});
+ value.events=[{id:'fri',drinkId:value.drinks[0].id,type:'count',quantity:20,createdAt:'2026-11-06T01:00:00Z'},
+  {id:'mon',drinkId:value.drinks[0].id,type:'count',quantity:15,createdAt:'2026-11-09T01:00:00Z'}];
+ const store=new GoogleInventoryStore({googleScriptUrl:ENDPOINT},{now:()=>Date.parse('2026-11-10T01:00:00Z'),readPublicData:async(_url,{action})=>{calls.push(action);return action==='warehouse'?value:{...payload(),websiteEntry:{version:1,popularityVersion:1}};}});
+ await store.init();const publicData=store.data;
+ await store.readPopularity();
+ assert.deepEqual(calls,['public','warehouse']);
+ assert.equal(store.popularity.rows[0].weeklyRate,25);
+ assert.equal(store.popularity.rows[0].days,1);
+ assert.equal(store.data,publicData);
+ assert.equal(store.inWarehouse,false);
+ assert.equal(store.data.events.length,0);
+ assert.equal(store.popularity.events,undefined);
 });
 
 function addVoteForm(value = payload()) {

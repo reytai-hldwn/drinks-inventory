@@ -1,3 +1,5 @@
+import { workingDaysBetween, WORKWEEK_DAYS } from './workdays.js';
+
 /** Pure inventory helpers. Quantities always refer to individual containers. */
 export function uid() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -148,9 +150,9 @@ export function getConsumption(drinkId, events, now = new Date()) {
     }
 
     if (previousCount) {
-      const days = (event.timestamp - previousCount.timestamp) / 86_400_000;
+      const days = workingDaysBetween(previousCount.timestamp, event.timestamp);
       const consumed = previousCount.quantity + received - event.quantity;
-      if (days > 0 && consumed >= 0 && Number.isSafeInteger(consumed) && !invalidInterval) {
+      if (days >= 1 && consumed >= 0 && Number.isSafeInteger(consumed) && !invalidInterval) {
         result.days += days;
         result.consumed += consumed;
         result.samples += 1;
@@ -184,10 +186,10 @@ export function getWeeklyPopularity(drinks, events, now = new Date()) {
     // A few minutes between counts cannot support a useful weekly estimate.
     if (result.anomaly || result.dailyRate === null || result.days < 1) continue;
     observedProducts += 1;
-    if (result.dailyRate > 0) rows.push({ id: drink.id, name: drink.name, unit: drink.unit, weeklyRate: result.dailyRate * 7, days: result.days, samples: result.samples });
+    if (result.dailyRate > 0) rows.push({ id: drink.id, name: drink.name, unit: drink.unit, weeklyRate: result.dailyRate * WORKWEEK_DAYS, days: result.days, samples: result.samples });
   }
   rows.sort((left, right) => right.weeklyRate - left.weeklyRate || left.name.localeCompare(right.name, 'zh-Hant'));
-  return { rows: rows.slice(0, 3), countedProducts, observedProducts, calculatedAt: new Date(now).toISOString() };
+  return { rows: rows.slice(0, 3), countedProducts, observedProducts, workweekDays: WORKWEEK_DAYS, calculatedAt: new Date(now).toISOString() };
 }
 
 /** Fictional examples only; never load these into a configured shared database. */

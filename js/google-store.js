@@ -257,7 +257,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     snapshotAt: googleDateField(payload.snapshotAt, '資料讀取時間', true),
     archiveWishVersion: payload.websiteEntry?.archiveWishVersion === 1 ? 1 : 0,
     gachaVersion: payload.websiteEntry?.gachaVersion === 1 ? 1 : 0,
-    popularityVersion: payload.websiteEntry?.popularityVersion === 1 ? 1 : 0,
+    popularityVersion: [1,2].includes(payload.websiteEntry?.popularityVersion) ? payload.websiteEntry.popularityVersion : 0,
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
     archivedArrivalVersion:warehouse&&payload.websiteEntry?.archivedArrivalVersion===1?1:0,
     batchArrivalVersion:warehouse&&payload.websiteEntry?.batchArrivalVersion===1?1:0,
@@ -271,12 +271,12 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
 
 function normalizeGooglePopularity(payload) {
   const value = payload?.popularity;
-  if (payload?.ok !== true || payload.version !== 1 || !value || !Array.isArray(value.rows) || value.rows.length > 3 ||
+  if (payload?.ok !== true || payload.version !== 2 || !value || value.workweekDays !== 5 || !Array.isArray(value.rows) || value.rows.length > 3 ||
       !Number.isSafeInteger(value.countedProducts) || value.countedProducts < 0 || value.countedProducts > 1000 ||
       !Number.isSafeInteger(value.observedProducts) || value.observedProducts < 0 || value.observedProducts > value.countedProducts ||
       value.rows.length > value.observedProducts) throw new Error('Google 熱門品項格式不正確。');
   const ids = new Set();
-  return {countedProducts:value.countedProducts,observedProducts:value.observedProducts,calculatedAt:googleDateField(value.calculatedAt,'統計時間'),rows:value.rows.map(row=>{
+  return {countedProducts:value.countedProducts,observedProducts:value.observedProducts,workweekDays:5,calculatedAt:googleDateField(value.calculatedAt,'統計時間'),rows:value.rows.map(row=>{
     const id = textField(row?.id,'品項代號',160);
     if (ids.has(id) || !['包','瓶','罐'].includes(row.unit) || !Number.isFinite(row.weeklyRate) || row.weeklyRate <= 0 ||
         !Number.isFinite(row.days) || row.days < 1 || !Number.isSafeInteger(row.samples) || row.samples < 1) throw new Error('Google 熱門品項格式不正確。');
@@ -599,9 +599,10 @@ export class GoogleInventoryStore {
     if (this.popularityRequest) return this.popularityRequest;
     this.popularityRequest = (async () => {
       // This separate read never changes the current route or public catalog.
-      // It uses the existing deployment and retains only aggregate rates.
-      const payload = await this.readPublicData(validateGoogleScriptUrl(this.url), { action: this.popularityVersion === 1 ? 'popularity' : 'warehouse' });
-      if (this.popularityVersion === 1) this.popularity = normalizeGooglePopularity(payload);
+      // Older deployments are recalculated locally from observations so calendar-week
+      // aggregates are never relabeled as workweeks. Retain only aggregate rates.
+      const payload = await this.readPublicData(validateGoogleScriptUrl(this.url), { action: this.popularityVersion === 2 ? 'popularity' : 'warehouse' });
+      if (this.popularityVersion === 2) this.popularity = normalizeGooglePopularity(payload);
       else {
         const result = normalizeGooglePublicData(payload, { warehouse: true });
         this.popularity = getWeeklyPopularity(result.data.drinks, result.data.events, new Date(this.now()));

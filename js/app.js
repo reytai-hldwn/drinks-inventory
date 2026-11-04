@@ -1,3 +1,4 @@
+import { workingDaysBetween } from './workdays.js';
 import { escapeHtml as h, safeUrl, uid, number, restockQuantity, stocktakeQuantities, getConsumption, getWeeklyPopularity } from './domain.js';
 import { InventoryStore } from './store.js';
 import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE } from './catalog.js';
@@ -83,7 +84,7 @@ const clone = () => structuredClone(store.data);
 const iconFor = (cat) => ({ '牛乳／植物奶': '🥛', 茶飲: '🍵', 咖啡: '☕', 果汁: '🍊', 汽水: '🥤', 其他: '🧃' })[cat] || '🧃';
 const drinkById = (id) => store.data.drinks.find((drink) => drink.id === id);
 const button = (label, action, extra = '', classes = '') => `<button class="button ${classes}" data-action="${action}" ${extra}>${label}</button>`;
-const drinkCell = (drink) => `<div class="drink-cell"><span class="drink-avatar cat-${h(drink.category)}" aria-hidden="true">${h(drink.icon || iconFor(drink.category))}</span><div><strong>${h(drink.name)}</strong><small>${drink.perCase ? `每箱 ${drink.perCase} ${h(drink.unit)}` : '每箱數量待設定'}${drink.lastCountAt ? '' : ' · 尚未盤點'}</small></div></div>`;
+const drinkCell = (drink) => `<div class="drink-cell"><span class="drink-avatar cat-${h(drink.category)}" aria-hidden="true">${h(drink.icon || iconFor(drink.category))}</span><div><strong>${h(drink.name)}</strong><small>${drink.perCase ? `每箱 ${drink.perCase} ${h(drink.unit)}` : '每箱數量待設定'}${drink.lastCountAt ? '' : hasRecordedStock(drink) ? ' · 依入庫紀錄' : ' · 尚無庫存紀錄'}</small></div></div>`;
 const heading = (eyebrow, title, description, actions = '') => `<div class="page-heading"><div><p class="eyebrow">${eyebrow}</p><h1>${title}</h1><p class="page-description">${description}</p></div><div class="heading-actions">${actions}</div></div>`;
 const empty = (title, description, action = '') => `<div class="empty-state"><span class="empty-icon" aria-hidden="true">🧃</span><h2>${title}</h2><div>${description}</div>${action}</div>`;
 const recorderField = () => '<label class="field recorder-field">登記人<input name="recorder" required maxlength="80" autocomplete="name" placeholder="請填姓名或大家認得的稱呼"></label>';
@@ -165,10 +166,10 @@ function forecast(drink) {
   if (result.anomaly) return '<span class="cell-note" title="盤點出現未登記的庫存增加，請確認補貨紀錄">紀錄待確認</span>';
   if (result.dailyRate === null || !drink.lastCountAt) return '<span class="cell-note">累積盤點中</span>';
   if (result.dailyRate === 0) return '<span class="cell-note">暫無消耗</span>';
-  const elapsed = Math.max(0, (Date.now() - Date.parse(drink.lastCountAt)) / 86400000);
+  const elapsed = workingDaysBetween(drink.lastCountAt, Date.now());
   const remaining = Math.max(0, drink.stock - elapsed * result.dailyRate);
   const days = Math.max(0, Math.ceil((remaining - drink.threshold) / result.dailyRate));
-  return `<span class="cell-note${days < 3 ? ' stale-indicator' : ''}">${days === 0 ? '建議近期確認' : `約 ${days} 天後補貨`}</span><br><span class="cell-note">平均 ${result.dailyRate.toFixed(1)}／天</span>`;
+  return `<span class="cell-note${days < 3 ? ' stale-indicator' : ''}">${days === 0 ? '建議近期確認' : `約 ${days} 個工作日後補貨`}</span><br><span class="cell-note">平均 ${result.dailyRate.toFixed(1)}／工作日</span>`;
 }
 
 function inventoryToolbar(warehouse = false) {
@@ -221,7 +222,7 @@ function openSnackDetails(id){
 function renderSnackFlavorStats(){
   if(warehouseKind!=='snack')return '';
   const rows=snackFlavorStatistics(supplyItems(),store.supplyEvents||[]);
-  return `<details class="panel snack-flavor-stats"><summary>品名與口味統計</summary><p class="subtle">累計入庫是到貨量。平均每週消耗依兩次實際盤點與中間入庫估算；未滿一天或數量異常的區間不採用，資料不足顯示累積盤點中。</p><div class="table-scroll"><table><thead><tr><th>品名</th><th>口味</th><th>累計入庫</th><th>平均每週消耗</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${h(row.name)}</td><td>${h(row.flavor||'未填口味')}</td><td>${row.arrivals} ${h(row.unit)}</td><td>${row.weekly===null?'累積盤點中':`${row.weekly} ${h(row.unit)}`}</td></tr>`).join('')}</tbody></table></div></details>`;
+  return `<details class="panel snack-flavor-stats"><summary>品名與口味統計</summary><p class="subtle">累計入庫是到貨量。每5個工作日消耗依兩次實際盤點與中間入庫估算，排除週末；未滿一個工作日或數量異常的區間不採用，資料不足顯示累積盤點中。</p><div class="table-scroll"><table><thead><tr><th>品名</th><th>口味</th><th>累計入庫</th><th>每5個工作日消耗</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${h(row.name)}</td><td>${h(row.flavor||'未填口味')}</td><td>${row.arrivals} ${h(row.unit)}</td><td>${row.weekly===null?'累積盤點中':`${row.weekly} ${h(row.unit)}`}</td></tr>`).join('')}</tbody></table></div></details>`;
 }
 
 function renderWarehouse() {
@@ -384,7 +385,7 @@ function renderInventoryTable() {
     return;
   }
   const copyBar = ['all','low','empty'].includes(filter) ? `<div class="refill-copy-bar"><span>只複製本頁已勾選「需要補貨」的品項。</span>${button('⧉ 複製補貨清單', 'copy-low', '', 'button-small button-outline')}</div>` : '';
-  target.innerHTML = copyBar + `<div class="table-scroll"><table class="inventory-drinks-table"><thead><tr><th>飲料品項</th><th>分類／包裝</th><th>庫存餘量</th><th>補貨狀態</th><th>最近盤點</th><th>管理</th></tr></thead><tbody>${drinks.map((drink) => `<tr data-stock-drink-id="${h(drink.id)}"><td class="inventory-name-cell">${drinkCell(drink)}</td><td data-label="分類／包裝"><span class="category-label">${h(drink.category)}</span><p class="cell-note">${h(drink.packaging || drink.unit)}</p></td><td data-label="庫存餘量"><div class="stock-value ${needsRestock(drink) && drink.active !== false ? 'low warehouse-low' : ''}">${hasRecordedStock(drink) ? drink.stock : '—'}<small>${h(drink.unit)}</small></div></td><td class="inventory-status-cell" data-label="補貨狀態">${restockState(drink)}</td><td data-label="最近盤點"><span class="cell-note">${formatDate(drink.lastCountAt)}</span></td><td class="inventory-actions-cell">${store.canEdit ? `<button class="cell-action" data-action="edit-drink" data-id="${h(drink.id)}" aria-label="編輯${h(drink.name)}">編輯 ↗</button>` : '<a class="text-link" href="#restock">登記入庫 ↗</a>'}</td></tr>`).join('')}</tbody></table></div><div class="table-bottom"><span>顯示 ${drinks.length} 種飲料</span><span>歷史品項保留原本數量與紀錄</span></div>`;
+  target.innerHTML = copyBar + `<div class="table-scroll"><table class="inventory-drinks-table"><thead><tr><th>飲料品項</th><th>分類／包裝</th><th>庫存餘量</th><th>補貨狀態</th><th>最近實際盤點</th><th>管理</th></tr></thead><tbody>${drinks.map((drink) => `<tr data-stock-drink-id="${h(drink.id)}"><td class="inventory-name-cell">${drinkCell(drink)}</td><td data-label="分類／包裝"><span class="category-label">${h(drink.category)}</span><p class="cell-note">${h(drink.packaging || drink.unit)}</p></td><td data-label="庫存餘量"><div class="stock-value ${needsRestock(drink) && drink.active !== false ? 'low warehouse-low' : ''}">${hasRecordedStock(drink) ? drink.stock : '—'}<small>${h(drink.unit)}</small></div></td><td class="inventory-status-cell" data-label="補貨狀態">${restockState(drink)}</td><td data-label="最近實際盤點"><span class="cell-note">${drink.lastCountAt ? formatDate(drink.lastCountAt) : drink.lastArrivalAt ? `尚未實際盤點<br>入庫 ${formatDate(drink.lastArrivalAt)}` : '尚無紀錄'}</span></td><td class="inventory-actions-cell">${store.canEdit ? `<button class="cell-action" data-action="edit-drink" data-id="${h(drink.id)}" aria-label="編輯${h(drink.name)}">編輯 ↗</button>` : '<a class="text-link" href="#restock">登記入庫 ↗</a>'}</td></tr>`).join('')}</tbody></table></div><div class="table-bottom"><span>顯示 ${drinks.length} 種飲料</span><span>歷史品項保留原本數量與紀錄</span></div>`;
 }
 
 async function loadFridgePopularity() {
@@ -467,7 +468,7 @@ function renderCount() {
   const drinks = sortedStock(activeDrinks());
   main.innerHTML = heading('A FRESH COUNT', '幫飲料架點個名', '每三天或一週盤點一次，就很夠用了。請填實際剩餘的單瓶／單罐數量。') +
     '<div class="info-box">至少填寫一個品項即可送出。空白代表這次未盤點，保留原紀錄；填 0 代表實際剩餘 0。已填數量即使沒變，也會留下新的盤點紀錄。</div>' +
-    (drinks.length ? `<form id="count-form">${recorderField()}<div class="panel table-scroll"><table class="count-table"><thead><tr><th>飲料品項</th><th>上次帳面庫存</th><th>這次實際盤點</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="muted">${drink.lastCountAt ? `${drink.stock} ${h(drink.unit)}` : '尚未盤點'}</span></td><td><input class="count-input" type="number" inputmode="numeric" min="0" max="999999" step="1" name="${h(drink.id)}" placeholder="未盤點請留白" aria-label="${h(drink.name)}實際剩餘數量"><span class="count-unit">${h(drink.unit)}</span></td></tr>`).join('')}</tbody></table></div><div class="sticky-actions"><span>可選填 ${drinks.length} 種飲料，至少一項</span><button type="submit" class="button">✓ 儲存本次盤點</button></div></form>` : `<div class="panel">${empty('還沒有飲料品項', '先新增品項，下一步就可以盤點了。', button('＋ 新增品項', 'new-drink'))}</div>`);
+    (drinks.length ? `<form id="count-form">${recorderField()}<div class="panel table-scroll"><table class="count-table"><thead><tr><th>飲料品項</th><th>上次帳面庫存</th><th>這次實際盤點</th></tr></thead><tbody>${drinks.map((drink) => `<tr><td>${drinkCell(drink)}</td><td><span class="muted">${hasRecordedStock(drink) ? `${drink.stock} ${h(drink.unit)}` : '尚無庫存紀錄'}</span>${!drink.lastCountAt && hasRecordedStock(drink) ? '<br><small class="cell-note">依入庫紀錄，尚未實際盤點</small>' : ''}</td><td><input class="count-input" type="number" inputmode="numeric" min="0" max="999999" step="1" name="${h(drink.id)}" placeholder="未盤點請留白" aria-label="${h(drink.name)}實際剩餘數量"><span class="count-unit">${h(drink.unit)}</span></td></tr>`).join('')}</tbody></table></div><div class="sticky-actions"><span>可選填 ${drinks.length} 種飲料，至少一項</span><button type="submit" class="button">✓ 儲存本次盤點</button></div></form>` : `<div class="panel">${empty('還沒有飲料品項', '先新增品項，下一步就可以盤點了。', button('＋ 新增品項', 'new-drink'))}</div>`);
   main.querySelector('.page-heading').insertAdjacentHTML('afterend',countTabs);
 }
 
@@ -641,7 +642,7 @@ function rankingData() {
 }
 function renderConsumption() {
   const selection=selectConsumption(rankingData(),rankingState);rankingState.unit=selection.unit;rankingState.category=selection.category;
-  main.innerHTML=heading('PANTRY FAVORITES','茶水間人氣排行榜','看看大家愛喝、愛吃什麼。依每週平均消耗排名，飲料的包、瓶、罐可以一起比較。')+renderConsumptionControls(selection,rankingState)+`<div id="ranking-results" aria-live="polite">${renderConsumptionResults(selection)}</div>`;
+  main.innerHTML=heading('PANTRY FAVORITES','茶水間人氣排行榜','看看大家愛喝、愛吃什麼。依每5個工作日換算消耗排名，排除週末；飲料的包、瓶、罐可以一起比較。')+renderConsumptionControls(selection,rankingState)+`<div id="ranking-results" aria-live="polite">${renderConsumptionResults(selection)}</div>`;
 }
 function updateRankingResults(){const target=$('#ranking-results');if(target)target.innerHTML=renderConsumptionResults(selectConsumption(rankingData(),rankingState));}
 

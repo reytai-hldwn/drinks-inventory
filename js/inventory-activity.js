@@ -1,3 +1,4 @@
+import { workingDaysBetween, WORKWEEK_DAYS } from './workdays.js';
 /** Aggregate warehouse activity; counts are actual counts, never arrival baselines. */
 export function inventoryActivity(drinks,supplies,events,supplyEvents) {
   const items=[...drinks.map(item=>({...item,kind:'drink'})),...supplies];
@@ -28,8 +29,8 @@ export function snackFlavorStatistics(supplies,events) {
   return supplies.filter(item=>item.kind==='snack').map(item=>{
     const rows=events.map((event,index)=>({event,index})).filter(({event})=>event.supplyId===item.id&&['count','restock'].includes(event.type)).sort((a,b)=>Date.parse(a.event.createdAt)-Date.parse(b.event.createdAt)||a.index-b.index);
     let previous=null,received=0,used=0,days=0,arrivals=0;
-    for(const {event} of rows){if(event.type==='restock'){received+=event.quantity;arrivals+=event.quantity;}else{if(previous){const span=(Date.parse(event.createdAt)-Date.parse(previous.createdAt))/86400000,amount=previous.quantity+received-event.quantity;if(span>=1&&amount>=0){used+=amount;days+=span;}}previous=event;received=0;}}
-    return {id:item.id,name:item.name,flavor:item.flavor||'',unit:item.unit,arrivals,weekly:days?Math.round(used/days*70)/10:null,days};
+    for(const {event} of rows){if(event.type==='restock'){received+=event.quantity;arrivals+=event.quantity;}else{if(previous){const span=workingDaysBetween(previous.createdAt,event.createdAt),amount=previous.quantity+received-event.quantity;if(span>=1&&amount>=0){used+=amount;days+=span;}}previous=event;received=0;}}
+    return {id:item.id,name:item.name,flavor:item.flavor||'',unit:item.unit,arrivals,weekly:days?Math.round(used/days*WORKWEEK_DAYS*10)/10:null,days};
   }).sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant')||(b.weekly??-1)-(a.weekly??-1));
 }
 
