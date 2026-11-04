@@ -191,8 +191,8 @@ test('legacy warehouse summary fallback uses typed counts, excludes uncounted st
   assert.deepEqual(reads,['admin','warehouse']);
   assert.deepEqual(summary.lowItems.map(item=>item.id),['supply-toner-black','drink-ten']);
   assert.ok(!summary.lowItems.some(item=>item.kind==='noodle'),'unmarked noodles stay out of the overview reminder');
-  assert.deepEqual(summary.outOfStockItems.map(item=>item.id),['drink-zero','supply-snack-01','supply-noodle-02']);
-  assert.equal(summary.outOfStockItems[1].mode,'consider');
+  assert.deepEqual(summary.outOfStockItems.map(item=>item.id),['supply-snack-01','supply-noodle-02']);
+  assert.equal(summary.outOfStockItems[0].mode,'consider');
   assert.deepEqual(summary.manualSnackItems.map(item=>item.stock),[0,null]);
   assert.equal(publicStorage.values.size,0);
   assert.deepEqual(store.supplies,[]);

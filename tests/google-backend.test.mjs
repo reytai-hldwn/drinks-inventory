@@ -11,7 +11,7 @@ function backend() {
     DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
     computeDigest: (algorithm, value, charset) => [...createHash(algorithm).update(value, charset).digest()],
   } });
-  return readFile(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8').then(code => { vm.runInContext(code, ctx); return { ctx, props }; });
+  return readFile(new URL('../google-apps-script/Code.gs', import.meta.url), 'utf8').then(code => { vm.runInContext(code, ctx); ctx.locked_ = work => work(); return { ctx, props }; });
 }
 const plain = value => JSON.parse(JSON.stringify(value));
 const expectedArchiveNames = ['愛之味純濃燕麥', '光泉燕麥奶', '雪碧', '紅牌蜂蜜奶茶', '立頓蜂蜜紅茶', '蘋果西打', '克寧草莓優酪乳', '愛之味麥仔茶'];

@@ -71,7 +71,7 @@ test('summary separates empty drinks, snacks and noodles from low stock while re
       assert.equal(Boolean(low),target.kind!=='noodle'&&quantity<=target.threshold&&(quantity>0||target.kind==='toner'),`${target.kind} ${target.unit||''} at ${quantity}`);
       if(low){assert.equal(low.stock,quantity);assert.equal(low.mode,'normal');if(target.unit)assert.equal(low.unit,target.unit);}
       const empty=summary.outOfStockItems.find(entry=>entry.kind===target.kind&&entry.id===target.id);
-      assert.equal(Boolean(empty),quantity===0&&target.kind!=='toner',`${target.kind} ${target.unit||''} empty at ${quantity}`);
+      assert.equal(Boolean(empty),quantity===0&&!['toner','drink'].includes(target.kind),`${target.kind} ${target.unit||''} empty at ${quantity}`);
       if(empty){assert.equal(empty.stock,0);assert.equal(empty.mode,'normal');if(target.unit)assert.equal(empty.unit,target.unit);}
     }
     assert.equal(summary.lowItems.some(entry=>entry.kind==='snack'),quantity>0&&quantity<=10);
@@ -98,7 +98,6 @@ test('zero-stock summary rows preserve preference modes, overlap manual snack fl
     ['toner','supply-toner-black',0,'hold'],
   ]);
   assert.deepEqual(summary.outOfStockItems,[
-    {kind:'drink',id:'milk',name:'牛乳',flavor:'',unit:'包',stock:0,mode:'hold'},
     {kind:'snack',id:'supply-snack-01',name:'多力多滋',flavor:'雙倍起司',unit:'包',stock:0,mode:'consider'},
     {kind:'snack',id:'supply-snack-02',name:'多力多滋',flavor:'香菜',unit:'包',stock:0,mode:'normal'},
     {kind:'noodle',id:'supply-noodle-01',name:'來一客海鮮',flavor:'',unit:'杯',stock:0,mode:'replace'},
@@ -181,7 +180,8 @@ test('generated warehouse notices require manual flags and preserve columns incl
     assert.equal(b.sheets.SupplyWarehouse.rows.find(entry=>entry[0]==='supply-snack-01')[7],'');
     restoreDrinkRenderer(b);b.ctx.renderWarehouse_(b.ss,b.ctx.computeInventory_(b.ctx.catalog_(b.ss),b.ctx.historyEvents_(b.ss)));
     const row=b.sheets.Warehouse.rows.find(entry=>entry?.[0]==='milk');
-    assert.equal(row.length,11);assert.equal(row[9],'');assert.equal(row[10],10);
+    if(quantity===0)assert.equal(row,undefined,'zero drinks move out of the supplying warehouse');
+    else {assert.equal(row.length,11);assert.equal(row[9],'');assert.equal(row[10],10);}
     assert.deepEqual(sources(b),before);
   }
 });

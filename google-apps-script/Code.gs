@@ -440,6 +440,7 @@ function handleSheetEdit(e) {
   if (!e || !e.range) return;
   var name = e.range.getSheet().getName();
   if (name === SHEETS.catalog) syncCatalogForms();
+  else if (name === SHEETS.history) refreshWarehouse();
   else if (name === SHEETS.wishes) PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
 }
 
@@ -568,6 +569,7 @@ function submitWebsiteRequest_(request) {
       SpreadsheetApp.flush();
       return websiteReceipt_(request.requestId);
     }
+    if(effects.history || (effects.batch&&effects.batch.some(function(child){return !!child.history;})))PropertiesService.getScriptProperties().setProperty('HOLDWIN_ZERO_DRINK_IDS','');
     if (['wish','vote','archive-wish'].indexOf(effects.operation) >= 0) {
       PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
     } else if (effects.zeroStockDecision) {
@@ -777,7 +779,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
       effects.result.quantity = quantity;
     }
   } else if (operation === 'archive-wish') {
-    var drink = catalog.filter(function (item) { return item.id === data.drinkId && !item.active; })[0];
+    var drink = visibleDrinkCatalog_(ss,catalog,true).filter(function (item) { return item.id === data.drinkId && !item.active; })[0];
     if (!drink) throw websiteInputError_('這個品項目前不在歷史清單，請重新整理。');
     var voterName = websiteText_(data.voterName, '姓名', 80, true);
     if (!/^[A-Za-z0-9_-]{16,80}$/.test(String(data.voterId || ''))) throw websiteInputError_('瀏覽器識別資料無效，請重新開啟網站。');
@@ -976,6 +978,31 @@ function wishKind_(value) {
   return kind === 'snack' || kind === '零食' || kind === '點心' ? 'snack' : null;
 }
 
+// Availability is derived from recorded balances. Catalog IDs and all stock events stay intact.
+// Persist during locked writes/bootstrap, never from an older concurrent read snapshot.
+function cacheZeroDrinkIds_(inventory) {
+  var ids=inventory.filter(function(entry){return entry.stock===0;}).map(function(entry){return entry.drink.id;}).sort();
+  var props=PropertiesService.getScriptProperties(),value=JSON.stringify(ids);
+  if(props.getProperty('HOLDWIN_ZERO_DRINK_IDS')!==value)props.setProperty('HOLDWIN_ZERO_DRINK_IDS',value);
+  return ids;
+}
+function visibleDrinkCatalog_(ss,catalog,alreadyLocked) {
+  var ids;
+  try { ids=JSON.parse(PropertiesService.getScriptProperties().getProperty('HOLDWIN_ZERO_DRINK_IDS')||'null'); } catch(error) {}
+  if(!Array.isArray(ids)){
+    var bootstrap=function(){
+      var cached;
+      try { cached=JSON.parse(PropertiesService.getScriptProperties().getProperty('HOLDWIN_ZERO_DRINK_IDS')||'null'); } catch(error) {}
+      return Array.isArray(cached)?cached:cacheZeroDrinkIds_(computeInventory_(catalog,historyEvents_(ss)));
+    };
+    ids=alreadyLocked?bootstrap():locked_(bootstrap);
+  }
+  return catalog.map(function(drink){return drink.active&&ids.indexOf(drink.id)>=0?Object.assign({},drink,{active:false,autoArchived:true}):drink;});
+}
+function visibleDrinkInventory_(inventory) {
+  return inventory.map(function(entry){return entry.drink.active&&entry.stock===0?Object.assign({},entry,{drink:Object.assign({},entry.drink,{active:false,autoArchived:true})}):entry;});
+}
+
 function publicData_(spreadsheet, catalog) {
   // Timestamp precedes all reads so a later confirmed write always wins.
   var snapshotAt = new Date().toISOString();
@@ -984,12 +1011,12 @@ function publicData_(spreadsheet, catalog) {
   var support = voteSummary_(ss);
   var wishes = wishRows_(ss).map(function (wish) { wish.votes = support.counts[wish.id] || 0; wish.supporters = support.names[wish.id] || []; return wish; });
   // Fridge responses never carry warehouse quantities or registration histories.
-  var drinks = (catalog || catalog_(ss)).map(function (drink) {
+  var drinks = visibleDrinkCatalog_(ss,catalog || catalog_(ss)).map(function (drink) {
     return { id: drink.id, name: drink.name, category: drink.category, packaging: drink.packaging, unit: drink.unit, perCase: drink.perCase, threshold: drink.threshold, active: drink.active };
   });
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = websiteFormUrls_();
-  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 3, archiveWishVersion: 1, zeroStockVersion: 1, gachaVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
+  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 3, archiveWishVersion: 1, zeroStockVersion: 1, gachaVersion: 1, autoArchiveVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),
@@ -998,11 +1025,12 @@ function publicData_(spreadsheet, catalog) {
 
 function adminSummaryData_() {
   var ss=requiredSpreadsheet_(),preferences=restockPreferences_(ss),catalog=catalog_(ss),events=historyEvents_(ss),supplyEvents=supplyEvents_(ss);
-  var drinks=computeInventory_(catalog,events).map(function(entry){return Object.assign({},entry.drink,{kind:'drink',stock:entry.stock,lastCountAt:entry.lastCountAt,lastArrivalAt:entry.lastArrivalAt});});
+  var rawInventory=computeInventory_(catalog,events);
+  var drinks=visibleDrinkInventory_(rawInventory).map(function(entry){return Object.assign({},entry.drink,{kind:'drink',stock:entry.stock,lastCountAt:entry.lastCountAt,lastArrivalAt:entry.lastArrivalAt});});
   var supplies=supplyInventory_(supplyCatalog_(ss),supplyEvents),items=drinks.concat(supplies);
   function summary(item){var row={kind:item.kind,id:item.id,name:item.name,flavor:item.flavor||'',unit:item.unit,stock:item.stock,mode:restockMode_(preferences,item.kind,item.id)};if(preferences.some(function(entry){return entry.kind===item.kind&&entry.itemId===item.id&&entry.zeroStockPending===true;}))row.zeroStockPending=true;return row;}
   var active=items.filter(function(item){return item.active;});
-  var restockItems=active.filter(function(item){return restockMode_(preferences,item.kind,item.id)==='consider';}).map(summary).sort(function(a,b){return (a.stock===null?Infinity:a.stock)-(b.stock===null?Infinity:b.stock);});
+  var restockItems=items.filter(function(item){return (item.active||item.autoArchived===true)&&restockMode_(preferences,item.kind,item.id)==='consider';}).map(summary).sort(function(a,b){return (a.stock===null?Infinity:a.stock)-(b.stock===null?Infinity:b.stock);});
   var lowItems=active.filter(function(item){return item.stock!==null&&(['snack','noodle'].indexOf(item.kind)<0||restockMode_(preferences,item.kind,item.id)==='consider')&&(item.kind==='toner'?item.stock===0:item.stock>0&&item.stock<=(item.kind==='noodle'?3:10));}).map(summary).sort(function(a,b){return a.stock-b.stock;});
   var outOfStockItems=active.filter(function(item){return item.kind!=='toner'&&item.stock===0;}).map(summary);
   var manualSnackItems=restockItems.filter(function(item){return item.kind==='snack';}).map(function(item){var preference=preferences.filter(function(entry){return entry.kind==='snack'&&entry.itemId===item.id;})[0];return Object.assign({},item,{markedAt:preference.updatedAt});});
@@ -1013,7 +1041,7 @@ function adminSummaryData_() {
 
 function popularityData_() {
   var ss = requiredSpreadsheet_();
-  return {ok:true,version:3,popularity:websiteWeeklyPopularity_(catalog_(ss),historyEvents_(ss),new Date())};
+  return {ok:true,version:3,popularity:websiteWeeklyPopularity_(visibleDrinkCatalog_(ss,catalog_(ss)),historyEvents_(ss),new Date())};
 }
 
 // Monday–Friday elapsed days in Asia/Taipei; keep aligned with js/workdays.js.
@@ -1107,13 +1135,14 @@ function websiteWeeklyPopularity_(drinks, events, now = new Date()) {
 function warehouseData_() {
   var ss = requiredSpreadsheet_();
   var catalog = catalog_(ss);
-  var result = publicData_(ss, catalog);
   var events = historyEvents_(ss).filter(function (event) { return event.accepted; });
-  result.drinks = computeInventory_(catalog, events).map(function (entry) {
+  var inventory=computeInventory_(catalog,events);
+  var result = publicData_(ss, catalog);
+  result.drinks = visibleDrinkInventory_(inventory).map(function (entry) {
     var drink = entry.drink;
     return { id: drink.id, name: drink.name, category: drink.category, packaging: drink.packaging, unit: drink.unit,
       perCase: drink.perCase, threshold: drink.threshold, active: drink.active,
-      stock: entry.stock, target: null, lastCountAt: entry.lastCountAt, lastArrivalAt:entry.lastArrivalAt||null };
+      stock: entry.stock, target: null, lastCountAt: entry.lastCountAt, lastArrivalAt:entry.lastArrivalAt||null,autoArchived:drink.autoArchived===true };
   });
   result.events = events.map(function (event) {
     return { id: event.id, drinkId: event.drinkId, type: event.type, quantity: event.quantity,
@@ -1714,6 +1743,7 @@ function appendHistory_(ss, events) {
 }
 
 function renderWarehouse_(ss, inventory) {
+  cacheZeroDrinkIds_(inventory);inventory=visibleDrinkInventory_(inventory);
   var sheet = ss.getSheetByName(SHEETS.warehouse);
   var formUrls = websiteFormUrls_();
   var preferences=restockPreferences_(ss);
@@ -1744,6 +1774,7 @@ function renderWarehouse_(ss, inventory) {
 }
 
 function renderArchive_(ss, inventory) {
+  inventory=visibleDrinkInventory_(inventory);
   var sheet = ss.getSheetByName(SHEETS.archive) || ss.insertSheet(SHEETS.archive);
   var rows = sortInventoryEntries_(inventory.filter(function (entry) { return !entry.drink.active; })).map(function (entry) {
     var drink = entry.drink;
@@ -1751,7 +1782,7 @@ function renderArchive_(ss, inventory) {
   });
   sheet.clearContents();
   sheet.getRange(1, 1).setValue('宏穩茶水間｜封存品項與數量紀錄');
-  sheet.getRange(2, 1).setValue('封存保留原有盤點、入庫與數量紀錄；在 Catalog 將 active 改回 TRUE 可恢復。請勿刪除歷史列。');
+  sheet.getRange(2, 1).setValue('已確認為0的飲料自動列入歷史，重新入庫後回到供應中；手動停買品項可選原品項重新入庫。盤點與入庫紀錄保留。');
   sheet.getRange(4, 1, 1, 11).setValues([['品項 ID', '飲料名稱', '分類', '包裝', '單位', '每箱數量', '紀錄庫存', '最近實際盤點', '盤點後到貨', '狀態', '提醒門檻']]);
   if (rows.length) { sheet.getRange(5, 1, rows.length, 11).setValues(rows); sheet.getRange(5, 8, rows.length, 1).setNumberFormat('yyyy/MM/dd HH:mm'); }
   styleHeader_(sheet, 4, 11); sheet.setFrozenRows(4); sheet.setColumnWidth(2, 185); sheet.setColumnWidth(8, 160);

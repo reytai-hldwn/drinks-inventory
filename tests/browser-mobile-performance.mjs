@@ -44,14 +44,14 @@ try{
   await page.goto(`${base}/index.html`,{waitUntil:'domcontentloaded'});await page.waitForSelector('.pantry-stage');await page.evaluate(()=>document.fonts.ready);
   assert.deepEqual(reads,['public']);
   assert.ok(requests.every(url=>!url.includes('/assets/display/')&&!url.includes('pantry-office-')&&!url.includes('pantry-scene-approved.png')&&!url.includes('holdwin-mark.png')&&!url.includes('pantry-hand-complete')),'closed mobile view avoids drink originals, desktop scenes, full board/logo/font');
-  await page.locator('.fridge-door').click();await page.waitForSelector('.fridge.is-ready');await stats.started;
+  await page.locator('.fridge-door').click();await page.waitForSelector('.fridge.is-ready');assert.equal(await page.locator('.fridge-popularity').evaluate(node=>node.open),false);assert.equal(reads.filter(action=>action==='popularity').length,0);await page.locator('.fridge-popularity>summary').focus();await page.keyboard.press('Enter');await stats.started;
   assert.equal(await page.locator('.fridge-product').count(),32);assert.match(await page.locator('.fridge-popularity').innerText(),/正在整理/);
   await page.locator('#search').fill('光泉牛乳');assert.equal(await page.locator('.fridge-product').count(),1);
   await page.locator('#navigation [data-view=archive]').click();await page.waitForSelector('.archive-card');stats.release();
   await page.waitForTimeout(200);assert.equal(await page.locator('.archive-card').count(),8,'late stats never change the route');
   await page.locator('#navigation [data-view=overview]').click();await page.waitForSelector('.popular-drink');
   const cards=page.locator('.popular-drink');assert.equal(await cards.count(),2);
-  assert.match(await cards.first().innerText(),/32.*包／工作週/s);assert.match(await cards.nth(1).innerText(),/20.*包／工作週/s);
+  assert.match(await cards.first().innerText(),/32.*包／週/s);assert.match(await cards.nth(1).innerText(),/20.*包／週/s);
   assert.equal(reads.filter(action=>action==='popularity').length,1,'reopening uses cached aggregate stats');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.screenshot({path:'/tmp/pantry-mobile-popularity.png',fullPage:true});
