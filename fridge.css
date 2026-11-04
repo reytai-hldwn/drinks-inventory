@@ -169,3 +169,5 @@
   .fridge-door-leaf,.fridge-door-invitation,.fridge-door-copy{transition:none}
   .fridge.is-open .fridge-door-leaf{transform:none;opacity:0}
 }
+
+.fridge-popularity>summary{cursor:pointer;position:relative;list-style:none;padding-right:22px}.fridge-popularity>summary::-webkit-details-marker{display:none}.fridge-popularity>summary::after{content:"";position:absolute;right:3px;top:40%;width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}.fridge-popularity[open]>summary::after{transform:rotate(225deg)}.fridge-popularity:not([open]) .popularity-heading{margin-bottom:0}

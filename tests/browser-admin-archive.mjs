@@ -15,7 +15,7 @@ try{for(const width of [1440,390]){
   const b=websiteBackend(),context=await browser.newContext({viewport:{width,height:960},reducedMotion:'reduce'}),page=await context.newPage(),errors=[],reads=[],posts=[];
   b.sheets.Catalog.rows.push(['empty','虛構已用完飲料','茶飲','鋁箔包','包',24,10,true]);b.sheets.History.rows.push(['baseline-empty','2020-01-01T00:00:00Z','count','empty','虛構已用完飲料',0,'','虛構盤點者','採計']);
   b.send('supply-stocktake',{entries:[{supplyId:'supply-noodle-01',quantity:1},{supplyId:'supply-noodle-02',quantity:0},{supplyId:'supply-snack-01',quantity:0},{supplyId:'supply-toner-black',quantity:0}],recorder:'虛構用品盤點者'});
-  const supplyName=id=>{const item=b.ctx.supplyCatalog_(b.ss).find(item=>item.id===id);return item.flavor?item.name+'｜'+item.flavor:item.name;},emptyNames=['虛構已用完飲料',supplyName('supply-snack-01'),supplyName('supply-noodle-02')];
+  const supplyName=id=>{const item=b.ctx.supplyCatalog_(b.ss).find(item=>item.id===id);return item.flavor?item.name+'｜'+item.flavor:item.name;},emptyNames=[supplyName('supply-snack-01'),supplyName('supply-noodle-02')];
   const openSection=async id=>{const details=page.locator(id);if(!await details.evaluate(element=>element.open))await details.locator(':scope > summary').click();};
   page.on('pageerror',error=>errors.push(error.message));page.on('dialog',dialog=>dialog.accept());
   let release,started;const gate=new Promise(resolve=>{release=resolve;}),began=new Promise(resolve=>{started=resolve;});let hold=true;
@@ -38,15 +38,16 @@ try{for(const width of [1440,390]){
   assert.match(await page.locator('#admin-low-stock .admin-low-list').innerText(),/牛乳.*9/s);assert.equal(await page.locator('#admin-low-stock .needs-restock').count(),0);
   assert.match(await page.locator('#admin-low-stock .admin-low-list').innerText(),new RegExp(supplyName('supply-toner-black')),'zero toner stays in low reminders');
   for(const name of emptyNames){assert.ok((await page.locator('#admin-empty-stock .admin-low-list').innerText()).includes(name));assert.ok(!(await page.locator('#admin-low-stock .admin-low-list').innerText()).includes(name),'zero drinks, snacks and noodles remain separate');}
-  assert.deepEqual(await page.locator('#admin-empty-stock [data-action=open-empty-stock][data-id]').evaluateAll(links=>links.map(link=>link.dataset.id)),['drink','snack','noodle']);
-  assert.equal(await page.locator('#admin-empty-stock [data-admin-summary-count]').innerText(),'3 種');
+  assert.deepEqual(await page.locator('#admin-empty-stock [data-action=open-empty-stock][data-id]').evaluateAll(links=>links.map(link=>link.dataset.id)),['snack','noodle']);
+  assert.equal(await page.locator('#admin-empty-stock [data-admin-summary-count]').innerText(),'2 種');
   await page.locator('#admin-empty-stock > summary').focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>!document.querySelector('#admin-empty-stock').open);
 
   await page.evaluate(()=>{location.hash='products';});await page.waitForSelector('[data-stock-drink-id]');
   assert.deepEqual(await page.locator('[data-filter]').evaluateAll(buttons=>buttons.map(button=>button.dataset.filter)),['low','empty','all','archived']);
+  await page.locator('[data-filter=archived]').click();await page.waitForSelector('[data-stock-drink-id=empty]');assert.match(await page.locator('[data-stock-drink-id=empty] .stock-value').innerText(),/0/);await page.locator('[data-stock-drink-id=empty] [data-restock-toggle]').check();await page.waitForFunction(()=>!document.querySelector('[data-stock-drink-id=empty] [data-restock-toggle]').disabled);await page.locator('[data-filter=all]').click();
   await page.locator('[data-stock-drink-id=milk] [data-restock-toggle]').check();await page.waitForFunction(()=>!document.querySelector('[data-stock-drink-id=milk] [data-restock-toggle]').disabled);
-  await page.evaluate(()=>{location.hash='admin';});await page.waitForSelector('#admin-low-stock');await openSection('#admin-low-stock');await page.waitForSelector('#admin-low-stock .needs-restock');assert.equal(await page.locator('#admin-low-stock .needs-restock').count(),1);
-  for(const [kind,id] of [['drink','empty'],['snack','supply-snack-01'],['noodle','supply-noodle-02']]){
+  await page.evaluate(()=>{location.hash='admin';});await page.waitForSelector('#admin-low-stock');await openSection('#admin-low-stock');await page.waitForSelector('#admin-low-stock .needs-restock');assert.equal(await page.locator('#admin-low-stock .needs-restock').count(),1);await openSection('#admin-restock');assert.match(await page.locator('#admin-restock').innerText(),/虛構已用完飲料/);assert.match(await page.locator('#admin-restock').innerText(),/牛乳/);assert.equal(await page.locator('.admin-disclosure').first().getAttribute('id'),'admin-restock');
+  for(const [kind,id] of [['snack','supply-snack-01'],['noodle','supply-noodle-02']]){
     if(kind!=='drink'){
       await page.evaluate(()=>{location.hash='products';});await page.waitForSelector('[data-action=warehouse-kind]');await page.locator(`[data-action=warehouse-kind][data-id=${kind}]`).click();
       await page.locator('#supply-search').fill('虛構搜尋沒有相符品項');await page.waitForFunction(()=>!document.querySelector('[data-supply-id]'));
@@ -59,15 +60,14 @@ try{for(const width of [1440,390]){
   }
   await openSection('#admin-empty-stock');
   const beforeDecisions=structuredClone(b.sheets.History.rows),warehouseReads=reads.filter(action=>action==='warehouse').length;
-  await page.locator('[data-empty-item="drink:empty"] [data-action=empty-pending]').click();await page.waitForSelector('[data-empty-item="drink:empty"] [data-action=empty-undecided]');
+  await page.locator('[data-empty-item="noodle:supply-noodle-02"] [data-action=empty-pending]').click();await page.waitForSelector('[data-empty-item="noodle:supply-noodle-02"] [data-action=empty-undecided]');
   assert.equal(reads.filter(action=>action==='warehouse').length,warehouseReads,'accepted admin receipt avoids a full warehouse read');
-  assert.equal(b.ctx.restockPreferences_(b.ss).find(item=>item.itemId==='empty').zeroStockPending,true);
+  assert.equal(b.ctx.restockPreferences_(b.ss).find(item=>item.itemId==='supply-noodle-02').zeroStockPending,true);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:`/tmp/pantry-empty-decisions-${width}.png`,fullPage:true});
-  await page.locator('[data-empty-item="drink:empty"] [data-action=empty-undecided]').click();await page.waitForSelector('[data-empty-item="drink:empty"] [data-action=empty-pending]');
-  await page.locator('[data-empty-item="drink:empty"] [data-action=empty-archive]').click();await page.waitForFunction(()=>!document.querySelector('[data-empty-item="drink:empty"]'));
-  assert.deepEqual(b.sheets.History.rows,beforeDecisions);assert.equal(b.sheets.Catalog.rows.find(row=>row[0]==='empty')[7],false);
+  await page.locator('[data-empty-item="noodle:supply-noodle-02"] [data-action=empty-undecided]').click();await page.waitForSelector('[data-empty-item="noodle:supply-noodle-02"] [data-action=empty-pending]');
+  assert.deepEqual(b.sheets.History.rows,beforeDecisions);assert.equal(b.sheets.Catalog.rows.find(row=>row[0]==='empty')[7],true,'automatic history does not rewrite the source catalog');
   await page.evaluate(()=>{location.hash='restock';});await page.waitForSelector('#restock-drink');await page.locator('#restock-drink').selectOption('empty');await page.locator('#restock-form [name=loose]').fill('3');await page.locator('#restock-form [name=recorder]').fill('虛構到貨者');await page.locator('#restock-form [type=submit]').click();await page.waitForFunction(()=>!document.querySelector('#restock-form [type=submit]').disabled);
-  assert.equal(b.sheets.Catalog.rows.find(row=>row[0]==='empty')[7],true);
+  assert.equal(b.sheets.Catalog.rows.find(row=>row[0]==='empty')[7],true);assert.equal(b.ctx.warehouseData_().drinks.find(item=>item.id==='empty').active,true);assert.equal(b.ctx.warehouseData_().drinks.find(item=>item.id==='empty').stock,3);
   for(const [kind,id] of [['snack','supply-snack-01'],['noodle','supply-noodle-02']]){
     await page.evaluate(()=>{location.hash='admin';});await page.waitForSelector('#admin-empty-stock');await openSection('#admin-empty-stock');await page.locator(`[data-empty-item="${kind}:${id}"] [data-action=empty-archive]`).click();await page.waitForFunction(key=>![...document.querySelectorAll('[data-empty-item]')].some(row=>row.dataset.emptyItem===key),`${kind}:${id}`);
     await page.evaluate(()=>{location.hash='products';});await page.waitForSelector('[data-action=warehouse-kind]');await page.locator(`[data-action=warehouse-kind][data-id=${kind}]`).click();await page.locator('[data-action=supply-stock-filter][data-id=archived]').click();const row=page.locator(`[data-supply-id=${id}]`);assert.equal(await row.count(),1);assert.equal(await row.locator('[data-action=supply-count]').count(),0);

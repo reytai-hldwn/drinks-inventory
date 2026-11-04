@@ -70,7 +70,7 @@ try {
     await page.locator('#supply-count-form [type=submit]').click();await done();
     const inventory=b.ctx.supplyInventory_(b.ctx.supplyCatalog_(b.ss),b.ctx.supplyEvents_(b.ss));assert.equal(inventory.find(item=>item.id===protein1).stock,0);assert.equal(inventory.find(item=>item.id===protein2).stock,7);
     await go('admin');await page.waitForSelector('#admin-low-stock [data-admin-summary-count]');
-    assert.equal(await page.locator('#admin-restock').count(),0);assert.equal(await page.locator('.admin-disclosure').count(),2);
+    assert.equal(await page.locator('#admin-restock').count(),1);assert.equal(await page.locator('.admin-disclosure').count(),3);
     await page.locator('#admin-low-stock > summary').click();await page.waitForSelector('#admin-low-stock [data-manual-snack-id]');
     assert.deepEqual(await page.locator('#admin-low-stock [data-manual-snack-id]').evaluateAll(rows=>rows.map(row=>row.dataset.manualSnackId)),['supply-snack-01']);
     assert.deepEqual(errors,[]);console.log(`PASS ${width}: classified single/batch drinks, snack category/product/flavor filters, manual 1–10 list, unclipped count icons, blank count preservation and compact summary`);

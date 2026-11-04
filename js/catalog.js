@@ -1,6 +1,7 @@
 /** Company-confirmed products; case size defaults to the owner's requested 24. */
 export const DEFAULT_CASE_SIZE = 24;
 export const CATEGORIES_ORDER = Object.freeze(['牛乳／植物奶', '茶飲', '咖啡', '果汁', '汽水', '其他', '大瓶飲料']);
+export const FRIDGE_PACKAGING_ORDER = Object.freeze(['窄瓶鋁箔包','鋁箔包','小型鐵罐','鐵罐','長鐵罐','寶特瓶','大瓶裝']);
 
 /** Read legacy labels in one category while retaining IDs, quantities and history. */
 export function canonicalDrinkCategory(category, name = '') {

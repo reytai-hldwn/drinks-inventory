@@ -1,3 +1,4 @@
+import { drinkAvailability } from './drink-availability.js';
 import { CATEGORIES_ORDER, canonicalDrinkCategory, canonicalDrinkPackaging } from './catalog.js';
 import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
@@ -191,7 +192,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     const threshold = row.threshold === undefined ? 10 : row.threshold;
     if (!Number.isSafeInteger(threshold) || threshold < 0 || threshold > 999999) throw new Error('Google 提醒門檻格式不正確。');
     if (row.active !== undefined && typeof row.active !== 'boolean') throw new Error('Google 品項供應狀態格式不正確。');
-    return {
+    return (item=>warehouse?drinkAvailability(item):item)({
       id,
       name: textField(row.name, '飲料名稱', 80),
       category: canonicalDrinkCategory(textField(row.category, '飲料分類', 80), row.name),
@@ -205,7 +206,8 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
       target: null,
       lastCountAt: warehouse ? googleDateField(row.lastCountAt, '盤點時間', true) : null,
       ...(warehouse&&row.lastArrivalAt?{lastArrivalAt:googleDateField(row.lastArrivalAt,'入庫時間')}:{}),
-    };
+      ...(warehouse&&row.autoArchived===true?{autoArchived:true}:{}),
+    });
   });
   const wishIds = new Set();
   const wishes = payload.wishes.map((row) => {

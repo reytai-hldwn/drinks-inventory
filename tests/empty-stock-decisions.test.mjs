@@ -17,11 +17,11 @@ test('zero-stock decisions are shared, idempotent and preserve all inventory fac
  const b=websiteBackend();zero(b);const history=plain(b.sheets.History.rows),catalog=plain(b.sheets.Catalog.rows),id=randomUUID();
  const pending=decide(b,'pending','normal',id);assert.equal(pending.state,'accepted');assert.equal(decide(b,'pending','normal',id).state,'accepted');
  assert.deepEqual(b.sheets.History.rows,history);assert.deepEqual(b.sheets.Catalog.rows,catalog);
- const summary=plain(b.ctx.adminSummaryData_()),row=summary.outOfStockItems.find(item=>item.id==='tea');
+ const summary=plain(b.ctx.adminSummaryData_()),row=summary.restockItems.find(item=>item.id==='tea');
  assert.equal(row.zeroStockPending,true);assert.equal(row.mode,'consider');assert.equal(groupEmptyStock([row]).pending.length,1);
  assert.equal(decide(b,'archive').state,'rejected','stale expected preference cannot archive');
  assert.equal(decide(b,'undecided','consider').state,'accepted');
- assert.equal(plain(b.ctx.adminSummaryData_()).outOfStockItems.find(item=>item.id==='tea').zeroStockPending,undefined);
+ assert.ok(!plain(b.ctx.adminSummaryData_()).restockItems.some(item=>item.id==='tea'));
  assert.equal(decide(b,'pending').state,'accepted');
  const arrivalId=randomUUID(),arrival={drinkId:'tea',cases:0,loose:8,recorder:'測試',note:''};
  assert.equal(b.send('arrival',arrival,arrivalId).state,'accepted');assert.equal(b.send('arrival',arrival,arrivalId).state,'accepted');
@@ -79,13 +79,13 @@ test('a failed generated view can replay an already-applied archive without chan
 });
 
 test('admin decisions use a verified receipt without requesting the full warehouse and remain visible on another device',async()=>{
- const b=websiteBackend();zero(b);const reads=[];
+ const b=websiteBackend();b.send('supply-stocktake',{entries:[{supplyId:'supply-noodle-01',quantity:0}],recorder:'測試'});const reads=[];
  const make=()=>new GoogleInventoryStore({googleScriptUrl:'https://script.google.com/macros/s/ZERO_STOCK_TEST/exec'},{pendingStorage:storage(),publicStorage:storage(),readPublicData:async(_,options)=>{reads.push(options.action);return plain(b.ctx.adminSummaryData_());},submitWebsiteCommand:async(_,command)=>{const receipt=b.send(command.operation,command.data,command.requestId);assert.equal(receipt.state,'accepted');return receipt.result;}});
  const store=make();await store.readAdminSummary();assert.equal(store.supportsZeroStockDecisions,true);
- await store.setZeroStockDecision({kind:'drink',itemId:'tea',decision:'pending',expectedMode:'normal'});assert.deepEqual(reads,['admin']);assert.equal(store.adminSummary.outOfStockItems.find(item=>item.id==='tea').zeroStockPending,true);
- const other=make();await other.readAdminSummary();assert.equal(other.adminSummary.outOfStockItems.find(item=>item.id==='tea').zeroStockPending,true);
- await store.setZeroStockDecision({kind:'drink',itemId:'tea',decision:'archive',expectedMode:'consider'});assert.ok(!store.adminSummary.outOfStockItems.some(item=>item.id==='tea'));assert.deepEqual(reads,['admin','admin']);
- const older=make();older.readPublicData=async()=>{const summary=plain(b.ctx.adminSummaryData_());delete summary.zeroStockVersion;return summary;};await older.readAdminSummary();await assert.rejects(older.setZeroStockDecision({kind:'drink',itemId:'tea',decision:'pending',expectedMode:'normal'}),/更新原 Apps Script/);
+ await store.setZeroStockDecision({kind:'noodle',itemId:'supply-noodle-01',decision:'pending',expectedMode:'normal'});assert.deepEqual(reads,['admin']);assert.equal(store.adminSummary.outOfStockItems.find(item=>item.id==='supply-noodle-01').zeroStockPending,true);
+ const other=make();await other.readAdminSummary();assert.equal(other.adminSummary.outOfStockItems.find(item=>item.id==='supply-noodle-01').zeroStockPending,true);
+ await store.setZeroStockDecision({kind:'noodle',itemId:'supply-noodle-01',decision:'archive',expectedMode:'consider'});assert.ok(!store.adminSummary.outOfStockItems.some(item=>item.id==='supply-noodle-01'));assert.deepEqual(reads,['admin','admin']);
+ const older=make();older.readPublicData=async()=>{const summary=plain(b.ctx.adminSummaryData_());delete summary.zeroStockVersion;return summary;};await older.readAdminSummary();await assert.rejects(older.setZeroStockDecision({kind:'noodle',itemId:'supply-noodle-01',decision:'pending',expectedMode:'normal'}),/更新原 Apps Script/);
 });
 
 test('local queues archive and restore the same IDs and Calpis display remains separate from package identity',async t=>{
@@ -94,8 +94,8 @@ test('local queues archive and restore the same IDs and Calpis display remains s
  local.setItem('office-pantry-demo-v1',JSON.stringify({data,revision:1,updatedAt:'2026-01-01T00:00:00Z'}));
  const store=new InventoryStore();await store.init();store.preview=false;const itemId=store.data.drinks[0].id;
  await store.setZeroStockDecision({kind:'drink',itemId,decision:'pending',expectedMode:'normal'});assert.equal(store.restockPreferences[0].zeroStockPending,true);
- await store.submitBatchArrival({recorder:'測試',entries:[{kind:'drink',drinkId:itemId,quantity:2}]});assert.equal(store.restockPreferences[0].mode,'normal');
- const counted=structuredClone(store.data);counted.events.push({id:'zero-again',drinkId:itemId,type:'count',quantity:0,createdAt:new Date(Date.now()+1000).toISOString(),recorder:'測試'});await store.save(counted);
+ await store.submitBatchArrival({recorder:'測試',entries:[{kind:'drink',drinkId:itemId,restoreArchived:true,quantity:2}]});assert.equal(store.restockPreferences[0].mode,'normal');
+ const counted=structuredClone(store.data);counted.events.push({id:'zero-again',drinkId:itemId,type:'count',quantity:0,createdAt:new Date(Date.now()).toISOString(),recorder:'測試'});await store.save(counted);
  const history=structuredClone(store.data.events);await store.setZeroStockDecision({kind:'drink',itemId,decision:'archive',expectedMode:'normal'});assert.equal(store.data.drinks.find(item=>item.id===itemId).active,false);assert.deepEqual(store.data.events,history);
  await store.submitBatchArrival({recorder:'測試',entries:[{kind:'drink',drinkId:itemId,restoreArchived:true,quantity:3}]});assert.equal(store.data.drinks.filter(item=>item.id===itemId).length,1);assert.equal(store.data.drinks.find(item=>item.id===itemId).active,true);
  assert.equal(fridgeDisplayName('可爾必思開心成長160ml'),'可爾必思');assert.equal(canonicalDrinkCategory('牛乳／植物奶','可爾必思開心成長160ml'),'其他');
