@@ -67,7 +67,7 @@ try{
     await page.waitForSelector('.wish-vote-button.is-voted');assert.equal(backend.sheets.WishVotes.rows.length,2);
     await page.locator('[data-action="view-wish-supporters"]').click();await page.waitForSelector('.wish-supporter-list');
     assert.match(await page.locator('.wish-supporter-list').innerText(),/網站測試者/);await page.locator('#modal [data-action="close-modal"]').first().click();
-    await go('admin');await page.waitForSelector('[data-action="quick-add-drink"]');await page.locator('[data-action="quick-add-drink"]').click();
+    await go('products');await page.waitForSelector('[data-action="quick-add-drink"]');await page.locator('[data-action="quick-add-drink"]').click();
     await page.locator('#quick-drink-form [name="name"]').fill('光泉牛乳');await page.locator('#quick-drink-form [name="recorder"]').fill('網頁測試');
     await page.locator('#quick-drink-form [type="submit"]').click();await done();await page.waitForSelector('#modal-error:not([hidden])');
     assert.equal(await page.locator('#quick-drink-form [name="name"]').inputValue(),'光泉牛乳');

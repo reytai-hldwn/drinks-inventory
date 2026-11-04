@@ -5270,7 +5270,7 @@ function renderWishes() {
   const wishes = store.data.wishes.filter((wish) => wishFilter === 'all' || wishKind(wish) === wishFilter).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   const tabs = `<div class="wish-pool-tabs" role="group" aria-label="篩選採買願望">${[['all', '全部'], ['drink', '飲料'], ['snack', '零食']].map(([value, label]) => `<button type="button" class="filter-tab${wishFilter === value ? ' selected' : ''}" data-action="wish-pool" data-id="${value}" aria-pressed="${wishFilter === value}">${label}</button>`).join('')}</div>`;
   main.innerHTML = heading('SOMETHING TO LOOK FORWARD TO', '採買許願池', '留下想喝的飲料、想吃的零食，讓下一次採購多一點期待。', button('♡ 新增願望', 'new-wish')) + tabs +
-    '<div class="info-box">歡迎許願，或是按「我也喜歡」贊同別人的提案。同一個瀏覽器對每個願望可贊同一次。</div>' +
+    '<div class="info-box">許願完成後，記得幫自己的願望按「我也喜歡」並填上姓名，讓採買知道你也想要！也歡迎支持同事的提案；同一個瀏覽器對每個願望可贊同一次。</div>' +
     (wishes.length ? `<div class="wish-grid">${wishes.map((wish) => {
       const [label, style] = wishStatus(wish.status);
       const kindLabel = wishKindLabel(wishKind(wish));
@@ -5487,7 +5487,7 @@ function openWish(id) {
     showModal('新增採買願望', '先選擇是飲料或零食，再到許願表單填寫品項。', `<form id="wish-category-form"><label class="field">許願類型<select name="kind" required>${wishKindOptions()}</select></label><div class="form-actions">${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">繼續填寫願望</button></div></form>`);
     return;
   }
-  showModal(wish ? '管理採買願望' : '新增採買願望', '選擇飲料或零食，附上產品連結，下一次採購就能輕鬆找到。', `<form id="wish-form" data-id="${h(id || '')}"><div class="form-grid"><label class="field full-width">許願類型<select name="kind" required>${wishKindOptions(kind)}</select></label><label class="field full-width">品項名稱<input name="name" required maxlength="80" value="${h(wish?.name || '')}" placeholder="例如：無糖氣泡水、海鹽蘇打餅乾"></label><label class="field full-width">購買或產品連結（選填）<input name="url" type="url" maxlength="2000" placeholder="https://…" value="${h(wish?.url || '')}"></label><label class="field full-width">許願備註（選填）<textarea name="note" maxlength="500" placeholder="口味、偏好、想試試的原因…">${h(wish?.note || '')}</textarea></label>${wish ? `<label class="field full-width">採購狀態<select name="status">${[['pending', '待評估'], ['purchased', '已採購'], ['declined', '暫不採購']].map(([value, title]) => `<option value="${value}"${wish?.status === value ? ' selected' : ''}>${title}</option>`).join('')}</select></label>` : '<p class="subtle full-width">新願望會先列為「待評估」，由管理者更新進度。</p>'}</div><div class="form-actions">${wish ? button('刪除願望', 'delete-wish', `type="button" data-id="${h(id)}"`, 'button-danger') : ''}${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">儲存願望</button></div></form>`);
+  showModal(wish ? '管理採買願望' : '新增採買願望', '選擇飲料或零食，附上產品連結，下一次採購就能輕鬆找到。', `<form id="wish-form" data-id="${h(id || '')}"><div class="form-grid"><label class="field full-width">許願類型<select name="kind" required>${wishKindOptions(kind)}</select></label><label class="field full-width">品項名稱<input name="name" required maxlength="80" value="${h(wish?.name || '')}" placeholder="例如：無糖氣泡水、海鹽蘇打餅乾"></label><label class="field full-width">購買或產品連結（選填）<input name="url" type="url" maxlength="2000" placeholder="https://…" value="${h(wish?.url || '')}"></label><label class="field full-width">許願備註（選填）<textarea name="note" maxlength="500" placeholder="口味、偏好、想試試的原因…">${h(wish?.note || '')}</textarea></label>${wish ? `<label class="field full-width">採購狀態<select name="status">${[['pending', '待評估'], ['purchased', '已採購'], ['declined', '暫不採購']].map(([value, title]) => `<option value="${value}"${wish?.status === value ? ' selected' : ''}>${title}</option>`).join('')}</select></label>` : '<p class="subtle full-width">許願不用填姓名。送出後，記得再按「我也喜歡」，填上姓名，幫自己的願望加一票！新願望會先列為「待評估」。</p>'}</div><div class="form-actions">${wish ? button('刪除願望', 'delete-wish', `type="button" data-id="${h(id)}"`, 'button-danger') : ''}${button('取消', 'close-modal', 'type="button"', 'button-outline')}<button class="button" type="submit">儲存願望</button></div></form>`);
 }
 
 function openVote(id) {
@@ -5628,7 +5628,7 @@ async function submitForm(form) {
     const kind = values.get('kind');
     if (!['drink', 'snack'].includes(kind)) throw new Error('請選擇飲料許願或零食許願。');
     const url = store.getWishUrl(kind);
-    showModal('填寫採買願望', `已選擇：${wishKindLabel(kind)}許願。許願不需要填姓名，送出後回到這裡重新整理。`, `<div class="form-actions">${renderGoogleLink(url, '開啟許願表單')}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
+    showModal('填寫採買願望', `已選擇：${wishKindLabel(kind)}許願。許願不需要填姓名。送出後回到許願池重新整理，記得再幫自己的願望按「我也喜歡」並填上姓名！`, `<div class="form-actions">${renderGoogleLink(url, '開啟許願表單')}${button('關閉', 'close-modal', 'type="button"', 'button-outline')}</div>`);
     return;
   }
   if (form.id === 'wish-form' && !form.dataset.id) {
@@ -5637,7 +5637,7 @@ async function submitForm(form) {
     modal.close();
     if (wishFilter !== 'all') wishFilter = values.get('kind');
     render();
-    googleWriteToast('願望已送出，等管理者下次採購時評估。');
+    googleWriteToast('願望已送出！記得再幫自己的願望按「我也喜歡」，填上姓名加一票。');
     return;
   }
   if (store.mode === 'google' && store.supportsWebsiteEntry && ['count-form', 'restock-form'].includes(form.id)) {
