@@ -9,7 +9,7 @@ import { renderDrinkInformation } from './drink-information.js';
 import { findProductPhoto } from './product-photos.js';
 import { initialSupplies, SUPPLY_KINDS, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, supplyBatches, supplyHasUntrackedExpiry, supplyExpiryStatus, supplyToday, validSupplyExpiry } from './supplies.js';
 import { inventoryActivity, snackFlavorStatistics, recentArrivalEvents } from './inventory-activity.js';
-import { supplyLabel } from './supplies.js';
+import { supplyLabel, snackPackHint } from './supplies.js';
 import { RESTOCK_MODES, hasRecordedStock, isLowStockItem, isOutOfStockItem, inventoryLowThreshold, matchesInventoryStockFilter, sortInventoryItems, restockPreferenceMode } from './restock-preferences.js';
 import { groupEmptyStock } from './empty-stock.js';
 import { CONSUMPTION_KINDS, buildConsumptionRecords, consumptionPeriod, selectConsumption } from './consumption.js';
@@ -198,7 +198,7 @@ function newDrinkCategoryField(batch = false) {
 
 function batchRowMarkup(kind='snack') {
   const units=kind==='drink'?['包','瓶','罐']:kind==='noodle'?['杯','碗']:kind==='toner'?['盒']:SNACK_UNITS;
-  return `<div class="batch-row-heading"><label class="field">分類<select data-batch-kind>${[['drink','飲料'],['snack','零食'],['noodle','泡麵'],['toner','碳粉']].map(([value,label])=>`<option value="${value}"${kind===value?' selected':''}>${label}</option>`).join('')}</select></label>${button('移除此列','batch-remove','type="button"','button-small button-plain')}</div><label class="field">找品名／口味<input type="search" data-batch-search maxlength="80" placeholder="輸入關鍵字縮小選單"></label><label class="field">入庫品項<select data-batch-item required></select></label><fieldset class="batch-new" disabled hidden><legend>新增品項</legend><label class="field">品名<input data-batch-name required maxlength="80"></label>${kind==='snack'?`<label class="field">口味（選填）<input data-batch-flavor maxlength="80"></label><label class="field">零食分類<select data-batch-category required><option value="" selected disabled>選擇分類</option>${SNACK_CATEGORIES.map(category=>`<option>${h(category)}</option>`).join('')}</select></label>`:kind==='drink'?newDrinkCategoryField(true):''}<label class="field">單位<select data-batch-unit>${units.map(unit=>`<option>${unit}</option>`).join('')}</select></label></fieldset><div class="form-grid"><label class="field">本次入庫數量<input data-batch-quantity required type="number" inputmode="numeric" min="1" max="999999" step="1"></label>${kind==='noodle'?`<label class="field">保存期限（必填）<input data-batch-expiry type="date" required min="${supplyToday()}"></label>`:''}</div><label class="field">備註（選填）<input data-batch-note maxlength="500"></label>`;
+  return `<div class="batch-row-heading"><label class="field">分類<select data-batch-kind>${[['drink','飲料'],['snack','零食'],['noodle','泡麵'],['toner','碳粉']].map(([value,label])=>`<option value="${value}"${kind===value?' selected':''}>${label}</option>`).join('')}</select></label>${button('移除此列','batch-remove','type="button"','button-small button-plain')}</div><label class="field">找品名／口味<input type="search" data-batch-search maxlength="80" placeholder="輸入關鍵字縮小選單"></label><label class="field">入庫品項<select data-batch-item required></select></label><fieldset class="batch-new" disabled hidden><legend>新增品項</legend><label class="field">品名<input data-batch-name required maxlength="80"></label>${kind==='snack'?`<label class="field">口味（選填）<input data-batch-flavor maxlength="80"></label><label class="field">零食分類<select data-batch-category required><option value="" selected disabled>選擇分類</option>${SNACK_CATEGORIES.map(category=>`<option>${h(category)}</option>`).join('')}</select></label>`:kind==='drink'?newDrinkCategoryField(true):''}<label class="field">單位<select data-batch-unit>${units.map(unit=>`<option>${unit}</option>`).join('')}</select></label></fieldset><p class="subtle" data-batch-pack-hint hidden></p><div class="form-grid"><label class="field">本次入庫數量<input data-batch-quantity required type="number" inputmode="numeric" min="1" max="999999" step="1"></label>${kind==='noodle'?`<label class="field">保存期限（必填）<input data-batch-expiry type="date" required min="${supplyToday()}"></label>`:''}</div><label class="field">備註（選填）<input data-batch-note maxlength="500"></label>`;
 }
 function updateBatchPicker(row){
   const kind=row.querySelector('[data-batch-kind]').value,select=row.querySelector('[data-batch-item]'),selected=select.value,query=row.querySelector('[data-batch-search]').value.trim().toLocaleLowerCase();
@@ -206,6 +206,7 @@ function updateBatchPicker(row){
   const matches=items.filter(item=>item.id===selected||!query||supplyLabel(item).toLocaleLowerCase().includes(query));
   select.innerHTML=`<option value="" disabled${selected?'':' selected'}>選擇入庫品項</option>${matches.map(item=>arrivalOptionHtml(item,selected)).join('')}${kind==='toner'?'':`<option value="${NEW_ARRIVAL_VALUE}"${selected===NEW_ARRIVAL_VALUE?' selected':''}>其他／新品</option>`}`;
   const fields=row.querySelector('.batch-new'),isNew=select.value===NEW_ARRIVAL_VALUE;fields.disabled=!isNew;fields.hidden=!isNew;
+  const hint=row.querySelector('[data-batch-pack-hint]');hint.textContent=snackPackHint(items.find(item=>item.id===select.value));hint.hidden=!hint.textContent;
 }
 function appendBatchRow(form,kind){
   const list=form.querySelector('.batch-rows');if(list.children.length>=30)throw new Error('一次最多 30 列。');
@@ -251,7 +252,7 @@ function renderSupplySearchControls() {
   return `<div class="supply-search-controls${warehouseKind === 'snack' ? ' has-snack-filters' : ''}"><label class="search-field">搜尋品項<input id="supply-search" type="search" maxlength="80" value="${h(supplyQuery)}" placeholder="搜尋${SUPPLY_KINDS[warehouseKind]}…"></label>${warehouseKind === 'snack' ? `<label class="field">零食分類<select id="snack-category-filter" aria-label="篩選零食分類"><option value="">所有分類</option>${SNACK_CATEGORIES.map(value => `<option value="${h(value)}"${supplyCategory === value ? ' selected' : ''}>${h(value)}</option>`).join('')}</select></label><label class="field">品項名稱<select id="snack-product-filter" aria-label="篩選零食品項">${snackProductOptions()}</select></label>` : ''}</div>`;
 }
 function supplyCountCell(item) {
-  const icons = { '太空包':'🥔', '巧克力':'🍫', '甜/鹹餅乾':'🍪', '燕麥棒/餅':'🌾', '蛋白質零食':'💪', '其他鹹食':'🥨', '其他甜食':'🍬' };
+  const icons = { '太空包':'🥔', '巧克力':'🍫', '甜/鹹餅乾':'🍪', '健康零食':'🌾', '蛋白質零食':'💪', '其他鹹食':'🥨', '其他甜食':'🍬' };
   const icon = item.kind === 'toner' ? `<span class="toner-swatch toner-${h(item.id.split('-').pop())}"></span>` : item.kind === 'noodle' ? '🍜' : icons[item.category] || '🍿';
   return `<div class="supply-count-item"><span class="drink-avatar supply-count-avatar" aria-hidden="true">${icon}</span><span class="supply-count-label"><strong>${h(item.name)}</strong><small>${item.flavor ? `${h(item.flavor)} · ` : ''}${h(item.kind === 'snack' ? item.category : SUPPLY_KINDS[item.kind])}</small></span></div>`;
 }
@@ -328,7 +329,7 @@ function arrivalOptionLabel(item) {
 
 function newArrivalFields(kind) {
   const units=kind==='drink'?['包','瓶','罐']:kind==='snack'?SNACK_UNITS:['杯','碗'];
-  return `<fieldset class="new-arrival-fields" hidden disabled><legend>登記新品</legend><label class="field">品項名稱<input name="newName" required maxlength="80" placeholder="請填寫品名，口味可填在下方"></label>${kind==='snack'?`<label class="field">口味（選填）<input name="newFlavor" maxlength="80" placeholder="例如：香菜、雙倍起司"${store.supportsSnackFlavors?'':' disabled'}></label><label class="field">零食分類<select name="newCategory" required><option value="" selected disabled>請選擇分類</option>${SNACK_CATEGORIES.map(category=>`<option value="${h(category)}">${h(category)}</option>`).join('')}</select></label>`:kind==='drink'?newDrinkCategoryField():''}<label class="field">單位<select name="newUnit" required><option value="" disabled${kind==='snack'?'':' selected'}>請選擇單位</option>${units.map(unit=>`<option value="${unit}"${kind==='snack'&&unit==='包'?' selected':''}>${unit}</option>`).join('')}</select></label><p class="subtle">新品與本次到貨會一起保存，之後可直接從選單選取。首次庫存直接採用本次入庫數量，之後可盤點校正${kind==='drink'?'；先使用包裝示意圖，圖片與營養資訊可之後補齊':''}。</p></fieldset>`;
+  return `<fieldset class="new-arrival-fields" hidden disabled><legend>登記新品</legend><label class="field">品項名稱<input name="newName" required maxlength="80" placeholder="請填寫品名，口味可填在下方"></label>${kind==='snack'?`<label class="field">口味（選填）<input name="newFlavor" maxlength="80" placeholder="例如：香菜、超濃起司"${store.supportsSnackFlavors?'':' disabled'}></label><label class="field">零食分類<select name="newCategory" required><option value="" selected disabled>請選擇分類</option>${SNACK_CATEGORIES.map(category=>`<option value="${h(category)}">${h(category)}</option>`).join('')}</select></label>`:kind==='drink'?newDrinkCategoryField():''}<label class="field">單位<select name="newUnit" required><option value="" disabled${kind==='snack'?'':' selected'}>請選擇單位</option>${units.map(unit=>`<option value="${unit}"${kind==='snack'&&unit==='包'?' selected':''}>${unit}</option>`).join('')}</select></label><p class="subtle">新品與本次到貨會一起保存，之後可直接從選單選取。首次庫存直接採用本次入庫數量，之後可盤點校正${kind==='drink'?'；先使用包裝示意圖，圖片與營養資訊可之後補齊':''}。</p></fieldset>`;
 }
 
 function toggleNewArrivalFields(form, visible) {
@@ -348,7 +349,7 @@ function updateSupplyArrivalSummary(form = modal.open ? $('#supply-arrival-form'
   if (!item) { const quantityLabel=form.querySelector('[data-supply-quantity-label]');if(quantityLabel)quantityLabel.textContent='本次入庫數量';const summary=form.querySelector('[data-supply-arrival-summary]');if(summary)summary.textContent='請先選擇品項，或新增這次到貨的零食。';return; }
   form.querySelector('[data-supply-quantity-label]').textContent = `本次入庫數量（${item.unit}）`;
   const quantity = Math.max(0, Number(form.elements.quantity.value) || 0);
-  form.querySelector('[data-supply-arrival-summary]').innerHTML = `目前帳面庫存：<strong>${item.stock===null?'待盤點':`${item.stock} ${h(item.unit)}`}</strong><br>本次入庫：<strong>${quantity} ${h(item.unit)}</strong><br>入庫後帳面庫存：<strong>${item.stock===null?`${quantity} ${h(item.unit)}（首次入庫）`:`${item.stock+quantity} ${h(item.unit)}`}</strong>${item.active===false?'<p>歷史品項：送出成功後會恢復供應，沿用原品項與庫存紀錄。</p>':''}`;
+  form.querySelector('[data-supply-arrival-summary]').innerHTML = `目前帳面庫存：<strong>${item.stock===null?'待盤點':`${item.stock} ${h(item.unit)}`}</strong><br>本次入庫：<strong>${quantity} ${h(item.unit)}</strong><br>入庫後帳面庫存：<strong>${item.stock===null?`${quantity} ${h(item.unit)}（首次入庫）`:`${item.stock+quantity} ${h(item.unit)}`}</strong>${item.active===false?'<p>歷史品項：送出成功後會恢復供應，沿用原品項與庫存紀錄。</p>':''}${snackPackHint(item)?`<p>${h(snackPackHint(item))}</p>`:''}`;
 }
 
 function openSupplyForm(action,id){
@@ -510,7 +511,7 @@ function updateSnackPicker(form, initial=false) {
 function updateSnackSelection(form) {
   const target=form?.querySelector('[data-snack-selection]');if(!target)return;
   const item=supplyById(form.elements.supplyId.value);
-  target.textContent=item?`${item.category} · 單位：${item.unit}`:form.elements.supplyId.value===NEW_ARRIVAL_VALUE?'請填寫新品名稱、分類與單位。':'請選擇商品，或按新增零食。';
+  target.textContent=item?`${item.category} · 單位：${item.unit}${snackPackHint(item)?` · ${snackPackHint(item)}`:''}`:form.elements.supplyId.value===NEW_ARRIVAL_VALUE?'請填寫新品名稱、分類與單位。':'請選擇商品，或按新增零食。';
 }
 
 function renderSupplyRestock(kind, tabs) {

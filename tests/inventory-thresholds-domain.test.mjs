@@ -95,7 +95,7 @@ test('inventory sorting stays numeric and stable across types without changing t
 });
 
 test('protein snacks normalize as a category and new local/Google items use existing capabilities',async t=>{
-  assert.deepEqual(SNACK_CATEGORIES,['太空包','巧克力','甜/鹹餅乾','燕麥棒/餅','蛋白質零食','其他鹹食','其他甜食']);
+  assert.deepEqual(SNACK_CATEGORIES,['太空包','巧克力','甜/鹹餅乾','健康零食','蛋白質零食','其他鹹食','其他甜食']);
   const payload=warehousePayload();
   payload.supplies.push({id:'supply-snack-protein',name:'蛋白棒',kind:'snack',unit:'條',category:'蛋白質零食',active:true,stock:null,lastCountAt:null});
   assert.equal(normalizeSupplyWarehouse(payload).supplies.at(-1).category,'蛋白質零食');

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {websiteBackend,memorySheet} from './helpers/google-website.mjs';
 const plain=value=>JSON.parse(JSON.stringify(value));
-const categories=['太空包','巧克力','甜/鹹餅乾','燕麥棒/餅','其他鹹食','其他甜食'];
+const categories=['太空包','巧克力','甜/鹹餅乾','健康零食','其他鹹食','其他甜食'];
 const units=['包','盒','條','個','顆'];
 const arrival=(overrides={})=>({kind:'snack',name:'虛構零食新品',category:'其他鹹食',unit:'包',quantity:3,recorder:'測試同事',note:'測試資料',...overrides});
 const inventory=b=>plain(b.ctx.supplyInventory_(b.ctx.supplyCatalog_(b.ss),b.ctx.supplyEvents_(b.ss)));

@@ -297,10 +297,11 @@ var INITIAL_CATALOG = /* GENERATED_CATALOG_START */ [
 ] /* GENERATED_CATALOG_END */;
 var SHEETS = { catalog: 'Catalog', warehouse: 'Warehouse', archive: 'Archive', history: 'History', wishes: 'WishReview', votes: 'WishVotes', products: 'ProductIntake', setup: 'Setup', website: 'WebsiteRequests', supplyCatalog: 'SupplyCatalog', supplyHistory: 'SupplyHistory', supplyWarehouse: 'SupplyWarehouse', restockPreferences: 'RestockPreferences', recorderCorrections:'HistoryRecorderCorrections' };
 var RESTOCK_PREFERENCE_HEADERS = ['事件 ID','Google 收件時間','分類','品項 ID','補貨狀態','操作來源','採計狀態'];
-var SNACK_CATEGORIES = ['太空包','巧克力','甜/鹹餅乾','燕麥棒/餅','蛋白質零食','其他鹹食','其他甜食'];
+var SNACK_CATEGORIES = ['太空包','巧克力','甜/鹹餅乾','健康零食','蛋白質零食','其他鹹食','其他甜食'];
+function canonicalSnackCategory_(category) { return ['燕麥棒/餅','燕麥棒／餅','燕麥棒'].indexOf(category)>=0?'健康零食':category; }
 var SNACK_UNITS = ['包','盒','條','個','顆'];
 var INITIAL_SUPPLIES = [
-  { id:'supply-snack-01',name:'多力多滋',flavor:'雙倍起司',kind:'snack',unit:'包',active:true,category:'太空包' },
+  { id:'supply-snack-01',name:'多力多滋',flavor:'超濃起司',kind:'snack',unit:'包',active:true,category:'太空包' },
   { id:'supply-snack-02',name:'多力多滋',flavor:'香菜',kind:'snack',unit:'包',active:true,category:'太空包' },
   { id:'supply-snack-03',name:'樂事',flavor:'海苔',kind:'snack',unit:'包',active:true,category:'太空包' },
   { id:'supply-snack-04',name:'華元洋芋片',flavor:'蚵仔煎',kind:'snack',unit:'包',active:true,category:'太空包' },
@@ -582,7 +583,7 @@ function submitWebsiteRequest_(request) {
     } else if (effects.batch) {
       if(effects.batch.some(function(child){return !!child.supplyHistory;}))renderSupplyWarehouse_(ss);
       if(effects.batch.some(function(child){return !!child.history;})){var inventory=computeInventory_(catalog_(ss),historyEvents_(ss));renderWarehouse_(ss,inventory);if(effects.batch.some(function(child){return child.restore&&child.restore.some(function(item){return item.kind==='drink';});}))renderArchive_(ss,inventory);PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT',new Date().toISOString());}
-    } else if (effects.supplyDetails) { renderSupplyWarehouse_(ss);
+    } else if (effects.supplyDetails || effects.snackCatalogBatch) { renderSupplyWarehouse_(ss);
     } else if (effects.supplyHistory || (effects.restockPreference && effects.restockPreference[2] !== 'drink')) renderSupplyWarehouse_(ss);
     else {
       var catalog = catalog_(ss), inventory = computeInventory_(catalog, historyEvents_(ss));
@@ -606,17 +607,77 @@ function submitWebsiteRequest_(request) {
   });
 }
 
+// Metadata-only batch: IDs, quantities, stock history and existing units stay intact.
+function snackCatalogState_(item) {
+  return {id:item.id,name:item.name,flavor:item.flavor||'',category:canonicalSnackCategory_(item.category),unit:item.unit,active:item.active};
+}
+function snackCatalogFinalKeys_(items,changes) {
+  var final=Object.create(null),keys=Object.create(null);
+  items.filter(function(item){return item.kind==='snack';}).forEach(function(item){final[item.id]=snackCatalogState_(item);});
+  changes.forEach(function(change){final[change.id]=change.desired;});
+  Object.keys(final).forEach(function(id){var key=supplyProductKey_(final[id].name,final[id].flavor);if(keys[key]&&keys[key]!==id)throw websiteInputError_('批次清單與既有品項有相同品名及口味，請沿用原品項。');keys[key]=id;});
+}
+function prepareSnackCatalogBatch_(ss,data) {
+  var recorder=websiteText_(data.recorder,'登記人',80,true);
+  if(!Array.isArray(data.entries)||!data.entries.length||data.entries.length>100)throw websiteInputError_('每次建檔請提供1到100個品項／口味。');
+  var items=supplyCatalog_(ss),seen=Object.create(null),created=0,updated=0,unchanged=0;
+  var changes=data.entries.map(function(entry){
+    if(!entry||entry.quantity!==undefined||entry.stock!==undefined)throw websiteInputError_('品項建檔不能包含盤點或入庫數量。');
+    var name=websiteText_(entry.name,'品項名稱',80,true),flavor=websiteText_(entry.flavor||'','口味',80,false),category=canonicalSnackCategory_(websiteText_(entry.category,'零食分類',80,true));
+    if(SNACK_CATEGORIES.indexOf(category)<0||SNACK_UNITS.indexOf(entry.unit)<0)throw websiteInputError_('請提供有效的零食分類與單位。');
+    var id=entry.supplyId||'supply-snack-'+websiteFingerprint_({operation:'snack-catalog-key',data:{key:supplyProductKey_(name,flavor)}}).slice(0,48);
+    if(!/^[A-Za-z0-9_-]{1,80}$/.test(id)||seen[id])throw websiteInputError_('批次品項代號無效或重複。');seen[id]=true;
+    var current=items.filter(function(item){return item.id===id;})[0],before=null;
+    if(entry.supplyId){
+      if(!current||current.kind!=='snack'||!entry.expected||websiteCanonical_(snackCatalogState_(current))!==websiteCanonical_(entry.expected))throw websiteInputError_('品項已更新，請重新讀取後核對再送出。');
+      if(entry.unit!==current.unit)throw websiteInputError_('既有品項單位須保留；不同包裝請另建品項。');before=snackCatalogState_(current);
+    }else if(current)throw websiteInputError_('這個品項已建立，請沿用原品項。');
+    var desired={id:id,name:name,flavor:flavor,category:category,unit:entry.unit,active:before?before.active:true};
+    if(!before)created++;else if(websiteCanonical_(before)===websiteCanonical_(desired))unchanged++;else updated++;
+    return {id:id,before:before,desired:desired};
+  });
+  if(items.length+created>1000)throw websiteInputError_('品項數量已達上限。');
+  snackCatalogFinalKeys_(items,changes);
+  return {recorder:recorder,changes:changes,created:created,updated:updated,unchanged:unchanged};
+}
+function applySnackCatalogBatch_(ss,batch) {
+  var current=supplyCatalog_(ss),byId=Object.create(null);
+  current.forEach(function(item){byId[item.id]=item;});
+  batch.changes.forEach(function(change){
+    var item=byId[change.id],state=item&&item.kind==='snack'?snackCatalogState_(item):null;
+    if(state&&websiteCanonical_(state)===websiteCanonical_(change.desired))return;
+    if(!change.before){if(item)throw websiteInputError_('新品代號已被其他資料使用，請重新核對。');}
+    else if(!state||websiteCanonical_(state)!==websiteCanonical_(change.before))throw websiteInputError_('品項資料已被更新，這次未覆寫。');
+  });
+  snackCatalogFinalKeys_(current,batch.changes);
+  ensureSupplyStorage_(ss);
+  var sheet=ss.getSheetByName(SHEETS.supplyCatalog),rows=sheet.getRange(2,1,sheet.getLastRow()-1,7).getValues(),indices=Object.create(null),additions=[];
+  rows.forEach(function(row,index){indices[String(row[0])]=index;});
+  batch.changes.forEach(function(change){
+    var desired=change.desired,index=indices[change.id];
+    if(index===undefined){additions.push([desired.id,sheetText_(desired.name),'snack',desired.unit,desired.active,desired.category,sheetText_(desired.flavor)]);return;}
+    var state=byId[change.id]&&snackCatalogState_(byId[change.id]);if(state&&websiteCanonical_(state)===websiteCanonical_(desired))return;
+    var values=rows[index].slice(1,7);values[0]=sheetText_(desired.name);values[4]=desired.category;values[5]=sheetText_(desired.flavor);
+    sheet.getRange(index+2,2,1,6).setValues([values]);
+  });
+  websiteAppendMissing_(sheet,additions);
+}
+
 function prepareWebsiteRequest_(ss, request, stamp) {
   var data = request.data;
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw websiteInputError_('送出資料格式不正確。');
   var operation = request.operation, effects = { operation: operation, result: { operation: operation } };
-  var catalog = ['wish', 'vote','batch-arrival'].indexOf(operation) >= 0 || String(operation).indexOf('supply-') === 0 ? [] : catalog_(ss);
+  var catalog = ['wish', 'vote','batch-arrival','snack-catalog-batch'].indexOf(operation) >= 0 || String(operation).indexOf('supply-') === 0 ? [] : catalog_(ss);
   function activeDrink(id,restore) {
     var found = catalog.filter(function(drink){return drink.id===id&&(drink.active||restore===true);})[0];
     if (!found) throw websiteInputError_('這個品項目前不在供應清單，請重新讀取品項。');
     return found;
   }
-  if (operation === 'batch-arrival') {
+  if(operation==='snack-catalog-batch'){
+    effects.snackCatalogBatch=prepareSnackCatalogBatch_(ss,data);
+    effects.result.ids=effects.snackCatalogBatch.changes.map(function(change){return change.id;});
+    effects.result.created=effects.snackCatalogBatch.created;effects.result.updated=effects.snackCatalogBatch.updated;effects.result.unchanged=effects.snackCatalogBatch.unchanged;effects.result.count=effects.snackCatalogBatch.changes.length;
+  } else if (operation === 'batch-arrival') {
     var recorder = websiteText_(data.recorder,'登記人',80,true);
     if (!Array.isArray(data.entries) || !data.entries.length || data.entries.length > 30) throw websiteInputError_('請填寫 1 到 30 列入庫品項。');
     var snapshot = arrivalReadSnapshot_(ss), newKeys = Object.create(null), totals = Object.create(null);
@@ -693,7 +754,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
     var quantity = quantity_(data.quantity, false);
     if (quantity === null || (data.cases !== undefined && String(data.cases).trim() !== '' && Number(data.cases) !== 0)) throw websiteInputError_('新品請依單位填寫 1 到 999999 的整數數量，不使用整箱換算。');
     if ((kind === 'drink' ? ['包','瓶','罐'] : kind === 'snack' ? SNACK_UNITS : ['杯','碗']).indexOf(data.unit) < 0) throw websiteInputError_('請選擇有效的新品單位。');
-    var category = kind === 'snack' ? websiteText_(data.category, '零食分類', 80, true) : kind === 'drink' ? canonicalDrinkCategory_(data.category === undefined ? '其他' : websiteText_(data.category, '飲料分類', 80, true)) : '';
+    var category = kind === 'snack' ? canonicalSnackCategory_(websiteText_(data.category, '零食分類', 80, true)) : kind === 'drink' ? canonicalDrinkCategory_(data.category === undefined ? '其他' : websiteText_(data.category, '飲料分類', 80, true)) : '';
     if (kind === 'drink' && PRODUCT_CATEGORIES.indexOf(category) < 0) throw websiteInputError_('請選擇有效的飲料分類。');
     if (kind === 'snack' && SNACK_CATEGORIES.indexOf(category) < 0) throw websiteInputError_('請選擇有效的零食分類。');
     var id = productResponseId_('website:' + request.requestId);
@@ -866,6 +927,7 @@ function applyWebsiteRequest_(ss, effects) {
   var fulfilments=effects.batch?effects.batch.reduce(function(rows,child){return rows.concat(child.restockFulfilments||[]);},[]):effects.restockFulfilments||[];
   var preferenceSheet=ss.getSheetByName(SHEETS.restockPreferences);
   if(fulfilments.length&&preferenceSheet&&preferenceSheet.getLastRow()>0&&!restockPreferenceSheetMatches_(preferenceSheet))throw websiteInputError_('補貨設定工作表格式已變更，請先確認。');
+  if(effects.snackCatalogBatch){applySnackCatalogBatch_(ss,effects.snackCatalogBatch);return;}
   if(effects.zeroStockDecision){applyZeroStockDecision_(ss,effects);return;}
   var restoreUpdates=prepareArrivalRestores_(ss,effects);
   if (effects.batch) {
@@ -1151,7 +1213,7 @@ function warehouseData_() {
   var active = result.drinks.filter(function (drink) { return drink.active; });
   result.lastInventoryAt = active.length && active.every(function (drink) { return drink.lastCountAt; })
     ? active.map(function (drink) { return drink.lastCountAt; }).sort()[0] : null;
-  result.supplyEntry = { version: 1, expiryVersion: 1, expirySetVersion: 1, recorderCorrectionVersion: 1, snackVersion: 1, snackPolicyVersion: 2, snackFlavorVersion: 1 };
+  result.supplyEntry = { version: 1, expiryVersion: 1, expirySetVersion: 1, recorderCorrectionVersion: 1, snackVersion: 1, snackPolicyVersion: 2, snackFlavorVersion: 1, snackCatalogVersion: 1 };
   result.supplyEvents = supplyEvents_(ss);
   result.supplies = supplyInventory_(supplyCatalog_(ss), result.supplyEvents);
   result.restockPreferenceEntry = {version:1,snackManualVersion:1,manualAllVersion:1};
@@ -1212,7 +1274,7 @@ function websiteSupplyExpiry_(kind, value, stamp) {
   return expiry;
 }
 
-function supplyProductKey_(name,flavor) { var aliases={'多力多滋雙倍起司口味':['多力多滋','雙倍起司'],'多力多滋香菜口味':['多力多滋','香菜'],'樂事海苔口味':['樂事','海苔'],'華元蚵仔煎':['華元洋芋片','蚵仔煎'],'華元辣蚵仔煎':['華元洋芋片','辣蚵仔煎']},key=productNameKey_(name);if(!flavor&&Object.prototype.hasOwnProperty.call(aliases,key)){name=aliases[key][0];flavor=aliases[key][1];}return productNameKey_(name)+'\u0000'+productNameKey_(flavor||''); }
+function supplyProductKey_(name,flavor) { var aliases={'多力多滋雙倍起司口味':['多力多滋','超濃起司'],'多力多滋香菜口味':['多力多滋','香菜'],'樂事海苔口味':['樂事','海苔'],'華元蚵仔煎':['華元洋芋片','蚵仔煎'],'華元辣蚵仔煎':['華元洋芋片','辣蚵仔煎']},key=productNameKey_(name);if(!flavor&&Object.prototype.hasOwnProperty.call(aliases,key)){name=aliases[key][0];flavor=aliases[key][1];}return productNameKey_(name)+'\u0000'+productNameKey_(flavor||''); }
 
 function supplyCatalog_(ss) {
   var sheet = ss.getSheetByName(SHEETS.supplyCatalog), seen = Object.create(null);
@@ -1223,7 +1285,7 @@ function supplyCatalog_(ss) {
     var known = INITIAL_SUPPLIES.filter(function (item) { return item.id === id; })[0];
     if (known && (known.kind !== kind || known.unit !== unit)) throw new Error('Invalid confirmed supply unit');
     if (kind === 'toner' && !INITIAL_SUPPLIES.some(function (item) { return item.kind === 'toner' && item.id === id && item.unit === unit; })) throw new Error('Invalid toner color');
-    var category = kind === 'snack' ? text_(row[5],80) || (known ? known.category : '') : '';
+    var category = kind === 'snack' ? canonicalSnackCategory_(text_(row[5],80) || (known ? known.category : '')) : '';
     var flavor = kind === 'snack' ? text_(row[6],80) : '';
     var legacy = {'supply-snack-01':'多力多滋雙倍起司口味','supply-snack-02':'多力多滋香菜口味','supply-snack-03':'樂事海苔口味','supply-snack-04':'華元蚵仔煎'};
     if (known && legacy[id] === name && !flavor) { name = known.name; flavor = known.flavor || ''; }

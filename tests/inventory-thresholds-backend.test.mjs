@@ -38,7 +38,7 @@ function restoreDrinkRenderer(b) {
 
 test('protein snacks create, persist and read through the seventh ordered category without an expiry requirement',()=>{
   const b=websiteBackend(),requestId=randomUUID();
-  assert.deepEqual(plain(b.ctx.SNACK_CATEGORIES),['太空包','巧克力','甜/鹹餅乾','燕麥棒/餅','蛋白質零食','其他鹹食','其他甜食']);
+  assert.deepEqual(plain(b.ctx.SNACK_CATEGORIES),['太空包','巧克力','甜/鹹餅乾','健康零食','蛋白質零食','其他鹹食','其他甜食']);
   const data={kind:'snack',name:'蛋白質零食新品測試',category:'蛋白質零食',unit:'條',quantity:7,recorder:'零食測試'};
   const accepted=b.send('new-arrival',data,requestId);
   assert.equal(accepted.state,'accepted');assert.deepEqual(b.send('new-arrival',data,requestId),accepted);
@@ -98,7 +98,7 @@ test('zero-stock summary rows preserve preference modes, overlap manual snack fl
     ['toner','supply-toner-black',0,'hold'],
   ]);
   assert.deepEqual(summary.outOfStockItems,[
-    {kind:'snack',id:'supply-snack-01',name:'多力多滋',flavor:'雙倍起司',unit:'包',stock:0,mode:'consider'},
+    {kind:'snack',id:'supply-snack-01',name:'多力多滋',flavor:'超濃起司',unit:'包',stock:0,mode:'consider'},
     {kind:'snack',id:'supply-snack-02',name:'多力多滋',flavor:'香菜',unit:'包',stock:0,mode:'normal'},
     {kind:'noodle',id:'supply-noodle-01',name:'來一客海鮮',flavor:'',unit:'杯',stock:0,mode:'replace'},
   ]);
