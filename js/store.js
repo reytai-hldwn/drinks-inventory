@@ -1,7 +1,7 @@
 import { drinkAvailability } from './drink-availability.js';
 import { applyInitialStocktake, blankData, safeUrl, uid } from './domain.js';
 import { CATEGORIES_ORDER, DEFAULT_CASE_SIZE, createCompanyData, prepareCompanyCatalog } from './catalog.js';
-import { initialSupplies, prepareSupplyCatalog, canonicalSnackCategory, SNACK_CATEGORIES, SNACK_UNITS, supplyBatches, supplyNeedsExpiry, supplySupportsExpiryHistory, supplyToday, validSupplyExpiry } from './supplies.js';
+import { initialSupplies, prepareSupplyCatalog, supplyAvailability, canonicalSnackCategory, SNACK_CATEGORIES, SNACK_UNITS, supplyBatches, supplyNeedsExpiry, supplySupportsExpiryHistory, supplyToday, validSupplyExpiry } from './supplies.js';
 import { recordedBalances } from './inventory-activity.js';
 import { supplyNameKey, supplyLabel } from './supplies.js';
 import { RESTOCK_MODES, hasRecordedStock, isLowStockItem, restockPreferenceMode } from './restock-preferences.js';
@@ -180,7 +180,7 @@ export class InventoryStore {
     }
     if (!result || !validData(result.payload)) throw new Error('找不到有效的庫存資料。請確認資料庫 SQL 已完成設定。');
     this.data = result.payload;
-    if(this.mode==='demo'){this.data={...this.data,drinks:recordedBalances(this.data.drinks,this.data.events,'drinkId').map(drinkAvailability),supplies:recordedBalances(this.data.supplies||[],this.data.supplyEvents||[],'supplyId')};}
+    if(this.mode==='demo'){this.data={...this.data,drinks:recordedBalances(this.data.drinks,this.data.events,'drinkId').map(drinkAvailability),supplies:recordedBalances(this.data.supplies||[],this.data.supplyEvents||[],'supplyId').map(supplyAvailability)};}
     this.revision = result.revision;
     this.updatedAt = result.updated_at || result.updatedAt;
     return this.data;
@@ -189,7 +189,7 @@ export class InventoryStore {
   async save(data) {
     if (!this.canEdit) throw new Error('請先以獲授權的編輯者帳號登入。');
     if (!validData(data)) throw new Error('庫存資料格式不正確。');
-    if(this.mode==='demo')data=fulfilZeroRestocks(this.data,{...data,drinks:recordedBalances(data.drinks,data.events,'drinkId').map(drinkAvailability),supplies:recordedBalances(data.supplies||[],data.supplyEvents||[],'supplyId')});
+    if(this.mode==='demo')data=fulfilZeroRestocks(this.data,{...data,drinks:recordedBalances(data.drinks,data.events,'drinkId').map(drinkAvailability),supplies:recordedBalances(data.supplies||[],data.supplyEvents||[],'supplyId').map(supplyAvailability)});
     const existingEventIds = new Set(this.data.events.map((event) => event.id));
     for (const event of data.events) {
       if (!existingEventIds.has(event.id) && ['count', 'restock'].includes(event.type) &&
@@ -248,7 +248,7 @@ export class InventoryStore {
     const next=structuredClone(this.data),seen=new Set(),stamp=new Date().toISOString();
     next.supplies ||= initialSupplies(); next.supplyEvents ||= [];
     for(const entry of entries){
-      const item=next.supplies.find(item=>item.id===entry.supplyId&&(item.active!==false||(entry.type==='restock'&&entry.restoreArchived===true)));
+      const item=next.supplies.find(item=>item.id===entry.supplyId&&(item.active!==false||item.autoArchived===true||(entry.type==='restock'&&entry.restoreArchived===true)));
       if(!item||seen.has(entry.supplyId)||!['count','restock','expiry-close'].includes(entry.type)||!Number.isSafeInteger(entry.quantity)||entry.quantity<0||entry.quantity>999999||(entry.type==='restock'&&entry.quantity===0)||(entry.type==='expiry-close'&&entry.quantity!==0))throw new Error('請填寫有效且不重複的品項與整數數量。');
       seen.add(item.id);
       if(entry.type==='restock'&&entry.restoreArchived===true)item.active=true;
@@ -306,7 +306,7 @@ export class InventoryStore {
     if(!this.supportsBatchArrival||!this.canEdit)throw new Error('請先啟用批次入庫。');
     if(!Array.isArray(entries)||!entries.length||entries.length>30)throw new Error('請填寫 1 到 30 列入庫品項。');
     // Stage every row in memory; the real local revision is saved exactly once.
-    const staged=new InventoryStore();staged.data=structuredClone(this.data);staged.save=async data=>{staged.data={...data,drinks:recordedBalances(data.drinks,data.events,'drinkId').map(drinkAvailability),supplies:recordedBalances(data.supplies||[],data.supplyEvents||[],'supplyId')};};
+    const staged=new InventoryStore();staged.data=structuredClone(this.data);staged.save=async data=>{staged.data={...data,drinks:recordedBalances(data.drinks,data.events,'drinkId').map(drinkAvailability),supplies:recordedBalances(data.supplies||[],data.supplyEvents||[],'supplyId').map(supplyAvailability)};};
     const items=[];
     for(const entry of entries){
       if(!['drink','snack','noodle','toner'].includes(entry.kind))throw new Error('請選擇有效的分類。');
