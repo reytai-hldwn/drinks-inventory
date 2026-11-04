@@ -78,6 +78,10 @@ npm run dev
 
 `tests/browser-mobile-performance.mjs` 驗證手機延遲載圖、每週飲用量、背景統計與回訪快取，使用模擬 Google 資料，不寫入正式試算表。
 
+首次開啟首頁會先顯示關門的冰箱，Google 資料在背景讀取；讀取中開門會顯示等待狀態。新版 `Code.gs` 提供 `fastReceiptVersion: 1`，讓提交用的 Google 沙盒直接回傳已提交的儲存回條，省去另一趟回條查詢；來源視窗、Google 網域、隨機回覆代號及請求代號均須吻合。舊部署或訊息未送達時仍使用原回條查詢，不以 iframe 載入當作儲存成功。既有 Apps Script 需替換完整 `Code.gs`、儲存並更新原部署的新版本，不用執行 `setupOnce` 或更換網址。
+
+`tests/browser-fast-feedback.mjs` 驗證首次載入期間開門與切換頁面、Google 跨網域巢狀沙盒回條、許願／附議無額外查詢，以及訊息被阻擋時的回退；`tests/browser-gacha.mjs` 另檢查旋鈕轉半圈、卡住、再轉半圈後出球的順序。兩者均使用虛構資料。
+
 `tests/browser-supplies.mjs` 驗證桌機與手機的用品單位、效期分批與提醒、三個到貨子頁與分類紀錄、庫存排序、條件式新品欄位、必填與重複送出、跨瀏覽器讀取及舊部署提示；Google 寫入使用記憶體模擬。
 
 `tests/browser-restock-preferences.mjs` 驗證人工勾選補貨、優先排序、取消後恢復一般字色、跨瀏覽器同步、複製清單排除與排序匯出；同時確認數量及泡麵效期維持不變。

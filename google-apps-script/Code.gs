@@ -470,18 +470,27 @@ function doGet(e) {
 }
 
 /** The website posts commands, never a replacement of the whole spreadsheet.
- *  Replies are confirmed through doGet(action=receipt), not iframe navigation. */
+ *  Only committed receipts confirm a write; iframe navigation never does. */
 function doPost(e) {
+  var receipt;
   try {
     var raw = e && e.parameter && e.parameter.payload;
     if (typeof raw !== 'string' || raw.length > 262144) throw new Error('invalid_request');
-    submitWebsiteRequest_(JSON.parse(raw));
+    receipt = submitWebsiteRequest_(JSON.parse(raw));
   } catch (error) {
     // Validation receipts carry safe messages. Unexpected failures stay pending
     // so the exact same request can be retried without duplicating a delivery.
     console.warn('Website request did not finish. Inspect WebsiteRequests for its status.');
   }
-  return HtmlService.createHtmlOutput('<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><title>宏穩茶水間</title><p>請回網站查看儲存結果。</p></html>')
+  var body='<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><title>宏穩茶水間</title><p>請回網站查看儲存結果。</p>';
+  var params=e&&e.parameter||{},token=params.replyToken||'',origin=params.replyOrigin||'';
+  // The durable journal has already committed before this receipt is returned.
+  // Reply routing fields are transient, never part of stored commands or GET receipts.
+  if(receipt&&['accepted','rejected'].indexOf(receipt.state)>=0&&/^[A-Za-z0-9_-]{20,100}$/.test(token)&&/^(?:https:\/\/[A-Za-z0-9.-]+(?::[0-9]{1,5})?|http:\/\/(?:localhost|127\.0\.0\.1)(?::[0-9]{1,5})?)$/.test(origin)){
+    var message=JSON.stringify({type:'pantry-write-receipt',replyToken:token,receipt:receipt}).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+    body+='<script>try{window.top.postMessage('+message+','+JSON.stringify(origin)+');}catch(e){}</script>';
+  }
+  return HtmlService.createHtmlOutput(body+'</html>')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
@@ -1078,7 +1087,7 @@ function publicData_(spreadsheet, catalog) {
   });
   var fields = JSON.parse(props.getProperty('HOLDWIN_FORM_FIELDS') || '{}');
   var formUrls = websiteFormUrls_();
-  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, popularityVersion: 3, archiveWishVersion: 1, zeroStockVersion: 1, gachaVersion: 1, autoArchiveVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
+  return { ok: true, provider: 'google', websiteEntry: { version: 1, newArrivalVersion: 1, drinkCategoryVersion: 1, batchArrivalVersion: 1, archivedArrivalVersion: 1, wishReceiptVersion: 1, fastReceiptVersion: 1, popularityVersion: 3, archiveWishVersion: 1, zeroStockVersion: 1, gachaVersion: 1, autoArchiveVersion: 1 }, snapshotAt: snapshotAt, drinks: drinks, wishes: wishes, formUrls: formUrls,
     wishForm: fields.wishKindEntry ? { url: formUrls.wish, kindEntryId: fields.wishKindEntry } : null,
     voteForm: { url: formUrls.vote, wishEntryId: fields.voteWishEntry || '', voterEntryId: fields.voteVoterEntry || '', voterNameEntryId: fields.voteNameEntry || '' },
     adminUrl: ss.getUrl() + '#gid=' + ss.getSheetByName(SHEETS.warehouse).getSheetId(),
