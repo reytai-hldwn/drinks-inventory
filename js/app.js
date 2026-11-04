@@ -60,7 +60,7 @@ let countKind = 'drink';
 let popularityLoading = false;
 let popularityError = false;
 let adminZeroItems = [];
-const rankingState = {kind:'drink',days:90,unit:'',category:'',query:'',archived:false};
+const rankingState = {kind:'drink',days:30,unit:'',category:'',query:'',archived:false};
 let rankingCache = null;
 const gachaStorageKey=`holdwin-gacha-v1:${location.pathname.replace(/index\.html$/,'')}`;
 let gachaState = null;
@@ -642,9 +642,9 @@ function rankingData() {
 }
 function renderConsumption() {
   const selection=selectConsumption(rankingData(),rankingState);rankingState.unit=selection.unit;rankingState.category=selection.category;
-  main.innerHTML=heading('PANTRY FAVORITES','茶水間人氣排行榜','看看大家愛喝、愛吃什麼。依每5個工作日換算消耗排名，排除週末；飲料的包、瓶、罐可以一起比較。')+renderConsumptionControls(selection,rankingState)+`<div id="ranking-results" aria-live="polite">${renderConsumptionResults(selection)}</div>`;
+  main.innerHTML=heading('PANTRY FAVORITES','茶水間人氣排行榜','看看大家愛喝、愛吃什麼。依每5個工作日換算消耗排名，排除週末；飲料的包、瓶、罐可以一起比較。')+renderConsumptionControls(selection,rankingState)+`<div id="ranking-results" aria-live="polite">${renderConsumptionResults(selection,{days:rankingState.days,now:rankingCache.now})}</div>`;
 }
-function updateRankingResults(){const target=$('#ranking-results');if(target)target.innerHTML=renderConsumptionResults(selectConsumption(rankingData(),rankingState));}
+function updateRankingResults(){const target=$('#ranking-results');if(target)target.innerHTML=renderConsumptionResults(selectConsumption(rankingData(),rankingState),{days:rankingState.days,now:rankingCache.now});}
 
 function gameStorage(){try{return globalThis.localStorage;}catch{return null;}}
 function currentGacha(){
@@ -1308,7 +1308,10 @@ window.addEventListener('beforeunload', (event) => {
 });
 
 // Read-only refreshes keep navigation available and preserve unfinished input.
-setInterval(() => refreshCurrentView(), 60000);
+setInterval(() => {
+  if(ready&&view==='consumption'&&!document.hidden&&!busy&&!modal.open)updateRankingResults();
+  else refreshCurrentView();
+}, 60000);
 
 try {
   if (store.mode === 'google' && location.hash === '#admin') { /* The entry and summary do not wait for full histories. */ }

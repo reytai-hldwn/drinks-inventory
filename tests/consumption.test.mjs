@@ -61,3 +61,23 @@ test('short working-day observations show usage beside the five-day extrapolatio
  assert.equal(weekly[0].observedDays,5);
  assert.doesNotMatch(renderConsumptionResults(selectConsumption(weekly,{kind:'drink'})),/未滿5個工作日，先看趨勢/);
 });
+
+test('default month rolls forward and omits intervals crossing its start boundary',()=>{
+ const until=Date.parse('2026-11-04T09:00:00+08:00');
+ const count=(id,quantity,stamp)=>({id,drinkId:'a',type:'count',quantity,createdAt:stamp});
+ const data={drinks:[item('a')],events:[
+  count('old',200,'2026-09-25T09:00:00+08:00'),
+  count('start',100,'2026-10-05T09:00:00+08:00'),
+  count('end',80,'2026-10-12T09:00:00+08:00'),
+ ]};
+ const records=buildConsumptionRecords(data,until),[row]=consumptionPeriod(records,{now:until});
+ assert.equal(row.consumed,20);
+ assert.equal(row.observedDays,5);
+ assert.equal(row.weekly,20);
+ const html=renderConsumptionResults(selectConsumption([row]),{now:until});
+ assert.match(html,/最近 30 天 · 滾動統計/);
+ assert.match(html,/2026\/10\/5–2026\/11\/4/);
+ const [next]=consumptionPeriod(records,{now:until+day});
+ assert.equal(next.weekly,null);
+ assert.equal(next.consumed,0);
+});

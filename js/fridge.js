@@ -240,7 +240,9 @@ export function renderFridgePopularity(summary, { loading = false, error = false
   if (!summary.rows.length) return header + `<p class="popularity-status">${summary.observedProducts ? '這段期間尚未觀察到飲用量，下次盤點後再來看看。' : '累積盤點中：同品項至少兩次盤點、間隔一個工作日，就能開始估算。'}</p>`;
   const maximum = summary.rows[0].weeklyRate;
   const formatter = new Intl.NumberFormat('zh-TW', { maximumFractionDigits: 1 });
-  return header + `<div class="popularity-cards">${summary.rows.map((row, index) => `<button type="button" class="popular-drink" data-action="view-drink" data-id="${h(row.id)}"><span class="popularity-rank">${index + 1}</span><span class="popularity-name">${h(row.name)}</span><span class="popularity-amount">約 <strong>${row.weeklyRate < .1 ? '少於 0.1' : formatter.format(row.weeklyRate)}</strong> ${h(row.unit)}／工作週</span><span class="popularity-bar" aria-hidden="true"><i style="width:${(row.weeklyRate / maximum * 100).toFixed(1)}%"></i></span></button>`).join('')}</div><p class="popularity-note">依實際盤點與入庫紀錄估算${loading ? ' · 更新中' : error ? ' · 更新暫時中斷' : ''}，只計週一至週五，換算每5個工作日用量，並非即時取用數量。</p>`;
+  const date=new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'numeric',day:'numeric'});
+  const period=summary.windowStartAt&&summary.windowEndAt?`${date.format(new Date(summary.windowStartAt))}–${date.format(new Date(summary.windowEndAt))}`:'最近30天';
+  return header + `<div class="popularity-cards">${summary.rows.map((row, index) => `<button type="button" class="popular-drink" data-action="view-drink" data-id="${h(row.id)}"><span class="popularity-rank">${index + 1}</span><span class="popularity-name">${h(row.name)}</span><span class="popularity-amount">約 <strong>${row.weeklyRate < .1 ? '少於 0.1' : formatter.format(row.weeklyRate)}</strong> ${h(row.unit)}／工作週</span><span class="popularity-bar" aria-hidden="true"><i style="width:${(row.weeklyRate / maximum * 100).toFixed(1)}%"></i></span></button>`).join('')}</div><p class="popularity-note">${h(period)} · 依實際盤點與入庫紀錄估算${loading ? ' · 更新中' : error ? ' · 更新暫時中斷' : ''}，只計週一至週五，換算每5個工作日用量，並非即時取用數量。</p>`;
 }
 
 /** A bounded public display; inventory quantities are deliberately opt-in. */

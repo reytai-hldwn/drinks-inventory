@@ -38,7 +38,7 @@ export function buildConsumptionRecords({drinks=[],supplies=[],events=[],supplyE
   return [...rows.values()];
 }
 
-export function consumptionPeriod(records,{days=90,now=Date.now()}={}) {
+export function consumptionPeriod(records,{days=30,now=Date.now()}={}) {
   const until=+new Date(now),since=days===0?-Infinity:until-days*CONSUMPTION_DAY;
   return records.map(row=>{
     // Keep complete intervals inside the window; never prorate unobserved days.

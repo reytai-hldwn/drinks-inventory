@@ -21,21 +21,27 @@ try{for(const width of [1440,390]){
  for(const [id,first,last]of [['supply-snack-01',20,6],['supply-snack-02',12,5]])for(const [suffix,days,quantity]of [['first',14,first],['last',7,last]])b.sheets.SupplyHistory.rows.push([`${id}-${suffix}`,ago(days),'count',id,id,quantity,'測試區間','測試人','採計','','']);
  const original=structuredClone({catalog:b.sheets.Catalog.rows,history:b.sheets.History.rows,supplies:b.sheets.SupplyHistory.rows});
  const context=await browser.newContext({viewport:{width,height:960},reducedMotion:'reduce'}),page=await context.newPage(),reads=[],writes=[],errors=[];
- page.on('pageerror',error=>errors.push(error.message));
+ page.on('pageerror',error=>errors.push(error.message));await page.addInitScript(()=>{
+  const now=Date.now,interval=window.setInterval;window.__rankingClockOffset=0;Date.now=()=>now()+window.__rankingClockOffset;
+  window.setInterval=(callback,delay,...args)=>{if(delay===60000)window.__rankingRefresh=callback;return interval(callback,delay,...args);};
+ });
  await page.route('**/config.js',route=>route.fulfill({contentType:'application/javascript',body:`window.DRINKS_CONFIG=${JSON.stringify({provider:'google',googleScriptUrl:endpoint})};`}));
  await page.route(`${endpoint}**`,route=>{if(route.request().method()!=='GET'){writes.push(route.request().method());return route.abort();}const parameter=Object.fromEntries(new URL(route.request().url()).searchParams);reads.push(parameter.action);return route.fulfill({contentType:'application/javascript',body:b.ctx.doGet({parameter}).body});});
  await page.goto(base+'/#consumption');await page.waitForSelector('[data-ranking-item]');
  assert.deepEqual(await page.locator('[data-action=ranking-kind]').evaluateAll(nodes=>nodes.map(node=>node.dataset.id)),['drink','snack']);
  const ids=()=>page.locator('[data-ranking-item]').evaluateAll(nodes=>nodes.map(node=>node.dataset.rankingItem));
- assert.deepEqual(await ids(),['a','b','c']);assert.equal(await page.locator('[data-ranking-filter=unit]').inputValue(),'*');assert.equal(await page.locator('.ranking-winner').count(),3);assert.match(await page.locator('.ranking-winner').first().innerText(),/換算每工作週/);assert.match(await page.locator('.ranking-observation').first().innerText(),/觀察 5 個工作日 · 消耗 28 包/);
+ assert.deepEqual(await ids(),['a','b','c']);assert.equal(await page.locator('[data-ranking-filter=unit]').inputValue(),'*');assert.equal(await page.locator('[data-ranking-filter=days]').inputValue(),'30');assert.match(await page.locator('.ranking-period').innerText(),/最近 30 天.*滾動統計/s);assert.equal(await page.locator('.ranking-winner').count(),3);assert.match(await page.locator('.ranking-winner').first().innerText(),/換算每工作週/);assert.match(await page.locator('.ranking-observation').first().innerText(),/觀察 5 個工作日 · 消耗 28 包/);
  await page.locator('[data-ranking-item=a] .ranking-evidence>summary').focus();await page.keyboard.press('Enter');assert.match(await page.locator('[data-ranking-item=a] .ranking-intervals').innerText(),/盤點 50 ＋入庫 0 −盤點 22 ＝ 28 包/);
  await page.screenshot({path:`/tmp/consumption-ranking-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
  await page.locator('#ranking-search').fill('Milkis');assert.deepEqual(await ids(),['b']);assert.equal(await page.evaluate(()=>document.activeElement.id),'ranking-search');await page.locator('#ranking-search').fill('');
  await page.locator('[data-ranking-filter=unit]').selectOption('包');assert.deepEqual(await ids(),['a']);await page.locator('[data-ranking-filter=unit]').selectOption('*');
  await page.locator('[data-ranking-filter=category]').selectOption('汽水');assert.deepEqual(await ids(),['b']);await page.locator('[data-ranking-filter=category]').selectOption('');
- await page.locator('[data-ranking-filter=archived]').check();assert.deepEqual(await ids(),['old','a','b','c']);await page.locator('[data-ranking-filter=days]').selectOption('30');assert.deepEqual(await ids(),['a','b','c']);
+ await page.locator('[data-ranking-filter=days]').selectOption('90');await page.locator('[data-ranking-filter=archived]').check();assert.deepEqual(await ids(),['old','a','b','c']);await page.locator('[data-ranking-filter=days]').selectOption('30');assert.deepEqual(await ids(),['a','b','c']);
  await page.locator('[data-action=ranking-kind][data-id=snack]').click();assert.deepEqual(await ids(),['supply-snack-01','supply-snack-02']);await page.locator('#ranking-search').fill('雙倍起司');assert.deepEqual(await ids(),['supply-snack-01']);await page.locator('.ranking-evidence>summary').click();assert.match(await page.locator('.ranking-flavors').innerText(),/香菜/);
  await page.screenshot({path:`/tmp/consumption-flavors-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+ const oldRange=await page.locator('.ranking-period span').innerText();await page.locator('#ranking-search').focus();
+ await page.evaluate(()=>{window.__rankingClockOffset=86400000;window.__rankingRefresh();});
+ assert.notEqual(await page.locator('.ranking-period span').innerText(),oldRange);assert.equal(await page.evaluate(()=>document.activeElement.id),'ranking-search');
  assert.deepEqual(reads,['warehouse'],'all ranking filters reuse the one warehouse snapshot');assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);assert.deepEqual({catalog:b.sheets.Catalog.rows,history:b.sheets.History.rows,supplies:b.sheets.SupplyHistory.rows},original);
  await context.close();console.log(`PASS ${width}: drink packages ranked together, two kinds only, measured podium, period/unit/category/search/history filters, flavor comparison, keyboard details, one read, zero writes.`);
 }
