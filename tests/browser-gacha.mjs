@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {resolve,extname,sep} from 'node:path';
 import assert from 'node:assert/strict';
 import {websiteBackend} from './helpers/google-website.mjs';
+import {GACHA_FORTUNES} from '../js/gacha.js';
 const {chromium}=await import(process.env.PANTRY_PLAYWRIGHT_MODULE||'playwright-core');
 const root=fileURLToPath(new URL('../',import.meta.url)),mime={'.html':'text/html','.js':'application/javascript','.css':'text/css','.woff2':'font/woff2','.png':'image/png','.webp':'image/webp','.jpg':'image/jpeg','.avif':'image/avif'};
 const server=createServer(async(req,res)=>{try{const path=resolve(root,new URL(req.url,'http://localhost').pathname.slice(1)||'index.html');if(!path.startsWith(root.replace(/\/$/,'')+sep))throw new Error('missing');res.setHeader('Content-Type',mime[extname(path)]||'application/octet-stream');res.end(await readFile(path));}catch{res.statusCode=404;res.end();}});
@@ -36,6 +37,13 @@ try{
   await page.evaluate(()=>location.hash='gacha');await page.waitForSelector('.gacha-drink');assert.equal(await page.locator('.gacha-fortune').innerText(),fortune);assert.equal(await page.locator('.gacha-drink h3').innerText(),'要來一包立頓原味奶茶嗎？');assert.match(await page.locator('.gacha-drink .drink-photo-viewport').evaluate(element=>getComputedStyle(element).clipPath),/^polygon\(/);assert.doesNotMatch(await page.locator('.gacha-ticket').innerText(),/可口可樂|Milkis|可爾必思/);await page.locator('.gacha-drink img').evaluate(image=>image.decode());await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`/tmp/gacha-result-${width}.png`,fullPage:true});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.locator('.gacha-drink [data-action=view-drink]').click();await page.waitForSelector('.nutrition-table');assert.ok(await page.locator('.nutrition-table tbody tr').count()>=8);await page.locator('#modal [data-action=close-modal]').last().click();
   await page.reload();await page.waitForSelector('.gacha-drink');assert.equal(await page.locator('.gacha-fortune').innerText(),fortune);assert.equal(reads.filter(action=>action==='gacha').length,1,'reload reuses the saved daily pairing');assert.equal(await page.locator('[data-action=gacha-draw]').isDisabled(),true);assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);assert.deepEqual({catalog:b.sheets.Catalog.rows,history:b.sheets.History.rows},before);
+  for(const fortuneId of ['supply-33','supply-38','supply-39','pause-01','pause-02']){
+   const selected=GACHA_FORTUNES.find(row=>row.id===fortuneId);
+   await page.evaluate(fortuneId=>{const key=Object.keys(localStorage).find(key=>key.startsWith('holdwin-gacha-v1:')),draw=JSON.parse(localStorage.getItem(key));localStorage.setItem(key,JSON.stringify({...draw,fortuneId}));},fortuneId);
+   await page.reload();await page.waitForSelector('.gacha-drink');assert.equal(await page.locator('.gacha-fortune').innerText(),selected.text);assert.equal(await page.locator('.gacha-ticket-top span').innerText(),`✧ ${selected.kind==='pause'?'宇宙小暫停':'今日補給'}`);await page.evaluate(()=>document.fonts.ready);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+   if(['supply-38','pause-01'].includes(fortuneId))await page.screenshot({path:`/tmp/gacha-${fortuneId}-${width}.png`,fullPage:true});
+  }
+  assert.equal(reads.filter(action=>action==='gacha').length,1);assert.deepEqual(writes,[]);assert.deepEqual(errors,[]);
   await context.close();console.log(`PASS ${width}: instant fortune during held read, navigation stays usable, eligible drink only, daily persistence, product information, no inventory writes or horizontal overflow.`);
  }
  {

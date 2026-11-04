@@ -1,18 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GACHA_ODDS,GACHA_FORTUNES,gachaDay,gachaResetDelay,drawGacha,readDailyGacha,saveDailyGacha,chooseGachaDrink,renderGacha} from '../js/gacha.js';
+import {GACHA_FORTUNES,gachaDay,gachaResetDelay,drawGacha,readDailyGacha,saveDailyGacha,chooseGachaDrink,renderGacha} from '../js/gacha.js';
 import {websiteBackend} from './helpers/google-website.mjs';
 import {GoogleInventoryStore,normalizeGooglePublicData} from '../js/google-store.js';
 const storage=()=>{const m=new Map();return{getItem:key=>m.get(key)||null,setItem:(key,value)=>m.set(key,value)};};
 const plain=value=>JSON.parse(JSON.stringify(value));
 const config={googleScriptUrl:'https://script.google.com/macros/s/GACHA_TEST/exec'};
 
-test('fortune weights select the documented buckets at their boundaries, with diverse stable positive copy',()=>{
- assert.equal(GACHA_ODDS.lucky+GACHA_ODDS.steady+GACHA_ODDS.pause,1);assert.equal(new Set(GACHA_FORTUNES.map(row=>row.id)).size,GACHA_FORTUNES.length);
- for(const [chance,kind]of [[0,'lucky'],[.97999,'lucky'],[.98,'steady'],[.99499,'steady'],[.995,'pause'],[.99999,'pause']]){
-  let first=true;const draw=drawGacha({random:()=>{if(first){first=false;return chance;}return .5;}});assert.equal(GACHA_FORTUNES.find(row=>row.id===draw.fortuneId).kind,kind);
+test('all 39 approved fortunes have equal probability, including both pause fortunes',()=>{
+ assert.equal(GACHA_FORTUNES.length,39);assert.equal(new Set(GACHA_FORTUNES.map(row=>row.id)).size,39);assert.equal(new Set(GACHA_FORTUNES.map(row=>row.text)).size,39);
+ const counts=new Map(GACHA_FORTUNES.map(row=>[row.id,0])),samples=3900;
+ for(let index=0;index<samples;index++){
+  const draw=drawGacha({random:()=>(index+.5)/samples});counts.set(draw.fortuneId,counts.get(draw.fortuneId)+1);
  }
- assert.ok(GACHA_FORTUNES.filter(row=>row.kind==='lucky').length>=20);assert.ok(GACHA_FORTUNES.every(row=>row.text.length>10&&row.text.length<100));
+ assert.ok([...counts.values()].every(count=>count===100),'each fortune gets the same share of the random range');
+ assert.deepEqual(GACHA_FORTUNES.filter(row=>row.kind==='pause').map(row=>row.text),['宇宙暫時沒給進場訊號，倒是給了你一張喝飲料的通行證。','今日慢下來，先把飲料拿穩。']);
+ assert.equal(drawGacha({random:()=>0}).fortuneId,GACHA_FORTUNES[0].id);assert.equal(drawGacha({random:()=>1-Number.EPSILON}).fortuneId,GACHA_FORTUNES.at(-1).id);
+ assert.ok(GACHA_FORTUNES.every(row=>row.text.length>10&&row.text.length<100));
 });
 
 test('a Taiwan calendar day persists the fortune and selected ID through reload and expires at midnight',()=>{
@@ -21,6 +25,16 @@ test('a Taiwan calendar day persists the fortune and selected ID through reload 
  assert.equal(gachaResetDelay(before),1050);assert.equal(gachaResetDelay(after),86400050);
  for(const bad of [{...draw,fortuneId:'invented'},{...draw,drinkId:'<script>'},{...draw,createdAt:'invalid'},{...draw,version:2}]){local.setItem('daily',JSON.stringify(bad));assert.equal(readDailyGacha(local,'daily',before),null);}
  const blocked={getItem(){throw new Error('blocked');},setItem(){throw new Error('blocked');}};assert.equal(readDailyGacha(blocked,'daily'),null);assert.equal(saveDailyGacha(blocked,'daily',draw),false);
+});
+
+test('existing daily IDs retain their meaning and removed fortunes cannot return after an update',()=>{
+ const now=Date.parse('2026-11-04T08:00:00Z'),local=storage(),draw=drawGacha({now,random:()=>0});
+ for(const [fortuneId,text]of [['lucky-17','今天的快樂不必回測，先喝一口就知道。'],['pause-02','宇宙暫時沒給進場訊號，倒是給了你一張喝飲料的通行證。'],['pause-01','今日慢下來，先把飲料拿穩。']]){
+  saveDailyGacha(local,'daily',{...draw,fortuneId});const saved=readDailyGacha(local,'daily',now);assert.equal(saved.fortuneId,fortuneId);assert.ok(renderGacha({draw:saved},[]).includes(text));
+ }
+ for(const fortuneId of ['lucky-11','lucky-13','lucky-14','lucky-15','lucky-19','steady-01','steady-02','steady-03']){
+  saveDailyGacha(local,'daily',{...draw,fortuneId});assert.equal(readDailyGacha(local,'daily',now),null);
+ }
 });
 
 test('drink selection uses only server-confirmed eligible, active IDs and leaves inventory untouched',()=>{
