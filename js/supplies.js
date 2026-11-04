@@ -1,3 +1,6 @@
+import { drinkAvailability } from './drink-availability.js';
+import { matchesInventoryStockFilter } from './restock-preferences.js';
+
 /** Back-office supplies are independent of the public drinks catalog. */
 export const SUPPLY_KINDS = Object.freeze({ snack:'零食', noodle: '泡麵', toner: '碳粉' });
 export const SNACK_CATEGORIES = Object.freeze(['太空包','巧克力','甜/鹹餅乾','健康零食','蛋白質零食','其他鹹食','其他甜食']);
@@ -7,6 +10,13 @@ export const SNACK_UNITS = Object.freeze(['包','盒','條','個','顆']);
 export const supplyNeedsExpiry = kind => kind==='noodle';
 // Existing snack expiry entries stay readable even though new snack entries need no date.
 export const supplySupportsExpiryHistory = kind => kind==='snack'||kind==='noodle';
+
+// Availability is derived from recorded balances; source IDs/history stay intact.
+export const supplyAvailability = item => ['snack','noodle'].includes(item.kind) ? drinkAvailability(item) : item;
+export function matchesSupplyInventoryFilter(item,filter='all',preferences=[]) {
+  if(filter==='archived')return item.active===false;
+  return item.active!==false&&matchesInventoryStockFilter(item,filter,preferences);
+}
 
 export const SUPPLY_CATALOG = Object.freeze([
   ['supply-snack-01','多力多滋','snack','包','太空包','超濃起司'],
@@ -119,7 +129,7 @@ export function normalizeSupplyWarehouse(payload) {
     if(item.stock!==null&&!validCount(item.stock))throw new Error('零食、泡麵與碳粉庫存數量不正確。');
     if(item.lastCountAt!==null&&!validDate(item.lastCountAt))throw new Error('零食、泡麵與碳粉盤點時間不正確。');
     ids.add(item.id);
-    return {id:item.id,name:item.name.trim(),kind:item.kind,unit:item.unit,active:item.active,stock:item.stock,lastCountAt:item.lastCountAt,...(item.lastArrivalAt?{lastArrivalAt:validDate(item.lastArrivalAt)?item.lastArrivalAt:(()=>{throw new Error('入庫時間不正確。');})()}:{}),...(item.kind==='snack'?{category:canonicalSnackCategory(item.category),flavor:item.flavor||''}: {})};
+    return supplyAvailability({id:item.id,name:item.name.trim(),kind:item.kind,unit:item.unit,active:item.active,...(item.autoArchived===true?{autoArchived:true}:{}),stock:item.stock,lastCountAt:item.lastCountAt,...(item.lastArrivalAt?{lastArrivalAt:validDate(item.lastArrivalAt)?item.lastArrivalAt:(()=>{throw new Error('入庫時間不正確。');})()}:{}),...(item.kind==='snack'?{category:canonicalSnackCategory(item.category),flavor:item.flavor||''}: {})});
   });
   const supplyEvents=payload.supplyEvents.map(event=>{
     if(!event||typeof event.id!=='string'||!event.id||event.id.length>240||eventIds.has(event.id)||!ids.has(event.supplyId)||!['count','restock','expiry-close','expiry-set'].includes(event.type)||!validCount(event.quantity)||(['restock','expiry-set'].includes(event.type)&&event.quantity===0)||(event.type==='expiry-close'&&event.quantity!==0)||!validDate(event.createdAt)||event.accepted===false||typeof event.recorder!=='string'||!event.recorder.trim()||event.recorder.length>80||typeof event.note!=='string'||event.note.length>500)throw new Error('零食、泡麵與碳粉異動紀錄不正確。');
