@@ -4,6 +4,7 @@ import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
 import { normalizeSupplyWarehouse, canonicalSnackCategory, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, validSupplyExpiry } from './supplies.js';
 import { isLowStockItem, isOutOfStockItem, inventoryLowThreshold, matchesInventoryStockFilter, normalizeRestockPreferences, restockThreshold } from './restock-preferences.js';
+import { inventoryActivity } from './inventory-activity.js';
 
 let googleCallbackSequence = 0;
 
@@ -40,6 +41,7 @@ export function fetchGooglePublicData(endpoint, options = {}) {
   const callback = `__holdwin_${Date.now().toString(36)}_${(++googleCallbackSequence).toString(36)}_${Math.random().toString(36).slice(2)}`;
   url.searchParams.set('action', action);
   url.searchParams.set('callback', callback);
+  if(['admin','warehouse'].includes(action)&&options.force===true)url.searchParams.set('fresh','1');
   if (action === 'receipt') url.searchParams.set('requestId', options.requestId);
   return new Promise((resolve, reject) => {
     const script = pageDocument.createElement('script');
@@ -315,6 +317,8 @@ export class GoogleInventoryStore {
     this.googleReadSequence = 0;
     this.confirmedWriteSequence = 0;
     this.pendingGoogleReads = new Map();
+    this.warehouseSnapshot = null;
+    this.warehouseViewReadAt = -Infinity;
     this.wishSnapshotTimes = new Map();
     this.snapshotAt = null;
     this.popularityVersion = 0;
@@ -399,12 +403,38 @@ export class GoogleInventoryStore {
   async read() { return this.readGoogleView(this.inWarehouse); }
 
   async readWarehouse() { return this.readGoogleView(true); }
+  async openWarehouse() { return this.readGoogleView(true,{force:false}); }
+
+  freshWarehouseSnapshot() {
+    const value=this.warehouseSnapshot;
+    return value&&value.writeSequence===this.confirmedWriteSequence&&this.now()-value.readAt>=0&&this.now()-value.readAt<30000?value:null;
+  }
+
+  async fetchWarehouseSnapshot(force=false) {
+    const cached=this.freshWarehouseSnapshot();if(!force&&cached)return cached;
+    let request=this.pendingGoogleReads.get('warehouse');
+    if(!request){
+      const writeSequence=this.confirmedWriteSequence;
+      request=(async()=>{
+        const payload=await this.readPublicData(validateGoogleScriptUrl(this.url),{action:'warehouse',...(force?{force:true}:{})});
+        if(payload?.error==='unsupported_action')throw new Error('目前 Google 程式還不支援免登入倉庫，請更新 Code.gs 並重新部署。');
+        const value={result:normalizeGooglePublicData(payload,{warehouse:true}),readAt:this.now(),writeSequence};
+        if(writeSequence===this.confirmedWriteSequence)this.warehouseSnapshot=value;
+        return value;
+      })();
+      this.pendingGoogleReads.set('warehouse',request);
+    }
+    try{return await request;}finally{if(this.pendingGoogleReads.get('warehouse')===request)this.pendingGoogleReads.delete('warehouse');}
+  }
+
+  async prefetchWarehouse() { await this.fetchWarehouseSnapshot(); }
 
   async openPublic() {
     if (!this.googleViewLoaded) return this.readPublic();
     if (!this.inWarehouse) return this.data;
     // Reuse already validated display fields when returning from administration.
-    // Quantities and private histories are discarded before rendering or caching.
+    // Quantities and histories stay out of public views and persistent storage.
+    // A recent warehouse snapshot is kept only in this tab’s private memory.
     const result = normalizeGooglePublicData({ok:true,drinks:this.data.drinks,wishes:this.data.wishes,
       formUrls:this.formUrls,voteForm:this.voteForm,wishForm:this.wishForm,adminUrl:this.adminUrl,
       updatedAt:this.updatedAt,snapshotAt:this.snapshotAt,
@@ -418,36 +448,33 @@ export class GoogleInventoryStore {
 
   cancelOtherViewReads(warehouse) {
     const other=warehouse?'public':'warehouse';
-    if(this.pendingGoogleReads.has(other)){++this.googleReadSequence;this.pendingGoogleReads.delete(other);}
+    if(this.pendingGoogleReads.has(other)){++this.googleReadSequence;if(other!=='warehouse')this.pendingGoogleReads.delete(other);}
   }
 
   async readPublic() { return this.readGoogleView(false); }
 
-  async readGoogleView(warehouse) {
+  async readGoogleView(warehouse,{force=true}={}) {
     const sequence = ++this.googleReadSequence, writeSequence = this.confirmedWriteSequence;
     const endpoint = validateGoogleScriptUrl(this.url);
-    let payload;
+    let payload,warehouseValue;
     try {
-      const action = warehouse ? 'warehouse' : 'public';
-      let request = this.pendingGoogleReads.get(action);
-      if (!request) {
-        request = this.readPublicData(endpoint, { action });
-        this.pendingGoogleReads.set(action, request);
+      if(warehouse)warehouseValue=await this.fetchWarehouseSnapshot(force);
+      else {
+        const action='public';
+        let request=this.pendingGoogleReads.get(action);
+        if(!request){request=this.readPublicData(endpoint,{action});this.pendingGoogleReads.set(action,request);}
+        try{payload=await request;}finally{if(this.pendingGoogleReads.get(action)===request)this.pendingGoogleReads.delete(action);}
       }
-      try { payload = await request; }
-      finally { if (this.pendingGoogleReads.get(action) === request) this.pendingGoogleReads.delete(action); }
     } catch (error) {
       if (sequence !== this.googleReadSequence || writeSequence !== this.confirmedWriteSequence) return this.data;
       throw error;
     }
     if (sequence !== this.googleReadSequence || writeSequence !== this.confirmedWriteSequence) return this.data;
-    if (warehouse && payload?.error === 'unsupported_action') {
-      throw new Error('目前 Google 程式還不支援免登入倉庫，請更新 Code.gs 並重新部署。');
-    }
-    const result = normalizeGooglePublicData(payload, { warehouse });
+    const result = warehouse?warehouseValue.result:normalizeGooglePublicData(payload, { warehouse });
     // Assign only after the full response validates; preserve the last valid
     // view on errors and never seed demo data or accept remote role flags.
     this.applyGoogleView(result, warehouse);
+    if(warehouse)this.warehouseViewReadAt=warehouseValue.readAt;
     this.revalidateOnStart = false;
     if (!warehouse) {
       try {
@@ -479,6 +506,7 @@ export class GoogleInventoryStore {
     this.websiteEntryVersion = result.websiteEntryVersion;
     this.fastReceiptVersion = result.fastReceiptVersion || 0;
     this.archivedRestockVersion = result.archivedRestockVersion || 0;
+    this.fastRestockVersion = result.fastRestockVersion || 0;
     this.newArrivalVersion = result.newArrivalVersion || 0;
     this.drinkCategoryVersion = result.drinkCategoryVersion || 0;
     this.zeroStockVersion = result.zeroStockVersion || 0;
@@ -530,12 +558,26 @@ export class GoogleInventoryStore {
     } catch { return false; }
   }
 
-  async readAdminSummary() {
-    if (this.adminSummary && this.now() - this.adminSummaryReadAt < 15000) return this.adminSummary;
+  warehouseSummary(snapshot) {
+    const view=snapshot.result,prefs=view.restockPreferences||[];
+    const items=[...view.data.drinks.map(item=>({...item,kind:'drink'})),...(view.supplies||[])];
+    const mode=item=>prefs.find(entry=>entry.kind===item.kind&&entry.itemId===item.id)?.mode||'normal';
+    const row=item=>({id:item.id,name:item.name,kind:item.kind,flavor:item.flavor||'',unit:item.unit,stock:item.stock,mode:mode(item)});
+    const restockItems=items.filter(item=>mode(item)==='consider').map(row).sort((a,b)=>(a.stock??Infinity)-(b.stock??Infinity));
+    const lowItems=items.filter(item=>item.active!==false&&matchesInventoryStockFilter(item,'low',prefs)&&(!['snack','noodle'].includes(item.kind)||mode(item)==='consider')).map(row).sort((a,b)=>Number(b.mode==='consider')-Number(a.mode==='consider')||a.stock-b.stock);
+    const outOfStockItems=items.filter(item=>(item.active!==false||(item.autoArchived===true&&['snack','noodle'].includes(item.kind)))&&isOutOfStockItem(item)).map(item=>({...row(item),zeroStockPending:prefs.some(entry=>entry.kind===item.kind&&entry.itemId===item.id&&entry.zeroStockPending===true)}));
+    const manualSnackItems=restockItems.filter(item=>item.kind==='snack').map(item=>({...item,markedAt:prefs.find(entry=>entry.kind===item.kind&&entry.itemId===item.id).updatedAt}));
+    return {totalDrinks:view.data.drinks.length,pendingWishes:view.data.wishes.filter(item=>item.status==='pending').length,lowItems,outOfStockItems,manualSnackItems,restockItems,activityVersion:1,...inventoryActivity(view.data.drinks,view.supplies||[],view.data.events,view.supplyEvents||[]),snapshotAt:view.snapshotAt};
+  }
+
+  async readAdminSummary({force=false}={}) {
+    if (!force && this.adminSummary && this.now()>=this.adminSummaryReadAt&&this.now() - this.adminSummaryReadAt < 15000) return this.adminSummary;
+    const snapshot=!force&&this.freshWarehouseSnapshot();
+    if(snapshot){this.adminSummary=this.warehouseSummary(snapshot);this.adminSummaryReadAt=snapshot.readAt;return this.adminSummary;}
     if (this.adminSummaryRequest) return this.adminSummaryRequest;
     this.adminSummaryRequest = (async () => {
       const writeSequence=this.confirmedWriteSequence;
-      let value = await this.readPublicData(validateGoogleScriptUrl(this.url), {action:'admin'});
+      let value = await this.readPublicData(validateGoogleScriptUrl(this.url), {action:'admin',...(force?{force:true}:{})});
       if (value?.error === 'unsupported_action') {
         const legacy = normalizeGooglePublicData(await this.readPublicData(validateGoogleScriptUrl(this.url), {action:'warehouse'}),{warehouse:true});
         const items = [...legacy.data.drinks.map(item=>({...item,kind:'drink'})),...legacy.supplies];
@@ -680,7 +722,7 @@ export class GoogleInventoryStore {
 
   async sendWebsiteCommand(operation, data) {
     if (!this.supportsWebsiteEntry) throw new Error('請先更新 Google Apps Script 的 Code.gs，並部署新版本，才能直接在網站送出。');
-    const endpoint = validateGoogleScriptUrl(this.url);
+    const endpoint = validateGoogleScriptUrl(this.url),fastRestock=this.fastRestockVersion===1;
     const key = `holdwin-google-pending-v1:${endpoint}:${operation}`;
     let signature = JSON.stringify(data);
     let storage, pending;
@@ -732,6 +774,8 @@ export class GoogleInventoryStore {
     this.confirmedWriteSequence += 1;
     this.pendingGoogleReads.clear();
     this.adminSummaryReadAt = -Infinity;
+    if (operation==='restock-preference' && this.applyRestockReceipt(data,result,fastRestock)) return result;
+    this.warehouseSnapshot=null;
     if (this.applyWishReceipt(operation, data, result, pending.requestId)) return result;
     if (operation==='zero-stock-decision' && this.applyZeroStockReceipt(data,result)) return result;
     if (['stocktake', 'arrival', 'product', 'new-arrival','batch-arrival'].includes(operation)) this.popularityReadAt = -Infinity;
@@ -843,11 +887,26 @@ export class GoogleInventoryStore {
     if(data.mode==='consider'&&data.kind!=='snack'&&!this.supportsManualRestock)throw new Error('請先更新 Apps Script 部署，啟用零食手動補貨標示。');
     if(!this.supportsRestockPreferences)throw new Error('請先更新 Apps Script 部署，才能儲存暫不補貨設定。');
     const result=await this.sendWebsiteCommand('restock-preference',data);
-    if(this.lastWriteNeedsRefresh){
-      const normalized=normalizeRestockPreferences({restockPreferenceEntry:{version:1},restockPreferences:[result]}).restockPreferences[0];
-      this.restockPreferences=[...this.restockPreferences.filter(entry=>entry.kind!==normalized.kind||entry.itemId!==normalized.itemId),normalized];
-    }
     return result;
+  }
+
+  applyRestockReceipt(data,result,enabled=this.fastRestockVersion===1) {
+    if(!enabled||result?.operation!=='restock-preference')return false;
+    if(result?.kind!==data.kind||result.itemId!==data.itemId||result.mode!==data.mode)return false;
+    let entry;
+    try{entry=normalizeRestockPreferences({restockPreferenceEntry:{version:1},restockPreferences:[result]}).restockPreferences[0];}catch{return false;}
+    const existing=[...this.restockPreferences,...(this.warehouseSnapshot?.result.restockPreferences||[])].filter(old=>old.kind===entry.kind&&old.itemId===entry.itemId).sort((a,b)=>Date.parse(b.updatedAt)-Date.parse(a.updatedAt))[0];
+    if(existing&&Date.parse(existing.updatedAt)>Date.parse(entry.updatedAt))return false;
+    const patch=values=>[...values.filter(old=>old.kind!==entry.kind||old.itemId!==entry.itemId),entry];
+    if(this.inWarehouse)this.restockPreferences=patch(this.restockPreferences);
+    const snapshot=this.warehouseSnapshot;
+    if(snapshot&&snapshot.writeSequence===this.confirmedWriteSequence-1){
+      snapshot.result={...snapshot.result,restockPreferences:patch(snapshot.result.restockPreferences||[])};
+      snapshot.writeSequence=this.confirmedWriteSequence;
+      this.adminSummary=this.warehouseSummary(snapshot);this.adminSummaryReadAt=snapshot.readAt;
+    }
+    this.revision=JSON.stringify({data:this.data,restockPreferences:this.restockPreferences});
+    return true;
   }
 
   async addDrink({ name, category, packaging, recorder }) {

@@ -153,8 +153,8 @@ async function saveRestockPreference(control,mode) {
   controls.forEach(input=>{input.disabled=true;});container.setAttribute('aria-busy','true');container.querySelector('[data-restock-progress]').textContent='儲存中…';
   try{
     await withBusy(async()=>{
-      await store.setRestockPreference({kind,itemId,mode,expectedMode});
-      render();googleWriteToast(mode==='consider'?'已勾選需要補貨，紀錄數量不變。':'已取消補貨勾選，紀錄數量不變。');
+      const saved=await store.setRestockPreference({kind,itemId,mode,expectedMode});
+      render();googleWriteToast(saved.mode!==mode?'設定已有較新的更新，已顯示最新狀態。':mode==='consider'?'已勾選需要補貨，紀錄數量不變。':'已取消補貨勾選，紀錄數量不變。');
     },control);
   }finally{
     if(container.isConnected){
@@ -639,24 +639,34 @@ function renderAdminActivity(summary) {
   }).join('')}</div><p class="subtle">顯示各類最近一次實際盤點的數字；未盤點的其他品項保留原紀錄。</p></section>`;
 }
 let adminSummaryLoading=false;
-async function loadAdminSummary(){
+async function loadAdminSummary({force=false}={}){
   if(adminSummaryLoading)return;adminSummaryLoading=true;
-  try{
-    const items=[...store.data.drinks.map(item=>({...item,kind:'drink'})),...supplyItems()];
-    const modes=item=>({...item,mode:preferenceMode(item.kind,item.id),zeroStockPending:(store.restockPreferences||[]).some(entry=>entry.kind===item.kind&&entry.itemId===item.id&&entry.zeroStockPending===true)});
-    const summary=store.mode==='google'?await store.readAdminSummary():{activityVersion:1,...inventoryActivity(store.data.drinks,supplyItems(),store.data.events,store.supplyEvents||[]),restockItems:sortedStock(items.filter(item=>needsRestock(item,item.kind))).map(modes),lowItems:sortedStock(items.filter(item=>item.active!==false&&matchesInventoryStockFilter(item,'low',store.restockPreferences||[]))).map(modes),outOfStockItems:items.filter(item=>(item.active!==false||['snack','noodle'].includes(item.kind))&&isOutOfStockItem(item)).map(modes)};
+  function paint(summary,updating=false){
     if(view!=='admin')return;
+    const status=$('#admin-data-status');if(status)status.textContent=(summary.snapshotAt?'資料讀取：'+formatDate(summary.snapshotAt,true):'')+(updating?' · 更新中…':'');
     const restockItems=summary.restockItems||summary.manualSnackItems||[];
     const lowItems=summary.lowItems.filter(item=>!['snack','noodle'].includes(item.kind)||item.mode==='consider');
     updateAdminDisclosure('admin-restock',`${restockItems.length} 種`,restockItems.length?adminStockList(restockItems):'<p class="subtle">目前沒有勾選需要補貨的品項。</p>');
     updateAdminDisclosure('admin-low-stock',`${lowItems.length} 種`,lowItems.length?adminStockList(lowItems):'<p class="subtle">目前沒有庫存量少的品項。</p>');
     adminZeroItems=[];
     renderAdminActivity(summary);
-  }catch(error){if(view==='admin')for(const id of ['admin-restock','admin-low-stock'])updateAdminDisclosure(id,'讀取失敗',`<p class="subtle">${h(error.message)}</p>${button('重新讀取摘要','retry-admin-summary','type="button"','button-small button-outline')}`);}
+  }
+  if(store.mode==='google'&&store.adminSummary)paint(store.adminSummary,true);
+  try{
+    const items=[...store.data.drinks.map(item=>({...item,kind:'drink'})),...supplyItems()];
+    const modes=item=>({...item,mode:preferenceMode(item.kind,item.id),zeroStockPending:(store.restockPreferences||[]).some(entry=>entry.kind===item.kind&&entry.itemId===item.id&&entry.zeroStockPending===true)});
+    const summary=store.mode==='google'?await store.readAdminSummary({force}):{activityVersion:1,...inventoryActivity(store.data.drinks,supplyItems(),store.data.events,store.supplyEvents||[]),restockItems:sortedStock(items.filter(item=>needsRestock(item,item.kind))).map(modes),lowItems:sortedStock(items.filter(item=>item.active!==false&&matchesInventoryStockFilter(item,'low',store.restockPreferences||[]))).map(modes),outOfStockItems:items.filter(item=>(item.active!==false||['snack','noodle'].includes(item.kind))&&isOutOfStockItem(item)).map(modes)};
+    paint(summary);
+    // Only administration visits warm inventory, and only in this tab's memory.
+    if(store.mode==='google')setTimeout(()=>{if(view==='admin'&&!busy&&!document.hidden)store.prefetchWarehouse().catch(()=>{});},200);
+  }catch(error){if(view==='admin'){
+    if(store.adminSummary){const status=$('#admin-data-status');if(status)status.textContent='暫時無法更新，顯示上次讀取的資料。';}
+    else for(const id of ['admin-restock','admin-low-stock'])updateAdminDisclosure(id,'讀取失敗',`<p class="subtle">${h(error.message)}</p>${button('重新讀取摘要','retry-admin-summary','type="button"','button-small button-outline')}`);
+  }}
   finally{adminSummaryLoading=false;}
 }
 function renderAdmin(){
-  main.innerHTML=heading('PANTRY MANAGEMENT','今天的補給紀錄','先看看最近到貨與各類盤點。入庫、盤點及庫存管理可由功能列進入。')+`${adminDisclosure('admin-restock','準備補貨','已勾選需要補貨的飲料、零食、泡麵與碳粉')}${adminDisclosure('admin-low-stock','庫存量少','飲料 10包/瓶/罐以下 · 零食與泡麵評估餘量少且已勾補貨 · 碳粉無剩餘庫存時，會列在這裡')}<div id="admin-activity" class="admin-activity"><p class="subtle">正在整理近期紀錄…</p></div>`;
+  main.innerHTML=heading('PANTRY MANAGEMENT','今天的補給紀錄','先看看最近到貨與各類盤點。入庫、盤點及庫存管理可由功能列進入。')+`<p id="admin-data-status" class="subtle" role="status">正在讀取最新資料…</p>${adminDisclosure('admin-restock','準備補貨','已勾選需要補貨的飲料、零食、泡麵與碳粉')}${adminDisclosure('admin-low-stock','庫存量少','飲料 10包/瓶/罐以下 · 零食與泡麵評估餘量少且已勾補貨 · 碳粉無剩餘庫存時，會列在這裡')}<div id="admin-activity" class="admin-activity"><p class="subtle">正在整理近期紀錄…</p></div>`;
   loadAdminSummary();
 }
 
@@ -760,7 +770,7 @@ async function route() {
     updateChrome();
     main.setAttribute('aria-busy', 'true');
     main.innerHTML = `<div class="loading-state"><span class="loader"></span><p>正在開啟${viewNames[view]}，讀取共用資料…</p></div>`;
-    try { await (adminViews.has(view) ? store.readWarehouse() : store.openPublic()); }
+    try { await (adminViews.has(view) ? store.openWarehouse() : store.openPublic()); }
     catch (error) {
       if (sequence !== routeSequence) return;
       routeLoading = false;
@@ -1098,7 +1108,7 @@ async function runAction(action, id) {
     return;
   }
   if (action === 'quick-add-drink') { if(store.mode==='google'&&!store.googleViewLoaded)await store.readPublic(); if(view!=='admin'&&view!=='products')return;openQuickDrink(); return; }
-  if (action === 'retry-admin-summary') { store.adminSummaryReadAt=-Infinity;loadAdminSummary();return; }
+  if (action === 'retry-admin-summary') { store.adminSummaryReadAt=-Infinity;loadAdminSummary({force:true});return; }
   if (action === 'archive-wish') {
     const drink=store.data.drinks.find(item=>item.id===id&&item.active===false);if(!drink)throw new Error('找不到這個歷史品項。');
     showModal('這款，我還想喝',`留下姓名，讓採買時知道大家還想喝「${h(drink.name)}」。`, `<form id="archive-wish-form" data-id="${h(id)}"><label class="field">姓名<input name="voterName" required maxlength="80" autocomplete="name"></label><div class="form-actions">${button('取消','close-modal','type="button"','button-outline')}<button type="submit" class="button">送出回購願望</button></div></form>`);return;
@@ -1323,7 +1333,7 @@ async function refreshCurrentView(manual = false) {
   if (store.revalidateOnStart) updateChrome();
   if (manual) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
   try {
-    if(view==='admin'&&store.mode==='google'){store.adminSummaryReadAt=-Infinity;await loadAdminSummary();return;}
+    if(view==='admin'&&store.mode==='google'){store.adminSummaryReadAt=-Infinity;await loadAdminSummary({force:true});return;}
     await store.read();
     // A read must never replace a newer page, an open dialog, or fresh input.
     if (sequence !== routeSequence || inputs !== inputSequence || currentView !== view || busy || modal.open || (!manual && dirty)) return;
@@ -1366,7 +1376,7 @@ if(store.mode==='google'&&(!location.hash||location.hash==='#overview')){
 }
 try {
   if (store.mode === 'google' && location.hash === '#admin') { /* The entry and summary do not wait for full histories. */ }
-  else if (store.mode === 'google' && adminViews.has(location.hash.slice(1))) await store.readWarehouse();
+  else if (store.mode === 'google' && adminViews.has(location.hash.slice(1))) await store.openWarehouse();
   else await store.init();
   ready = true;
   await route();
