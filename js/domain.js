@@ -1,4 +1,5 @@
 import { workingDaysBetween, WORKWEEK_DAYS, consumptionWindow } from './workdays.js';
+import { completeConsumptionIntervals } from './consumption-intervals.js';
 
 /** Pure inventory helpers. Quantities always refer to individual containers. */
 export function uid() {
@@ -121,9 +122,9 @@ export function blankData() {
  */
 export function getConsumption(drinkId, events, now = new Date(), since = -Infinity) {
   const result = { dailyRate: null, days: 0, consumed: 0, samples: 0, anomaly: false };
-  const cutoff = new Date(now).getTime();
+  const cutoff = new Date(now).getTime(), intervals = [];
   const timeline = (Array.isArray(events) ? events : [])
-    .filter((event) => event.drinkId === drinkId && ['count', 'restock'].includes(event.type))
+    .filter((event) => event.accepted !== false && event.drinkId === drinkId && ['count', 'restock'].includes(event.type))
     .map((event) => ({ ...event, timestamp: Date.parse(event.createdAt) }))
     .filter((event) => Number.isFinite(event.timestamp) && event.timestamp >= since && event.timestamp <= cutoff)
     .sort((left, right) => left.timestamp - right.timestamp);
@@ -152,19 +153,19 @@ export function getConsumption(drinkId, events, now = new Date(), since = -Infin
     if (previousCount) {
       const days = workingDaysBetween(previousCount.timestamp, event.timestamp);
       const consumed = previousCount.quantity + received - event.quantity;
-      if (days >= 1 && consumed >= 0 && Number.isSafeInteger(consumed) && !invalidInterval) {
-        result.days += days;
-        result.consumed += consumed;
-        result.samples += 1;
-      } else if (consumed < 0 || invalidInterval || !Number.isSafeInteger(consumed)) {
-        result.anomaly = true;
-      }
+      const validInterval=consumed>=0&&Number.isSafeInteger(consumed)&&!invalidInterval;
+      intervals.push({startAt:previousCount.createdAt,endAt:event.createdAt,startQuantity:previousCount.quantity,endQuantity:event.quantity,arrivals:received,consumed:validInterval?consumed:null,days,status:validInterval?(days>=1?'ready':'short'):'invalid'});
+      if(!validInterval)result.anomaly=true;
     }
     previousCount = event;
     received = 0;
     invalidInterval = false;
   }
 
+  const measured=completeConsumptionIntervals(intervals);
+  result.days=measured.reduce((sum,interval)=>sum+interval.days,0);
+  result.consumed=measured.reduce((sum,interval)=>sum+interval.consumed,0);
+  result.samples=measured.length;
   if (result.samples > 0) result.dailyRate = result.consumed / result.days;
   return result;
 }

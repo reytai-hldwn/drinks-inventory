@@ -1203,12 +1203,35 @@ function websiteWorkingDaysBetween_(start, end) {
   return (clock(until) - clock(from)) / day;
 }
 
+/** Include short adjacent counts in a long enough observation, without extrapolating minutes alone. */
+function websiteCompleteConsumptionIntervals_(segments) {
+  const measured=[];let chain=[];
+  const merge=(left,right)=>({...left,endAt:right.endAt,endQuantity:right.endQuantity,arrivals:left.arrivals+right.arrivals,consumed:left.consumed+right.consumed,days:left.days+right.days,status:'ready'});
+  const finish=()=>{
+    const first=measured.length;let pending=null;
+    for(const segment of chain){
+      pending=pending?merge(pending,segment):{...segment};
+      if(pending.days>=1){measured.push({...pending,status:'ready'});pending=null;}
+    }
+    // The final morning count may be earlier than yesterday's. Extend the last
+    // complete interval instead of dropping its newly observed consumption.
+    if(pending&&measured.length>first)measured[measured.length-1]=merge(measured[measured.length-1],pending);
+    chain=[];
+  };
+  for(const segment of segments){
+    const valid=['ready','short'].includes(segment.status)&&Number.isSafeInteger(segment.consumed)&&segment.consumed>=0&&Number.isFinite(segment.days)&&segment.days>=0;
+    if(!valid||(chain.length&&chain[chain.length-1].endAt!==segment.startAt))finish();
+    if(valid)chain.push(segment);
+  }
+  finish();return measured;
+}
+
 // Keep this calculation aligned with js/domain.js; parity tests cover edge cases.
 function websiteConsumption_(drinkId, events, now = new Date(), since = -Infinity) {
   const result = { dailyRate: null, days: 0, consumed: 0, samples: 0, anomaly: false };
-  const cutoff = new Date(now).getTime();
+  const cutoff = new Date(now).getTime(), intervals = [];
   const timeline = (Array.isArray(events) ? events : [])
-    .filter((event) => event.drinkId === drinkId && ['count', 'restock'].includes(event.type))
+    .filter((event) => event.accepted !== false && event.drinkId === drinkId && ['count', 'restock'].includes(event.type))
     .map((event) => ({ ...event, timestamp: Date.parse(event.createdAt) }))
     .filter((event) => Number.isFinite(event.timestamp) && event.timestamp >= since && event.timestamp <= cutoff)
     .sort((left, right) => left.timestamp - right.timestamp);
@@ -1237,19 +1260,19 @@ function websiteConsumption_(drinkId, events, now = new Date(), since = -Infinit
     if (previousCount) {
       const days = websiteWorkingDaysBetween_(previousCount.timestamp, event.timestamp);
       const consumed = previousCount.quantity + received - event.quantity;
-      if (days >= 1 && consumed >= 0 && Number.isSafeInteger(consumed) && !invalidInterval) {
-        result.days += days;
-        result.consumed += consumed;
-        result.samples += 1;
-      } else if (consumed < 0 || invalidInterval || !Number.isSafeInteger(consumed)) {
-        result.anomaly = true;
-      }
+      const validInterval=consumed>=0&&Number.isSafeInteger(consumed)&&!invalidInterval;
+      intervals.push({startAt:previousCount.createdAt,endAt:event.createdAt,startQuantity:previousCount.quantity,endQuantity:event.quantity,arrivals:received,consumed:validInterval?consumed:null,days,status:validInterval?(days>=1?'ready':'short'):'invalid'});
+      if(!validInterval)result.anomaly=true;
     }
     previousCount = event;
     received = 0;
     invalidInterval = false;
   }
 
+  const measured=websiteCompleteConsumptionIntervals_(intervals);
+  result.days=measured.reduce((sum,interval)=>sum+interval.days,0);
+  result.consumed=measured.reduce((sum,interval)=>sum+interval.consumed,0);
+  result.samples=measured.length;
   if (result.samples > 0) result.dailyRate = result.consumed / result.days;
   return result;
 }

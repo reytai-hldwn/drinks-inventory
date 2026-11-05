@@ -790,7 +790,7 @@ async function route() {
   if (sequence !== routeSequence) return;
   routeLoading = false;
   render();
-  if (store.revalidateOnStart && !store.inWarehouse) refreshCurrentView();
+  if ((store.revalidateOnStart && !store.inWarehouse)||(store.mode==='google'&&view==='consumption'&&!store.freshWarehouseSnapshot())) refreshCurrentView();
 }
 
 function showModal(title, description, content) {
@@ -1348,7 +1348,7 @@ $('#logout-button').addEventListener('click', () => {
 });
 async function refreshCurrentView(manual = false) {
   if (!ready || busy || refreshing || routeLoading) return;
-  if (!manual && (dirty || modal.open || !['overview', 'wishes', 'history', 'archive'].includes(view) || document.hidden)) return;
+  if (!manual && (dirty || modal.open || !['overview', 'wishes', 'history', 'archive', 'consumption'].includes(view) || document.hidden)) return;
   if (manual && dirty && !confirm('重新讀取會捨棄未儲存的輸入，確定繼續嗎？')) return;
   const sequence = routeSequence, inputs = inputSequence, currentView = view, revision = store.revision;
   const button = $('#refresh-button');
@@ -1360,8 +1360,11 @@ async function refreshCurrentView(manual = false) {
     await store.read();
     // A read must never replace a newer page, an open dialog, or fresh input.
     if (sequence !== routeSequence || inputs !== inputSequence || currentView !== view || busy || modal.open || (!manual && dirty)) return;
-    if (manual || revision !== store.revision) render();
+    if(manual&&view==='overview'&&fridgeOpen&&popularityExpanded)store.invalidatePopularity?.();
+    if(view==='consumption'&&!manual){updateRankingResults();updateChrome();}
+    else if (manual || revision !== store.revision) render();
     else updateChrome();
+    if(view==='overview'&&fridgeOpen&&popularityExpanded)loadFridgePopularity();
     if (manual) toast('已讀取最新庫存。');
   } catch (error) {
     if (sequence !== routeSequence || currentView !== view || busy) return;
@@ -1389,9 +1392,12 @@ window.addEventListener('beforeunload', (event) => {
 
 // Read-only refreshes keep navigation available and preserve unfinished input.
 setInterval(() => {
-  if(ready&&view==='consumption'&&!document.hidden&&!busy&&!modal.open)updateRankingResults();
-  else refreshCurrentView();
+  refreshCurrentView();
 }, 60000);
+
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&view==='consumption'&&store.mode==='google'&&!store.freshWarehouseSnapshot())refreshCurrentView();
+});
 
 // The closed fridge does not depend on remote inventory; paint it while Google loads.
 if(store.mode==='google'&&(!location.hash||location.hash==='#overview')){
