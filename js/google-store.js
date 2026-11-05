@@ -4,7 +4,7 @@ import { blankData, getWeeklyPopularity, safeUrl } from './domain.js';
 import { submitGoogleWebsiteCommand } from './google-write.js';
 import { normalizeSupplyWarehouse, canonicalSnackCategory, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, validSupplyExpiry } from './supplies.js';
 import { isLowStockItem, isOutOfStockItem, inventoryLowThreshold, matchesInventoryStockFilter, normalizeRestockPreferences, restockThreshold } from './restock-preferences.js';
-import { inventoryActivity } from './inventory-activity.js';
+import { inventoryActivity, inventoryTotals, normalizeInventoryTotals } from './inventory-activity.js';
 
 let googleCallbackSequence = 0;
 
@@ -269,6 +269,7 @@ export function normalizeGooglePublicData(payload, { warehouse = false } = {}) {
     popularityVersion: [1,2,3].includes(payload.websiteEntry?.popularityVersion) ? payload.websiteEntry.popularityVersion : 0,
     websiteEntryVersion: payload.websiteEntry?.version === 1 ? 1 : 0,
     fastReceiptVersion: payload.websiteEntry?.fastReceiptVersion === 1 ? 1 : 0,
+    restockAuthVersion: payload.websiteEntry?.restockAuthVersion === 1 ? 1 : 0,
     archivedArrivalVersion:warehouse&&payload.websiteEntry?.archivedArrivalVersion===1?1:0,
     batchArrivalVersion:warehouse&&payload.websiteEntry?.batchArrivalVersion===1?1:0,
     newArrivalVersion: warehouse && payload.websiteEntry?.newArrivalVersion === 1 ? 1 : 0,
@@ -298,6 +299,19 @@ function normalizeGooglePopularity(payload) {
 }
 
 export class GoogleInventoryStore {
+  #restockCredential = null;
+
+  get requiresRestockAuth() { return this.restockAuthVersion===1; }
+  get hasRestockAuthorization() {
+    if(this.#restockCredential?.expiresAt<=this.now())this.#restockCredential=null;
+    return !!this.#restockCredential?.verified;
+  }
+  setRestockCode(code) {
+    if(typeof code!=='string'||!/^[0-9]{4,12}$/.test(code))throw new Error('請輸入 4–12 位數字認證碼。');
+    this.#restockCredential={code,verified:false,expiresAt:this.now()+30*60*1000};
+  }
+  clearRestockCode() { this.#restockCredential=null; }
+
   constructor(config = {}, options = {}) {
     this.url = config.googleScriptUrl || '';
     this.mode = 'google';
@@ -329,6 +343,7 @@ export class GoogleInventoryStore {
     this.adminSummaryRequest = null;
     this.websiteEntryVersion = 0;
     this.fastReceiptVersion = 0;
+    this.restockAuthVersion = 0;
     this.newArrivalVersion = 0;
     this.drinkCategoryVersion = 0;
     this.zeroStockVersion = 0;
@@ -438,7 +453,7 @@ export class GoogleInventoryStore {
     const result = normalizeGooglePublicData({ok:true,drinks:this.data.drinks,wishes:this.data.wishes,
       formUrls:this.formUrls,voteForm:this.voteForm,wishForm:this.wishForm,adminUrl:this.adminUrl,
       updatedAt:this.updatedAt,snapshotAt:this.snapshotAt,
-      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion,gachaVersion:this.gachaVersion,fastReceiptVersion:this.fastReceiptVersion}});
+      websiteEntry:{version:this.websiteEntryVersion,popularityVersion:this.popularityVersion,archiveWishVersion:this.archiveWishVersion,gachaVersion:this.gachaVersion,fastReceiptVersion:this.fastReceiptVersion,restockAuthVersion:this.restockAuthVersion}});
     ++this.googleReadSequence;
     this.pendingGoogleReads.delete('public');
     this.applyGoogleView(result, false);
@@ -480,7 +495,7 @@ export class GoogleInventoryStore {
       try {
         const payload = { ok: true, provider: 'google', drinks: result.data.drinks, wishes: result.data.wishes,
           formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm,
-          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion,gachaVersion:result.gachaVersion,fastReceiptVersion:result.fastReceiptVersion } };
+          adminUrl: result.adminUrl, updatedAt: result.updatedAt, snapshotAt: result.snapshotAt, websiteEntry: { version: result.websiteEntryVersion, popularityVersion: result.popularityVersion, archiveWishVersion:result.archiveWishVersion,gachaVersion:result.gachaVersion,fastReceiptVersion:result.fastReceiptVersion,restockAuthVersion:result.restockAuthVersion } };
         const saved = JSON.stringify({ version: 1, savedAt: this.now(), payload });
         if (saved.length < 750000) (this.publicStorage || globalThis.localStorage)?.setItem(`holdwin-public-cache-v1:${endpoint}`, saved);
       } catch { /* Storage is optional; fresh Google data still works. */ }
@@ -505,6 +520,7 @@ export class GoogleInventoryStore {
     this.gachaVersion = result.gachaVersion || 0;
     this.websiteEntryVersion = result.websiteEntryVersion;
     this.fastReceiptVersion = result.fastReceiptVersion || 0;
+    this.restockAuthVersion = result.restockAuthVersion || 0;
     this.archivedRestockVersion = result.archivedRestockVersion || 0;
     this.fastRestockVersion = result.fastRestockVersion || 0;
     this.newArrivalVersion = result.newArrivalVersion || 0;
@@ -567,7 +583,7 @@ export class GoogleInventoryStore {
     const lowItems=items.filter(item=>item.active!==false&&matchesInventoryStockFilter(item,'low',prefs)&&(!['snack','noodle'].includes(item.kind)||mode(item)==='consider')).map(row).sort((a,b)=>Number(b.mode==='consider')-Number(a.mode==='consider')||a.stock-b.stock);
     const outOfStockItems=items.filter(item=>(item.active!==false||(item.autoArchived===true&&['snack','noodle'].includes(item.kind)))&&isOutOfStockItem(item)).map(item=>({...row(item),zeroStockPending:prefs.some(entry=>entry.kind===item.kind&&entry.itemId===item.id&&entry.zeroStockPending===true)}));
     const manualSnackItems=restockItems.filter(item=>item.kind==='snack').map(item=>({...item,markedAt:prefs.find(entry=>entry.kind===item.kind&&entry.itemId===item.id).updatedAt}));
-    return {totalDrinks:view.data.drinks.length,pendingWishes:view.data.wishes.filter(item=>item.status==='pending').length,lowItems,outOfStockItems,manualSnackItems,restockItems,activityVersion:1,...inventoryActivity(view.data.drinks,view.supplies||[],view.data.events,view.supplyEvents||[]),snapshotAt:view.snapshotAt};
+    return {totalDrinks:view.data.drinks.length,pendingWishes:view.data.wishes.filter(item=>item.status==='pending').length,lowItems,outOfStockItems,manualSnackItems,restockItems,activityVersion:1,inventoryTotalsVersion:1,inventoryTotals:inventoryTotals(items),...inventoryActivity(view.data.drinks,view.supplies||[],view.data.events,view.supplyEvents||[]),snapshotAt:view.snapshotAt};
   }
 
   async readAdminSummary({force=false}={}) {
@@ -644,7 +660,7 @@ export class GoogleInventoryStore {
       });
       this.zeroStockVersion=value.zeroStockVersion===1?1:0;
       if(this.zeroStockVersion===1)this.websiteEntryVersion=1;
-      this.adminSummary={totalDrinks:value.totalDrinks,pendingWishes:value.pendingWishes,lowItems,outOfStockItems,manualSnackItems,restockItems:marked,activityVersion:value.activityVersion===1?1:0,recentArrivals,recentCounts,snapshotAt:googleDateField(value.snapshotAt,'摘要時間',true)};this.adminSummaryReadAt=this.now();
+      this.adminSummary={inventoryTotalsVersion:value.inventoryTotalsVersion===1?1:0,inventoryTotals:value.inventoryTotalsVersion===1?normalizeInventoryTotals(value.inventoryTotals):[],totalDrinks:value.totalDrinks,pendingWishes:value.pendingWishes,lowItems,outOfStockItems,manualSnackItems,restockItems:marked,activityVersion:value.activityVersion===1?1:0,recentArrivals,recentCounts,snapshotAt:googleDateField(value.snapshotAt,'摘要時間',true)};this.adminSummaryReadAt=this.now();
       return this.adminSummary;
     })();
     try { return await this.adminSummaryRequest; } finally { this.adminSummaryRequest=null; }
@@ -723,6 +739,13 @@ export class GoogleInventoryStore {
   async sendWebsiteCommand(operation, data) {
     if (!this.supportsWebsiteEntry) throw new Error('請先更新 Google Apps Script 的 Code.gs，並部署新版本，才能直接在網站送出。');
     const endpoint = validateGoogleScriptUrl(this.url),fastRestock=this.fastRestockVersion===1;
+    const protectedWrite=['restock-preference','zero-stock-decision'].includes(operation);
+    // Keep the secret out of persisted pending drafts, signatures and receipts.
+    if(protectedWrite){data={...data};delete data.restockPin;}
+    const credential=protectedWrite?this.#restockCredential:null;
+    if(protectedWrite&&this.requiresRestockAuth&&(!credential||credential.expiresAt<=this.now())){
+      this.clearRestockCode();const error=new Error('請輸入認證碼後再儲存補貨設定。');error.code='restock_auth';throw error;
+    }
     const key = `holdwin-google-pending-v1:${endpoint}:${operation}`;
     let signature = JSON.stringify(data);
     let storage, pending;
@@ -761,14 +784,20 @@ export class GoogleInventoryStore {
       if (receipt?.requestId === pending.requestId && receipt.state === 'rejected') { acknowledge('rejected'); pending = null; }
       else throw new Error('上一筆送出仍待確認。請先保留原內容重試，避免重複入庫。');
     }
+    const newRequest=!pending;
     if (!pending) pending = { requestId: this.createRequestId(), signature };
     if (!/^[A-Za-z0-9_-]{20,100}$/.test(pending.requestId)) throw new Error('無法建立這次送出紀錄，請重新開啟網站。');
     try { storage.setItem(key, JSON.stringify(pending)); }
     catch { throw new Error('目前無法保留送出紀錄，資料尚未送出。'); }
     this.lastWriteNeedsRefresh = false;
     let result;
-    try { result = await this.submitWebsiteCommand(endpoint, { requestId: pending.requestId, operation, data }, { readReceipt: this.readReceipt, messageReceipt:this.fastReceiptVersion===1 }); }
-    catch (error) { if (error.code === 'rejected') acknowledge('rejected'); throw error; }
+    try { result = await this.submitWebsiteCommand(endpoint, { requestId: pending.requestId, operation, data:protectedWrite&&credential?{...data,restockPin:credential.code}:data }, { readReceipt: this.readReceipt, messageReceipt:this.fastReceiptVersion===1 }); }
+    catch (error) {
+      if (['rejected','restock_auth'].includes(error.code)) acknowledge('rejected');
+      if(error.code==='restock_auth'){this.restockAuthVersion=1;this.clearRestockCode();}
+      throw error;
+    }
+    if(protectedWrite&&newRequest&&result?.restockAuthVersion===1&&credential&&this.#restockCredential===credential)credential.verified=true;
     // A confirmed write stays a success even if the following read fails.
     acknowledge('accepted', result);
     this.confirmedWriteSequence += 1;

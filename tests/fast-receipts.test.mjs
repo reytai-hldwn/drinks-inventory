@@ -82,3 +82,11 @@ test('fast receipt capability survives the public-only cache and is optional on 
   const cached=new GoogleInventoryStore({googleScriptUrl:endpoint},{...options,readPublicData:()=>{throw Error('cached');}});await cached.init();assert.equal(cached.fastReceiptVersion,1);
   const old=plain(b.ctx.publicData_());delete old.websiteEntry.fastReceiptVersion;const legacy=new GoogleInventoryStore({googleScriptUrl:endpoint},{readPublicData:async()=>old});await legacy.init();assert.equal(legacy.fastReceiptVersion,0);
 });
+
+test('restock authentication rejections keep their safe error code in both receipt transports',async()=>{
+ for(const messageReceipt of [true,false]){
+  const page=browser(),receipt={ok:false,requestId,state:'rejected',errorCode:'restock_auth',message:'認證碼不正確'};
+  const pending=submitGoogleWebsiteCommand(endpoint,{...command,operation:'restock-preference'},{...page,messageReceipt,readReceipt:async()=>receipt});const checked=assert.rejects(pending,error=>error.code==='restock_auth');
+  if(messageReceipt)page.message({data:{type:'pantry-write-receipt',replyToken:token,receipt}});else await page.run(1200);await checked;
+ }
+});
