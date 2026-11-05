@@ -61,3 +61,14 @@ test('read options are gated on deployment, deduplicate in-flight reads and vali
  store.gachaVersion=1;const first=store.readGachaOptions(),second=store.readGachaOptions();assert.deepEqual(reads,['gacha']);release();assert.deepEqual(await first,{supported:true,eligibleIds:['a','b']});assert.deepEqual(await second,await first);
  store.readPublicData=async()=>({ok:true,version:1,eligibleIds:['a','a']});await assert.rejects(store.readGachaOptions(),/暫時無法讀取/);
 });
+
+
+test('the emerging note paints above the shell and the ticket waits until the flight finishes',()=>{
+ const draw={...drawGacha({random:()=>0}),drinkId:'tea'},drinks=[{id:'tea',name:'茶',active:true,unit:'瓶',packaging:'寶特瓶'}];
+ for(const phase of ['spinning','opening']){
+  const html=renderGacha({draw,phase},drinks);assert.doesNotMatch(html,/class="gacha-ticket/);assert.doesNotMatch(html,/class="gacha-drink"/);
+  assert.ok(html.indexOf('class="gacha-capsule-top"')<html.indexOf('class="gacha-capsule-note"'),'SVG paint order keeps the paper above the upper shell');
+ }
+ const flight=renderGacha({draw,phase:'flying'},drinks);assert.match(flight,/is-flying/);assert.match(flight,/class="gacha-ticket is-awaiting" inert aria-hidden="true"/);
+ for(const phase of ['unfolding','ready']){const html=renderGacha({draw,phase},drinks);assert.match(html,/class="gacha-ticket/);assert.match(html,/要來一瓶茶嗎？/);}
+});
