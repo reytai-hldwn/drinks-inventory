@@ -300,6 +300,7 @@ function normalizeGooglePopularity(payload) {
 
 export class GoogleInventoryStore {
   #restockCredential = null;
+  #popularitySourceSignature = null;
 
   get requiresRestockAuth() { return this.restockAuthVersion===1; }
   get hasRestockAuthorization() {
@@ -364,6 +365,7 @@ export class GoogleInventoryStore {
     this.popularity = null;
     this.popularityReadAt = 0;
     this.popularityRequest = null;
+    this.popularityGeneration = 0;
     this.supplies = [];
     this.supplyEvents = [];
     this.supplyEntryVersion = 0;
@@ -504,6 +506,13 @@ export class GoogleInventoryStore {
   }
 
   applyGoogleView(result, warehouse) {
+    let observationsChanged=false;
+    if(warehouse){
+      const signature=JSON.stringify([result.data.drinks.map(({id,name,unit,active})=>({id,name,unit,active})),result.data.events]);
+      observationsChanged=this.#popularitySourceSignature!==null&&signature!==this.#popularitySourceSignature;
+      this.#popularitySourceSignature=signature;
+    }
+    if(observationsChanged||(this.googleViewLoaded&&this.updatedAt!==result.updatedAt))this.invalidatePopularity();
     this.googleViewLoaded = true;
     this.data = result.data;
     this.formUrls = result.formUrls;
@@ -666,15 +675,25 @@ export class GoogleInventoryStore {
     try { return await this.adminSummaryRequest; } finally { this.adminSummaryRequest=null; }
   }
 
-  async readPopularity() {
-    if (this.popularity && this.now() - this.popularityReadAt < 300000) return this.popularity;
+  invalidatePopularity() {
+    this.popularityReadAt=-Infinity;
+    this.popularityGeneration+=1;
+    this.popularityRequest=null;
+  }
+
+  async readPopularity({force=false}={}) {
+    if (!force && this.popularity && this.now()>=this.popularityReadAt && this.now() - this.popularityReadAt < 60000) return this.popularity;
     if (this.popularityRequest) return this.popularityRequest;
-    this.popularityRequest = (async () => {
+    const generation=this.popularityGeneration,useAggregate=this.popularityVersion===3;
+    const request = (async () => {
       // This separate read never changes the current route or public catalog.
       // Older deployments are recalculated locally from observations so calendar-week
       // aggregates are never relabeled as workweeks. Retain only aggregate rates.
-      const payload = await this.readPublicData(validateGoogleScriptUrl(this.url), { action: this.popularityVersion === 3 ? 'popularity' : 'warehouse' });
-      if (this.popularityVersion === 3) this.popularity = normalizeGooglePopularity(payload);
+      let payload;
+      try{payload=await this.readPublicData(validateGoogleScriptUrl(this.url), { action: useAggregate ? 'popularity' : 'warehouse',...(force?{force:true}:{}) });}
+      catch(error){if(generation!==this.popularityGeneration)return this.readPopularity();throw error;}
+      if(generation!==this.popularityGeneration)return this.readPopularity();
+      if (useAggregate) this.popularity = normalizeGooglePopularity(payload);
       else {
         const result = normalizeGooglePublicData(payload, { warehouse: true });
         this.popularity = getWeeklyPopularity(result.data.drinks, result.data.events, new Date(this.now()));
@@ -682,8 +701,9 @@ export class GoogleInventoryStore {
       this.popularityReadAt = this.now();
       return this.popularity;
     })();
-    try { return await this.popularityRequest; }
-    finally { this.popularityRequest = null; }
+    this.popularityRequest=request;
+    try { return await request; }
+    finally { if(this.popularityRequest===request)this.popularityRequest = null; }
   }
 
   getWishUrl(kind = 'drink') {
@@ -807,7 +827,7 @@ export class GoogleInventoryStore {
     this.warehouseSnapshot=null;
     if (this.applyWishReceipt(operation, data, result, pending.requestId)) return result;
     if (operation==='zero-stock-decision' && this.applyZeroStockReceipt(data,result)) return result;
-    if (['stocktake', 'arrival', 'product', 'new-arrival','batch-arrival'].includes(operation)) this.popularityReadAt = -Infinity;
+    if (['stocktake', 'arrival', 'product', 'new-arrival','batch-arrival'].includes(operation)) this.invalidatePopularity();
     try { await this.read(); } catch { this.lastWriteNeedsRefresh = true; }
     return result;
   }
@@ -975,7 +995,7 @@ export class GoogleInventoryStore {
     this.supplies=this.supplies.map(item=>matches(item)?{...item,active:result.active}:item);
     this.adminSummary={...summary,snapshotAt:updatedAt,outOfStockItems:summary.outOfStockItems.flatMap(item=>matches(item)?(result.active?[{...item,mode,zeroStockPending:data.decision==='pending'}]:[]):[item]),restockItems:[...summary.restockItems.filter(item=>!matches(item)),...(mode==='consider'?[{...row,mode}]:[])],manualSnackItems:[...summary.manualSnackItems.filter(item=>!matches(item)),...(data.kind==='snack'&&mode==='consider'?[{...row,mode,markedAt:updatedAt}]:[])]};
     this.adminSummaryReadAt=this.now();this.revision=JSON.stringify({data:this.data,zeroStockReceipt:result});
-    if(!result.active){this.popularityReadAt=-Infinity;try{(this.publicStorage||globalThis.localStorage)?.removeItem(`holdwin-public-cache-v1:${validateGoogleScriptUrl(this.url)}`);}catch{/* cache is optional */}}
+    if(!result.active){this.invalidatePopularity();try{(this.publicStorage||globalThis.localStorage)?.removeItem(`holdwin-public-cache-v1:${validateGoogleScriptUrl(this.url)}`);}catch{/* cache is optional */}}
     return true;
   }
 

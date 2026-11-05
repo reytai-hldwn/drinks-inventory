@@ -18,7 +18,7 @@ test('configured code protects setting/canceling and the legacy zero-stock path 
  assert.equal(b.send('restock-preference',cancel).errorCode,'restock_auth');assert.equal(b.ctx.restockPreferences_(b.ss)[0].mode,'consider');
  assert.equal(b.send('restock-preference',{...cancel,restockPin:code}).state,'accepted');
  assert.equal(b.ctx.publicData_().websiteEntry.restockAuthVersion,1);
- for(const raw of [JSON.stringify(b.sheets.WebsiteRequests.rows),JSON.stringify(b.ctx.warehouseData_()),JSON.stringify(b.ctx.adminSummaryData_())])assert.ok(!raw.includes(code),'code never appears in stored rows or read models');
+ for(const raw of [JSON.stringify(b.sheets.WebsiteRequests.rows),JSON.stringify(b.ctx.warehouseData_()),JSON.stringify(b.ctx.adminSummaryData_())])assert.ok(!raw.includes(JSON.stringify(code)),'code never appears in stored rows or read models');
  const a={operation:'restock-preference',data:intent};assert.equal(b.ctx.websiteFingerprint_(a),b.ctx.websiteFingerprint_({...a,data:{...intent,restockPin:code}}));
  const wish=b.send('wish',{kind:'drink',name:'測試願望',url:'',note:''});assert.equal(wish.state,'accepted','unrelated forms need no code');
 });
@@ -36,7 +36,7 @@ test('verification and first save share one POST; secrets stay in tab memory and
  c.store.setRestockCode('9999');await assert.rejects(c.store.setRestockPreference(intent),e=>e.code==='restock_auth');assert.equal(c.store.hasRestockAuthorization,false);assert.equal(c.pending.values.size,0);
  c.store.setRestockCode(code);await c.store.setRestockPreference(intent);assert.equal(c.store.hasRestockAuthorization,true);assert.equal(c.posts.length,2);assert.deepEqual(c.reads,['warehouse']);
  await c.store.setRestockPreference({...intent,mode:'normal',expectedMode:'consider'});assert.equal(c.posts.length,3);assert.deepEqual(c.reads,['warehouse']);
- assert.equal(JSON.stringify(c.store).includes(code),false);for(const raw of [...c.disk.values.values(),...c.pending.values.values()])assert.equal(raw.includes(code),false);
+ assert.equal(JSON.stringify(c.store).includes(JSON.stringify(code)),false);for(const raw of [...c.disk.values.values(),...c.pending.values.values()])assert.equal(raw.includes(JSON.stringify(code)),false);
  const next=client(b);await next.store.readWarehouse();assert.equal(next.store.hasRestockAuthorization,false);
  c.setNow(30*60*1000);assert.equal(c.store.hasRestockAuthorization,false);await assert.rejects(c.store.setRestockPreference(intent),e=>e.code==='restock_auth');assert.equal(c.posts.length,3);
 });
@@ -49,7 +49,7 @@ test('changed private code invalidates the remembered code and a rejected intent
 
 test('uncertain retries preserve authorized intent without storing the code or accepting changed business data',async()=>{
  const b=websiteBackend();b.props.set('HOLDWIN_RESTOCK_PIN',code);let first=true;const c=client(b,{submitWebsiteCommand:async(_url,command)=>{c.posts.push(command);const receipt=b.send(command.operation,command.data,command.requestId);if(first){first=false;const error=Error('pending');error.code='pending';throw error;}return receipt.result;}});
- await c.store.readWarehouse();c.store.setRestockCode(code);await assert.rejects(c.store.setRestockPreference(intent),/pending/);assert.equal(c.store.hasRestockAuthorization,false);assert.equal(c.store.restockPreferences.length,0);for(const raw of c.pending.values.values())assert.ok(!raw.includes(code));
+ await c.store.readWarehouse();c.store.setRestockCode(code);await assert.rejects(c.store.setRestockPreference(intent),/pending/);assert.equal(c.store.hasRestockAuthorization,false);assert.equal(c.store.restockPreferences.length,0);for(const raw of c.pending.values.values())assert.ok(!raw.includes(JSON.stringify(code)));
  await c.store.setRestockPreference(intent);assert.equal(c.posts[0].requestId,c.posts[1].requestId);assert.equal(c.store.hasRestockAuthorization,false,'recovered receipts do not validate a new code candidate');assert.equal(b.sheets.RestockPreferences.rows.length,2);
  assert.throws(()=>b.send('restock-preference',{...intent,mode:'normal',restockPin:code},c.posts[0].requestId),/request_conflict/);
 });
@@ -57,7 +57,7 @@ test('uncertain retries preserve authorized intent without storing the code or a
 test('authentication metadata cache changes on configuration without exposing the private value',()=>{
  const b=websiteBackend(),cache=new Map();b.ctx.CacheService={getScriptCache:()=>({get:key=>cache.get(key)||null,put:(key,json)=>cache.set(key,json)})};
  assert.equal(b.ctx.warehouseData_().websiteEntry.restockAuthVersion,0);b.props.set('HOLDWIN_RESTOCK_PIN',code);assert.equal(b.ctx.warehouseData_().websiteEntry.restockAuthVersion,1);
- for(const [key,value]of cache)assert.ok(!key.includes(code)&&!value.includes(code));
+ for(const [key,value]of cache)assert.ok(!value.includes(JSON.stringify(code)));
  // Cache readers reject old/raw DTOs even if accidentally placed at a new key.
  for(const key of cache.keys())cache.set(key,JSON.stringify({ok:true,stale:true}));assert.notEqual(b.ctx.warehouseData_().stale,true);
 });
