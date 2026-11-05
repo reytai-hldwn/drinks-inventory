@@ -661,7 +661,7 @@ async function loadAdminSummary({force=false}={}){
     if(store.mode==='google')setTimeout(()=>{if(view==='admin'&&!busy&&!document.hidden)store.prefetchWarehouse().catch(()=>{});},200);
   }catch(error){if(view==='admin'){
     if(store.adminSummary){const status=$('#admin-data-status');if(status)status.textContent='暫時無法更新，顯示上次讀取的資料。';}
-    else for(const id of ['admin-restock','admin-low-stock'])updateAdminDisclosure(id,'讀取失敗',`<p class="subtle">${h(error.message)}</p>${button('重新讀取摘要','retry-admin-summary','type="button"','button-small button-outline')}`);
+    else {const status=$('#admin-data-status');if(status)status.textContent='暫時無法讀取最新資料，請重新讀取。';for(const id of ['admin-restock','admin-low-stock'])updateAdminDisclosure(id,'讀取失敗',`<p class="subtle">${h(error.message)}</p>${button('重新讀取摘要','retry-admin-summary','type="button"','button-small button-outline')}`);}
   }}
   finally{adminSummaryLoading=false;}
 }
