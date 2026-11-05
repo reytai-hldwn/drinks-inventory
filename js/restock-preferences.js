@@ -49,5 +49,5 @@ export function normalizeRestockPreferences(payload) {
     if(entry.zeroStockPending!==undefined&&typeof entry.zeroStockPending!=='boolean')throw new Error('無庫存處理狀態不正確。');
     return{kind:entry.kind,itemId:entry.itemId,mode:entry.mode,updatedAt:entry.updatedAt,...(entry.zeroStockPending===true?{zeroStockPending:true}:{})};
   });
-  return{restockPreferences,restockPreferenceVersion:1,...(payload.restockPreferenceEntry.snackManualVersion===1?{snackManualVersion:1}:{}),...(payload.restockPreferenceEntry.manualAllVersion===1?{manualAllVersion:1}:{})};
+  return{restockPreferences,restockPreferenceVersion:1,...(payload.restockPreferenceEntry.snackManualVersion===1?{snackManualVersion:1}:{}),...(payload.restockPreferenceEntry.manualAllVersion===1?{manualAllVersion:1}:{}),...(payload.restockPreferenceEntry.archivedVersion===1?{archivedRestockVersion:1}:{})};
 }

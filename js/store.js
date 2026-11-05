@@ -59,6 +59,7 @@ export class InventoryStore {
   get supportsBatchArrival() { return this.mode==='demo'; }
   get supportsSnackFlavors() { return this.mode==='demo'; }
   get supportsManualRestock() { return this.mode==='demo'; }
+  get supportsArchivedRestock() { return this.mode==='demo'; }
   get supportsZeroStockDecisions() { return this.mode==='demo'; }
   get supportsGacha() { return this.mode==='demo'; }
   get supportsRestockPreferences() { return this.mode === 'demo'; }
@@ -361,7 +362,7 @@ export class InventoryStore {
     if(!['drink','snack','noodle','toner'].includes(kind)||!Object.hasOwn(RESTOCK_MODES,mode))throw new Error('補貨提醒設定不正確。');
     if(kind==='snack'&&!['normal','consider'].includes(mode))throw new Error('零食請使用「可以考慮補貨」標示，其他品項保留原補貨設定。');
     const item=(kind==='drink'?this.data.drinks:this.supplies.filter(item=>item.kind===kind)).find(item=>item.id===itemId);
-    if(!item||(item.active===false&&!item.autoArchived&&mode!=='normal'))throw new Error('找不到可設定的品項。');
+    if(!item||(item.active===false&&!item.autoArchived&&!['normal','consider'].includes(mode)))throw new Error('找不到可設定的品項。');
     const current=restockPreferenceMode(this.restockPreferences,kind,itemId);
     if(expectedMode!==current)throw new Error('其他裝置已更新這個品項的補貨設定，請重新整理。');
     if(kind!=='snack'&&mode!=='normal'&&mode!=='consider'&&current==='normal'&&!isLowStockItem(item))throw new Error('目前庫存未達補貨提醒門檻，請重新整理後確認。');
