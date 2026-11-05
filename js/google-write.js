@@ -59,7 +59,7 @@ export function submitGoogleWebsiteCommand(endpoint, command, options = {}) {
       if(receipt?.requestId!==command.requestId)return false;
       if(receipt.ok===true&&receipt.state==='accepted'){finish(null,receipt);return true;}
       if(receipt.state==='rejected'){
-        const error=new Error(typeof receipt.message==='string'?receipt.message:'資料未儲存，請檢查輸入。');error.code='rejected';finish(error);return true;
+        const error=new Error(typeof receipt.message==='string'?receipt.message:'資料未儲存，請檢查輸入。');error.code=receipt.errorCode==='restock_auth'?'restock_auth':'rejected';finish(error);return true;
       }
       return false;
     };

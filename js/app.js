@@ -8,7 +8,7 @@ import { wishSupportDetails, wishSupportPreview } from './wish-support.js';
 import { renderDrinkInformation } from './drink-information.js';
 import { findProductPhoto } from './product-photos.js';
 import { initialSupplies, SUPPLY_KINDS, SNACK_CATEGORIES, SNACK_UNITS, supplyNeedsExpiry, supplyBatches, supplyHasUntrackedExpiry, supplyExpiryStatus, supplyToday, validSupplyExpiry } from './supplies.js';
-import { inventoryActivity, snackFlavorStatistics, recentArrivalEvents } from './inventory-activity.js';
+import { inventoryActivity, inventoryTotals, snackFlavorStatistics, recentArrivalEvents } from './inventory-activity.js';
 import { supplyLabel, snackPackHint, matchesSupplyInventoryFilter } from './supplies.js';
 import { RESTOCK_MODES, hasRecordedStock, isLowStockItem, isOutOfStockItem, inventoryLowThreshold, matchesInventoryStockFilter, sortInventoryItems, restockPreferenceMode } from './restock-preferences.js';
 import { groupEmptyStock } from './empty-stock.js';
@@ -148,12 +148,18 @@ function restockState(item,kind='drink') { return restockControls(item,kind); }
 async function saveRestockPreference(control,mode) {
   const kind=control.dataset.restockKind,itemId=control.dataset.restockId;
   if(busy){if(control.matches('[data-restock-toggle]'))control.checked=preferenceMode(kind,itemId)==='consider';return;}
+  if(store.requiresRestockAuth&&!store.hasRestockAuthorization){
+    if(control.matches('[data-restock-toggle]'))control.checked=preferenceMode(kind,itemId)==='consider';
+    openRestockAuth({kind,itemId,mode,expectedMode:preferenceMode(kind,itemId)});return;
+  }
   const container=control.closest('[data-restock-control]'),controls=[...document.querySelectorAll('[data-restock-control] input,[data-restock-control] button')],disabled=controls.map(input=>input.disabled);
   const expectedMode=preferenceMode(kind,itemId);
   controls.forEach(input=>{input.disabled=true;});container.setAttribute('aria-busy','true');container.querySelector('[data-restock-progress]').textContent='儲存中…';
   try{
     await withBusy(async()=>{
-      const saved=await store.setRestockPreference({kind,itemId,mode,expectedMode});
+      let saved;
+      try{saved=await store.setRestockPreference({kind,itemId,mode,expectedMode});}
+      catch(error){if(error.code==='restock_auth')openRestockAuth({kind,itemId,mode,expectedMode});throw error;}
       render();googleWriteToast(saved.mode!==mode?'設定已有較新的更新，已顯示最新狀態。':mode==='consider'?'已勾選需要補貨，紀錄數量不變。':'已取消補貨勾選，紀錄數量不變。');
     },control);
   }finally{
@@ -631,12 +637,14 @@ function adminEmptyStockList(items) {
 
 function renderAdminActivity(summary) {
   const target=$('#admin-activity');if(!target)return;
-  if(summary.activityVersion!==1){target.innerHTML='<p class="info-box">更新原 Google 部署後，這裡會顯示跨品類入庫與分類盤點摘要。</p>';return;}
-  const rows=summary.recentArrivals||[],groups=summary.recentCounts||[];
-  target.innerHTML=`<section class="panel"><div class="section-heading"><h2>最近入庫</h2><a class="text-link" href="#history">完整紀錄 ↗</a></div>${rows.length?`<ul class="activity-list">${rows.map(row=>`<li><span><small>${row.kind==='drink'?'飲料':SUPPLY_KINDS[row.kind]} · ${formatDate(row.createdAt,true)}</small><strong>${h(supplyLabel(row))}</strong></span><b>＋${row.quantity} <small>${h(row.unit)}</small></b></li>`).join('')}</ul>`:'<p class="subtle">尚無入庫紀錄。</p>'}</section><section class="panel"><h2>最近盤點 · 分類查看</h2><div class="count-activity-grid">${['drink','snack','noodle','toner'].map(kind=>{
-    const group=groups.find(group=>group.kind===kind),items=group?.items||[],totals={};for(const item of items)totals[item.unit]=(totals[item.unit]||0)+item.quantity;const quantities=Object.entries(totals).map(([unit,amount])=>`${amount} ${h(unit)}`).join(' · ');
-    return `<details class="count-activity"><summary><strong>${kind==='drink'?'飲料':SUPPLY_KINDS[kind]}</strong><span>${group?.countedAt?`${formatDate(group.countedAt,true)} · ${items.length} 項 · ${quantities}`:'尚無實際盤點'}</span></summary>${items.length?`<ul class="activity-list">${items.map(item=>`<li><span>${h(supplyLabel(item))}</span><b>${item.quantity} ${h(item.unit)}</b></li>`).join('')}</ul>`:''}</details>`;
-  }).join('')}</div><p class="subtle">顯示各類最近一次實際盤點的數字；未盤點的其他品項保留原紀錄。</p></section>`;
+  const rows=summary.recentArrivals||[],groups=summary.inventoryTotals||[];
+  const totals=summary.inventoryTotalsVersion===1?`<div class="count-activity-grid">${['drink','snack','noodle','toner'].map(kind=>{
+    const group=groups.find(group=>group.kind===kind),items=group?.items||[],units={};
+    for(const item of items)units[item.unit]=(units[item.unit]||0)+item.stock;
+    const quantities=Object.entries(units).map(([unit,amount])=>`${amount} ${h(unit)}`).join(' · ');
+    return `<details class="count-activity" data-inventory-total="${kind}"><summary><strong>${kind==='drink'?'飲料':SUPPLY_KINDS[kind]}</strong><span>${items.length} 項${quantities?' · '+quantities:' · 無已知庫存'}${group?.unknownCount?' · '+group.unknownCount+' 項待盤點':''}</span></summary>${items.length?`<ul class="activity-list">${[...items].sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant-u-co-stroke')||a.flavor.localeCompare(b.flavor,'zh-Hant-u-co-stroke')).map(item=>`<li><span>${h(supplyLabel(item))}${item.active===false?' <small>歷史品項</small>':''}</span><b>${item.stock} ${h(item.unit)}</b></li>`).join('')}</ul>`:''}</details>`;
+  }).join('')}</div><p class="subtle">依全部品項的最近盤點及後續入庫計算目前帳面總量；待盤點不列入合計，零庫存不計入項數。</p>`:'<p class="info-box">更新原 Google 部署後，這裡會顯示各分類的完整庫存總量。</p>';
+  target.innerHTML=`<section class="panel"><div class="section-heading"><h2>最近入庫</h2><a class="text-link" href="#history">完整紀錄 ↗</a></div>${rows.length?`<ul class="activity-list">${rows.map(row=>`<li><span><small>${row.kind==='drink'?'飲料':SUPPLY_KINDS[row.kind]} · ${formatDate(row.createdAt,true)}</small><strong>${h(supplyLabel(row))}</strong></span><b>＋${row.quantity} <small>${h(row.unit)}</small></b></li>`).join('')}</ul>`:'<p class="subtle">尚無入庫紀錄。</p>'}</section><section class="panel"><h2>總量 · 分類查看</h2>${totals}</section>`;
 }
 let adminSummaryLoading=false;
 async function loadAdminSummary({force=false}={}){
@@ -655,7 +663,7 @@ async function loadAdminSummary({force=false}={}){
   try{
     const items=[...store.data.drinks.map(item=>({...item,kind:'drink'})),...supplyItems()];
     const modes=item=>({...item,mode:preferenceMode(item.kind,item.id),zeroStockPending:(store.restockPreferences||[]).some(entry=>entry.kind===item.kind&&entry.itemId===item.id&&entry.zeroStockPending===true)});
-    const summary=store.mode==='google'?await store.readAdminSummary({force}):{activityVersion:1,...inventoryActivity(store.data.drinks,supplyItems(),store.data.events,store.supplyEvents||[]),restockItems:sortedStock(items.filter(item=>needsRestock(item,item.kind))).map(modes),lowItems:sortedStock(items.filter(item=>item.active!==false&&matchesInventoryStockFilter(item,'low',store.restockPreferences||[]))).map(modes),outOfStockItems:items.filter(item=>(item.active!==false||['snack','noodle'].includes(item.kind))&&isOutOfStockItem(item)).map(modes)};
+    const summary=store.mode==='google'?await store.readAdminSummary({force}):{activityVersion:1,inventoryTotalsVersion:1,inventoryTotals:inventoryTotals(items),...inventoryActivity(store.data.drinks,supplyItems(),store.data.events,store.supplyEvents||[]),restockItems:sortedStock(items.filter(item=>needsRestock(item,item.kind))).map(modes),lowItems:sortedStock(items.filter(item=>item.active!==false&&matchesInventoryStockFilter(item,'low',store.restockPreferences||[]))).map(modes),outOfStockItems:items.filter(item=>(item.active!==false||['snack','noodle'].includes(item.kind))&&isOutOfStockItem(item)).map(modes)};
     paint(summary);
     // Only administration visits warm inventory, and only in this tab's memory.
     if(store.mode==='google')setTimeout(()=>{if(view==='admin'&&!busy&&!document.hidden)store.prefetchWarehouse().catch(()=>{});},200);
@@ -793,6 +801,13 @@ function showModal(title, description, content) {
   modal.showModal();
 }
 
+modal.addEventListener('close',()=>{if(!store.hasRestockAuthorization)store.clearRestockCode?.();});
+
+function openRestockAuth(intent) {
+  showModal('確認補貨設定', '輸入認證碼後儲存；同一分頁 30 分鐘內免重填，重新整理後需再次輸入。', `<form id="restock-auth-form"><label class="field">認證碼<input name="restockCode" type="password" inputmode="numeric" pattern="[0-9]{4,12}" minlength="4" maxlength="12" required autocomplete="off" aria-label="補貨認證碼"></label><div class="form-actions">${button('取消','close-modal','type="button"','button-outline')}<button class="button" type="submit">確認並儲存</button></div></form>`);
+  $('#restock-auth-form').restockIntent=intent;
+}
+
 function openLogin() {
   if (store.mode === 'demo') { location.hash = 'admin'; if (view === 'admin') render(); return; }
   showModal('歡迎回到茶水間', '使用獲授權的管理者帳號登入。帳號由公司管理者建立，不開放自行註冊。', `<form id="login-form"><div class="form-grid"><label class="field full-width">電子郵件<input type="email" name="email" required autocomplete="username" maxlength="254"></label><label class="field full-width">密碼<input type="password" name="password" required autocomplete="current-password"></label></div><div class="form-actions"><button class="button" type="submit">登入編輯</button></div></form>`);
@@ -858,6 +873,14 @@ function addEvent(next, type, drink, quantity, createdAt, note, recorder) {
 
 async function submitForm(form) {
   const values = new FormData(form);
+  if(form.id==='restock-auth-form'){
+    const intent=form.restockIntent;
+    store.setRestockCode(String(values.get('restockCode')||''));
+    // Clear the visible secret immediately; transport uses only store memory.
+    form.elements.restockCode.value='';
+    const saved=await store.setRestockPreference(intent);
+    modalDirty=false;modal.close();render();googleWriteToast(saved.mode!==intent.mode?'設定已有較新的更新，已顯示最新狀態。':intent.mode==='consider'?'已勾選需要補貨，紀錄數量不變。':'已取消補貨勾選，紀錄數量不變。');return;
+  }
   if(form.id==='supply-expiry-set-form'){
     const recorder=String(values.get('recorder')||'').trim();
     if(!store.canManage||!recorder||recorder.length>80)throw new Error('請從管理入口填寫登記人，最多 80 字。');
@@ -1254,7 +1277,7 @@ document.addEventListener('input', (event) => {
   if(event.target.id==='ranking-search'){rankingState.query=event.target.value;updateRankingResults();return;}
   if(event.target.matches('[data-batch-search]')){modalDirty=true;updateBatchPicker(event.target.closest('.batch-row'));return;}
   if(event.target.matches('[data-snack-query],[data-snack-category]')){updateSnackPicker(event.target.closest('form'));return;}
-  if (event.target.closest('dialog form')) modalDirty = true;
+  if (event.target.closest('dialog form:not(#restock-auth-form)')) modalDirty = true;
   if (event.target.closest('#supply-expiry-set-form')) updateExpiryEditorSummary();
   if(event.target.id==='supply-search'){supplyQuery=event.target.value.trim();renderSupplyInventory();}
   else if (event.target.id === 'search') { query = event.target.value.trim(); renderInventoryTable(); }
@@ -1278,7 +1301,7 @@ document.addEventListener('change', (event) => {
   if(event.target.matches('[data-batch-item]')){updateBatchPicker(event.target.closest('.batch-row'));modalDirty=true;return;}
   if(event.target.matches('[data-snack-query],[data-snack-category]')){updateSnackPicker(event.target.closest('form'));return;}
   if(event.target.matches('[data-restock-toggle]')){saveRestockPreference(event.target,event.target.checked?('consider'):'normal');return;}
-  if (event.target.closest('dialog form')) modalDirty = true;
+  if (event.target.closest('dialog form:not(#restock-auth-form)')) modalDirty = true;
   if (event.target.id === 'snack-category-filter') { supplyCategory=event.target.value; if(!snackProductNames().includes(supplyProduct))supplyProduct=''; $('#snack-product-filter').innerHTML=snackProductOptions(); renderSupplyInventory(); return; }
   if (event.target.id === 'snack-product-filter') { supplyProduct=event.target.value; renderSupplyInventory(); return; }
   if (event.target.id === 'category-filter') { category = event.target.value; renderInventoryTable(); }

@@ -1,3 +1,4 @@
+import { SNACK_UNITS } from './supplies.js';
 import { workingDaysBetween, WORKWEEK_DAYS } from './workdays.js';
 /** Aggregate warehouse activity; counts are actual counts, never arrival baselines. */
 export function inventoryActivity(drinks,supplies,events,supplyEvents) {
@@ -38,4 +39,27 @@ export function snackFlavorStatistics(supplies,events) {
 export function recentArrivalEvents(events,now=Date.now()) {
   const until=+new Date(now),since=until-3*86400000;
   return events.filter(event=>event.type==='restock'&&event.accepted!==false&&Date.parse(event.createdAt)>=since&&Date.parse(event.createdAt)<=until).sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt));
+}
+
+/** Current recorded balances across the entire catalog, independent of count batches. */
+export function inventoryTotals(items) {
+  return ['drink','snack','noodle','toner'].map(kind=>{
+    const group=items.filter(item=>item.kind===kind);
+    return {kind,unknownCount:group.filter(item=>item.active!==false&&item.stock===null).length,
+      items:group.filter(item=>item.stock>0).map(item=>({id:item.id,name:item.name,flavor:item.flavor||'',unit:item.unit,stock:item.stock,active:item.active!==false}))};
+  });
+}
+
+export function normalizeInventoryTotals(groups) {
+  const kinds=['drink','snack','noodle','toner'],seen=new Set();
+  if(!Array.isArray(groups)||groups.length!==4)throw new Error('分類庫存總量格式不正確。');
+  return groups.map(group=>{
+    if(!group||!kinds.includes(group.kind)||seen.has(group.kind)||!Number.isSafeInteger(group.unknownCount)||group.unknownCount<0||group.unknownCount>2000||!Array.isArray(group.items)||group.items.length>2000)throw new Error('分類庫存總量格式不正確。');
+    seen.add(group.kind);const ids=new Set(),units={drink:['包','瓶','罐'],snack:SNACK_UNITS,noodle:['杯','碗'],toner:['盒']};
+    const items=group.items.map(item=>{
+      if(!item||typeof item.id!=='string'||!item.id||item.id.length>160||ids.has(item.id)||typeof item.name!=='string'||!item.name||item.name.length>80||typeof item.flavor!=='string'||item.flavor.length>80||!units[group.kind].includes(item.unit)||!Number.isSafeInteger(item.stock)||item.stock<1||item.stock>999999||typeof item.active!=='boolean')throw new Error('分類庫存品項格式不正確。');
+      ids.add(item.id);return {id:item.id,name:item.name,flavor:item.flavor,unit:item.unit,stock:item.stock,active:item.active};
+    });
+    return {kind:group.kind,unknownCount:group.unknownCount,items};
+  });
 }
