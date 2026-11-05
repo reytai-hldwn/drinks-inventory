@@ -14,7 +14,7 @@ import { RESTOCK_MODES, hasRecordedStock, isLowStockItem, isOutOfStockItem, inve
 import { groupEmptyStock } from './empty-stock.js';
 import { CONSUMPTION_KINDS, buildConsumptionRecords, consumptionPeriod, selectConsumption } from './consumption.js';
 import { renderConsumptionControls, renderConsumptionResults } from './consumption-view.js';
-import { gachaDay, gachaResetDelay, drawGacha, readDailyGacha, saveDailyGacha, chooseGachaDrink, renderGacha, GACHA_ANIMATION_MS, GACHA_OPEN_MS, GACHA_UNFOLD_MS } from './gacha.js';
+import { gachaDay, gachaResetDelay, drawGacha, readDailyGacha, saveDailyGacha, chooseGachaDrink, renderGacha, GACHA_ANIMATION_MS, GACHA_OPEN_MS, GACHA_FLIGHT_MS, GACHA_UNFOLD_MS } from './gacha.js';
 
 const store = window.DRINKS_CONFIG?.provider === 'google' ? new GoogleInventoryStore(window.DRINKS_CONFIG) : new InventoryStore(window.DRINKS_CONFIG);
 const $ = (selector) => document.querySelector(selector);
@@ -698,10 +698,22 @@ function currentGacha(){
   if(!gachaState||gachaState.day!==day)gachaState={day,draw:readDailyGacha(gameStorage(),gachaStorageKey),loading:false,phase:'ready',drinkState:'idle',saveFailed:false};
   return gachaState;
 }
-function gachaAnimating(state){return ['spinning','opening','unfolding'].includes(state.phase);}
+function gachaAnimating(state){return ['spinning','opening','flying','unfolding'].includes(state.phase);}
+function positionGachaNote(){
+  if(!gachaState?.draw||!['flying','unfolding','ready'].includes(gachaState.phase))return;
+  const layout=$('.gacha-layout'),capsule=layout?.querySelector('.gacha-capsule-out'),target=layout?.querySelector('.gacha-ticket,.gacha-invitation');
+  const matrix=capsule?.getScreenCTM();if(!matrix||!target)return;
+  // Convert the actual responsive result position to the capsule's SVG units.
+  // The same paper can then leave the shell and land in either layout column.
+  const rect=target.getBoundingClientRect(),end=new DOMPoint(rect.left+rect.width/2,rect.top+rect.height/2).matrixTransform(matrix.inverse());
+  const arc=Math.min(-24,end.y)-56;
+  const vars={x:end.x,y:end.y,'arc-x':end.x*.38,'arc-y':arc,'near-x':end.x*.82,'near-y':(arc+end.y)/2};
+  for(const [name,value]of Object.entries(vars))layout.style.setProperty(`--gacha-note-${name}`,`${value}px`);
+}
 function renderGachaPage(){
   clearTimeout(gachaDayTimer);gachaDayTimer=setTimeout(()=>{if(view==='gacha')renderGachaPage();},gachaResetDelay());
   const state=currentGacha(),description=store.supportsGacha?'轉一顆飲料，順便接收今天的好訊號。':'幸運籤先開放試玩，飲料推薦準備中。';main.innerHTML=heading('A LITTLE LUCK, ON THE HOUSE','今日補給扭蛋',description)+renderGacha(state,store.data.drinks);
+  positionGachaNote();
   if(state.draw&&!state.draw.drinkId&&!state.loading&&(state.drinkState==='idle'||(state.drinkState==='pending'&&store.supportsGacha)))loadGachaDrink();
 }
 async function loadGachaDrink(){
@@ -722,14 +734,14 @@ async function startGacha(replay=false){
   const saved=state.draw||readDailyGacha(gameStorage(),gachaStorageKey);
   state.draw=saved||drawGacha();state.phase=(!saved||replay)&&!matchMedia('(prefers-reduced-motion: reduce)').matches?'spinning':'ready';state.saveFailed=!saveDailyGacha(gameStorage(),gachaStorageKey,state.draw);
   renderGachaPage();
-  if(state.phase==='spinning')for(const [duration,next] of [[GACHA_ANIMATION_MS,'opening'],[GACHA_OPEN_MS,'unfolding'],[GACHA_UNFOLD_MS,'ready']]){
+  if(state.phase==='spinning')for(const [duration,next] of [[GACHA_ANIMATION_MS,'opening'],[GACHA_OPEN_MS,'flying'],[GACHA_FLIGHT_MS,'unfolding'],[GACHA_UNFOLD_MS,'ready']]){
     await new Promise(resolve=>setTimeout(resolve,duration));
     if(gachaState!==state||state.day!==gachaDay())return;
     if(view!=='gacha'){state.phase='ready';return;}
     state.phase=matchMedia('(prefers-reduced-motion: reduce)').matches?'ready':next;
     renderGachaPage();
     if(state.phase==='ready')break;
-    if(next==='unfolding'&&matchMedia('(max-width: 800px)').matches)$('#gacha-result')?.scrollIntoView({block:'nearest',behavior:'smooth'});
+    if(next==='flying'&&matchMedia('(max-width: 800px)').matches)$('#gacha-result')?.scrollIntoView({block:'nearest',behavior:'smooth'});
   }
   if(view==='gacha'){
     const result=$('#gacha-result');result?.focus({preventScroll:true});
@@ -1269,6 +1281,7 @@ document.addEventListener('click', (event) => {
   }
 });
 
+window.addEventListener('resize',()=>{if(view==='gacha')positionGachaNote();});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='gacha'&&gachaState&&gachaState.day!==gachaDay())renderGachaPage();});
 document.addEventListener('input', (event) => {
   inputSequence += 1;
