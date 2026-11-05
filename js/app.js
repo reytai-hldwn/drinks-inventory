@@ -14,7 +14,7 @@ import { RESTOCK_MODES, hasRecordedStock, isLowStockItem, isOutOfStockItem, inve
 import { groupEmptyStock } from './empty-stock.js';
 import { CONSUMPTION_KINDS, buildConsumptionRecords, consumptionPeriod, selectConsumption } from './consumption.js';
 import { renderConsumptionControls, renderConsumptionResults } from './consumption-view.js';
-import { gachaDay, gachaResetDelay, drawGacha, readDailyGacha, saveDailyGacha, chooseGachaDrink, renderGacha, GACHA_ANIMATION_MS, GACHA_OPEN_MS, GACHA_FLIGHT_MS, GACHA_UNFOLD_MS } from './gacha.js';
+import { gachaDay, gachaResetDelay, drawGacha, readDailyGacha, saveDailyGacha, chooseGachaDrink, renderGacha, gachaFlightKeyframes, GACHA_ANIMATION_MS, GACHA_OPEN_MS, GACHA_FLIGHT_MS, GACHA_UNFOLD_MS } from './gacha.js';
 
 const store = window.DRINKS_CONFIG?.provider === 'google' ? new GoogleInventoryStore(window.DRINKS_CONFIG) : new InventoryStore(window.DRINKS_CONFIG);
 const $ = (selector) => document.querySelector(selector);
@@ -706,9 +706,15 @@ function positionGachaNote(){
   // Convert the actual responsive result position to the capsule's SVG units.
   // The same paper can then leave the shell and land in either layout column.
   const rect=target.getBoundingClientRect(),end=new DOMPoint(rect.left+rect.width/2,rect.top+rect.height/2).matrixTransform(matrix.inverse());
-  const arc=Math.min(-24,end.y)-56;
-  const vars={x:end.x,y:end.y,'arc-x':end.x*.38,'arc-y':arc,'near-x':end.x*.82,'near-y':(arc+end.y)/2};
-  for(const [name,value]of Object.entries(vars))layout.style.setProperty(`--gacha-note-${name}`,`${value}px`);
+  layout.style.setProperty('--gacha-note-x',`${end.x}px`);
+  layout.style.setProperty('--gacha-note-y',`${end.y}px`);
+  if(gachaState.phase==='flying'){
+    const note=layout.querySelector('.gacha-capsule-note');
+    if(!note?.animate||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const frames=gachaFlightKeyframes(end);
+    if(note.gachaFlightAnimation)note.gachaFlightAnimation.effect.setKeyframes(frames);
+    else note.gachaFlightAnimation=note.animate(frames,{duration:GACHA_FLIGHT_MS,easing:'ease-in-out',fill:'both'});
+  }
 }
 function renderGachaPage(){
   clearTimeout(gachaDayTimer);gachaDayTimer=setTimeout(()=>{if(view==='gacha')renderGachaPage();},gachaResetDelay());
@@ -1282,6 +1288,9 @@ document.addEventListener('click', (event) => {
 });
 
 window.addEventListener('resize',()=>{if(view==='gacha')positionGachaNote();});
+matchMedia('(prefers-reduced-motion: reduce)').addEventListener?.('change',event=>{
+  if(event.matches)document.querySelector('.gacha-capsule-note')?.gachaFlightAnimation?.finish();
+});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='gacha'&&gachaState&&gachaState.day!==gachaDay())renderGachaPage();});
 document.addEventListener('input', (event) => {
   inputSequence += 1;

@@ -72,6 +72,26 @@ export const GACHA_OPEN_MS=650;
 export const GACHA_FLIGHT_MS=850;
 export const GACHA_UNFOLD_MS=550;
 
+/** One continuous curve, sampled by travelled distance so speed never resets at waypoints. */
+export function gachaFlightKeyframes(destination) {
+  const x=Number.isFinite(destination?.x)?destination.x:0,y=Number.isFinite(destination?.y)?destination.y:-24;
+  if(Math.hypot(x,y+24)<.001)return [{offset:0,transform:'translate(0px,-24px) rotate(-8deg) scale(1)'},{offset:1,transform:'translate(0px,-24px) rotate(0deg) scale(1)'}];
+  const dy=y+24,vertical=Math.abs(dy)>Math.abs(x),lift=Math.min(80,Math.max(36,Math.hypot(x,dy)*.12));
+  const first=vertical?{x:44,y:-24+dy*.25}:{x:x*.22,y:-24-lift};
+  const second=vertical?{x:x+44,y:y-dy*.25}:{x:x*.78,y:y-lift};
+  const points=[];let distance=0;
+  for(let index=0;index<=96;index++){
+    const t=index/96,u=1-t;
+    const point={x:3*u*u*t*first.x+3*u*t*t*second.x+t*t*t*x,y:u*u*u*-24+3*u*u*t*first.y+3*u*t*t*second.y+t*t*t*y};
+    if(index)distance+=Math.hypot(point.x-points[index-1].x,point.y-points[index-1].y);
+    points.push({...point,distance,t});
+  }
+  return points.map(point=>{
+    const progress=distance?point.distance/distance:point.t,angle=-8*(1-progress)+6*Math.sin(Math.PI*progress);
+    return {offset:progress,transform:`translate(${point.x.toFixed(4)}px,${point.y.toFixed(4)}px) rotate(${angle.toFixed(4)}deg) scale(1)`};
+  });
+}
+
 function renderFortuneText(text) {
   const clauses=[];let clause='';
   for(const character of text){clause+=character;if('，,；;'.includes(character)){clauses.push(clause);clause='';}}
@@ -90,5 +110,5 @@ export function renderGacha(state,drinks) {
   const phase=state.phase||'ready',pending=['spinning','opening','flying'].includes(phase),unfolding=phase==='unfolding',arriving=phase==='flying';
   const label=fortune?.kind==='pause'?'宇宙小暫停':'今日補給';
   const drinkCard=drink?`<div class="gacha-drink"><div class="gacha-drink-photo">${drinkPack(drink)}</div><div><p class="eyebrow">今日配對飲料</p><h3>要來一${h(drink.unit||'份')}${h(fridgeDisplayName(drink.name))}嗎？</h3><p class="subtle">${h(findDrinkInformation(drink)?.container||drink.packaging||drink.unit)}</p><button type="button" class="text-link" data-action="view-drink" data-id="${h(drink.id)}">看看飲料資訊 ↗</button></div></div>`:`<div class="gacha-drink-status" role="status"><p>${state.loading?'正在替你找一份補給…':state.drinkState==='empty'?'今天的飲料推薦先留白，補給到貨後再來看看。':state.drinkState==='error'?'飲料推薦暫時沒有回應，今天的幸運籤已替你收好。':'飲料推薦準備中，先收下今天的好運。'}</p>${state.loading?'':`<div class="inline-actions"><button type="button" class="text-link" data-action="gacha-retry">再看看飲料 ↻</button><a class="text-link" href="#overview">逛逛冰箱 ↗</a></div>`}</div>`;
-  return `<div class="gacha-layout" data-gacha-phase="${h(phase)}" style="--gacha-cycle:${GACHA_ANIMATION_MS}ms;--gacha-open:${GACHA_OPEN_MS}ms;--gacha-flight:${GACHA_FLIGHT_MS}ms;--gacha-unfold:${GACHA_UNFOLD_MS}ms"><section class="gacha-play"><div class="gacha-machine-wrap">${gachaMachine(!!draw,phase)}</div><p class="gacha-daily-note">每天一顆，同一瀏覽器會保留今天的結果。</p></section><section id="gacha-result" class="gacha-result" tabindex="-1" aria-live="polite">${arriving?'<p class="gacha-flight-status" role="status">今日補給正在送達…</p>':''}${fortune&&(!pending||arriving)?`<article class="gacha-ticket${arriving?' is-awaiting':unfolding?' is-unfolding':''}"${arriving?' inert aria-hidden="true"':unfolding?' inert':''}><div class="gacha-ticket-content"><div class="gacha-ticket-top"><span>✧ ${label}</span><time>${h(draw.day.replaceAll('-',' / '))}</time></div><p class="gacha-fortune">${renderFortuneText(fortune.text)}</p><div class="gacha-ticket-rule"><span>今日的好訊號，請查收</span></div>${drinkCard}</div></article>${state.saveFailed&&!pending&&!unfolding?'<p class="subtle">此瀏覽器暫時無法保存結果，重新整理後可能會改變。</p>':''}`:`<div class="gacha-invitation"><span aria-hidden="true">✧</span><h2>${phase==='flying'?'你的今日補給，正在送達':phase==='opening'?'正在打開你的今日補給':phase==='spinning'?'正在轉出你的好訊號':'今天的好運，等你轉開'}</h2><p>一份飲料推薦，一張有點懂你的幸運籤。</p><small>補給一下，讓好心情繼續複利。</small></div>`}${fortune&&!pending&&!unfolding?'<button type="button" class="gacha-replay" data-action="gacha-replay">重看開蛋動畫 ↻</button>':''}</section></div>`;
+  return `<div class="gacha-layout" data-gacha-phase="${h(phase)}" style="--gacha-cycle:${GACHA_ANIMATION_MS}ms;--gacha-open:${GACHA_OPEN_MS}ms;--gacha-unfold:${GACHA_UNFOLD_MS}ms"><section class="gacha-play"><div class="gacha-machine-wrap">${gachaMachine(!!draw,phase)}</div><p class="gacha-daily-note">每天一顆，同一瀏覽器會保留今天的結果。</p></section><section id="gacha-result" class="gacha-result" tabindex="-1" aria-live="polite">${arriving?'<p class="gacha-flight-status" role="status">今日補給正在送達…</p>':''}${fortune&&(!pending||arriving)?`<article class="gacha-ticket${arriving?' is-awaiting':unfolding?' is-unfolding':''}"${arriving?' inert aria-hidden="true"':unfolding?' inert':''}><div class="gacha-ticket-content"><div class="gacha-ticket-top"><span>✧ ${label}</span><time>${h(draw.day.replaceAll('-',' / '))}</time></div><p class="gacha-fortune">${renderFortuneText(fortune.text)}</p><div class="gacha-ticket-rule"><span>今日的好訊號，請查收</span></div>${drinkCard}</div></article>${state.saveFailed&&!pending&&!unfolding?'<p class="subtle">此瀏覽器暫時無法保存結果，重新整理後可能會改變。</p>':''}`:`<div class="gacha-invitation"><span aria-hidden="true">✧</span><h2>${phase==='flying'?'你的今日補給，正在送達':phase==='opening'?'正在打開你的今日補給':phase==='spinning'?'正在轉出你的好訊號':'今天的好運，等你轉開'}</h2><p>一份飲料推薦，一張有點懂你的幸運籤。</p><small>補給一下，讓好心情繼續複利。</small></div>`}${fortune&&!pending&&!unfolding?'<button type="button" class="gacha-replay" data-action="gacha-replay">重看開蛋動畫 ↻</button>':''}</section></div>`;
 }
