@@ -7,7 +7,7 @@ const expectedNames = [
   '光泉牛乳', '光泉巧克力牛乳', '光泉薏仁糙米漿', 'tree top瓶果汁', '光泉柳橙汁',
   '統一豆漿', '波蜜芭樂汁', '立頓原味奶茶', '立頓巧克力奶茶', '立頓沁香奶綠', '日月潭紅茶', '十六茶', 'Fin', '一日蔬果100%蘋果柳橙蔬果汁',
   '荔枝氣泡水', '零卡可口可樂', '零卡百事可樂', '八寶粥', '可口可樂', '百事可樂', '黑松沙士',
-  'Milkis水蜜桃', 'Milkis', 'Redbull能量飲', 'Vida氣泡飲', '蜂蜜燕麥', '麥萃麥茶', '原萃綠茶', '十全果醋',
+  'Milkis水蜜桃', 'Milkis', 'Redbull能量飲', 'Vida氣泡飲', '愛之味蜂蜜燕麥', '麥萃麥茶', '原萃綠茶', '十全果醋',
   '冷萃金萱烏龍', 'Moriyama紅茶', 'Moriyama奶茶',
   '愛之味純濃燕麥', '光泉燕麥奶', '雪碧',
   '紅牌蜂蜜奶茶', '立頓蜂蜜紅茶', '蘋果西打', '克寧草莓優酪乳', '愛之味麥仔茶',
@@ -47,7 +47,7 @@ test('milk and plant drinks include the owner-confirmed rice drink while tea sta
   assert.equal(category('立頓沁香奶綠'), '茶飲');
   assert.equal(category('立頓巧克力奶茶'), '茶飲');
   assert.equal(category('光泉薏仁糙米漿'), '牛乳／植物奶');
-  assert.equal(category('蜂蜜燕麥'), '其他');
+  assert.equal(category('愛之味蜂蜜燕麥'), '其他');
   assert.deepEqual(Object.fromEntries(CATEGORIES_ORDER.map((name) => [name, COMPANY_CATALOG.filter((drink) => drink.active && drink.category === name).length])), {
     '牛乳／植物奶': 4, '茶飲': 7, '咖啡': 0, '果汁': 4, '汽水': 9, '其他': 5, '大瓶飲料': 3,
   });

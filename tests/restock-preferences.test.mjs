@@ -16,7 +16,7 @@ test('inventory sorting puts zero first and pending last without moving equal st
 
 test('restock preference reads expose only a warehouse capability and never create source tables',()=>{
  const backend=websiteBackend(),before=Object.keys(backend.sheets),view=plain(backend.ctx.warehouseData_());
- assert.deepEqual(view.restockPreferenceEntry,{version:1,snackManualVersion:1,manualAllVersion:1});assert.deepEqual(view.restockPreferences,[]);assert.deepEqual(Object.keys(backend.sheets),before);
+ assert.deepEqual(view.restockPreferenceEntry,{version:1,snackManualVersion:1,manualAllVersion:1,archivedVersion:1});assert.deepEqual(view.restockPreferences,[]);assert.deepEqual(Object.keys(backend.sheets),before);
  const front=plain(backend.ctx.publicData_());assert.equal(front.restockPreferences,undefined);assert.equal(front.restockPreferenceEntry,undefined);
  assert.deepEqual(normalizeRestockPreferences({}),{restockPreferences:[],restockPreferenceVersion:0});
  assert.deepEqual(normalizeGooglePublicData(view).restockPreferences,[]);

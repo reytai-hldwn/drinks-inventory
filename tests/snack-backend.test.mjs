@@ -143,12 +143,12 @@ test('snack dates are optional metadata and old dated batches stay readable with
   }
 });
 
-test('manual snack summary keeps pending stock nullable, hides inactive flags and never leaks full histories',()=>{
+test('manual snack summary keeps pending stock nullable, includes historical flags and never leaks full histories',()=>{
   const b=websiteBackend();b.send('supply-stocktake',{entries:[{supplyId:'supply-snack-01',quantity:30}],recorder:'測試盤點'});
   for(const itemId of ['supply-snack-01','supply-snack-02'])assert.equal(b.send('restock-preference',{kind:'snack',itemId,expectedMode:'normal',mode:'consider'}).state,'accepted');
   const summary=plain(b.ctx.adminSummaryData_());assert.deepEqual(summary.manualSnackItems.map(item=>item.stock),[30,null]);assert.doesNotMatch(JSON.stringify(summary),/expiresOn|batchId|recorder|supplyEvents/);
   b.sheets.SupplyCatalog.rows.find(row=>row[0]==='supply-snack-01')[4]=false;
-  assert.deepEqual(plain(b.ctx.adminSummaryData_()).manualSnackItems.map(item=>item.id),['supply-snack-02']);
+  assert.deepEqual(plain(b.ctx.adminSummaryData_()).manualSnackItems.map(item=>item.id),['supply-snack-01','supply-snack-02']);
   assert.equal(b.send('restock-preference',{kind:'snack',itemId:'supply-snack-01',expectedMode:'consider',mode:'normal'}).state,'accepted');
 });
 

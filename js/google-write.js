@@ -5,7 +5,7 @@ export function submitGoogleWebsiteCommand(endpoint, command, options = {}) {
   if (url.protocol !== 'https:' || url.hostname !== 'script.google.com' || url.username || url.password || url.port || url.search || url.hash ||
       !/^\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url.pathname)) throw new Error('Google 儲存網址不正確。');
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(command?.requestId || '') ||
-      !['wish', 'vote', 'stocktake', 'arrival', 'new-arrival', 'batch-arrival', 'supply-details', 'product', 'supply-arrival', 'supply-stocktake', 'supply-expiry-close', 'supply-expiry-set', 'restock-preference', 'zero-stock-decision', 'archive-wish', 'supply-recorder-correction'].includes(command?.operation)) throw new Error('送出資料格式不正確。');
+      !['wish', 'vote', 'stocktake', 'arrival', 'new-arrival', 'batch-arrival', 'supply-details', 'drink-name', 'product', 'supply-arrival', 'supply-stocktake', 'supply-expiry-close', 'supply-expiry-set', 'restock-preference', 'zero-stock-decision', 'archive-wish', 'supply-recorder-correction'].includes(command?.operation)) throw new Error('送出資料格式不正確。');
   const pageDocument = options.document || globalThis.document;
   const schedule = options.setTimeout || globalThis.setTimeout;
   const cancel = options.clearTimeout || globalThis.clearTimeout;

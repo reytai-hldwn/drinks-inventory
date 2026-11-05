@@ -365,6 +365,7 @@ export class GoogleInventoryStore {
   get supportsBatchArrival() { return this.supportsWebsiteEntry&&this.batchArrivalVersion===1; }
   get supportsSnackFlavors() { return this.supportsSupplies&&this.snackFlavorVersion===1; }
   get supportsManualRestock() { return this.supportsRestockPreferences&&this.manualAllVersion===1; }
+  get supportsArchivedRestock() { return this.supportsManualRestock&&this.archivedRestockVersion===1; }
   get supportsWebsiteEntry() { return this.websiteEntryVersion === 1; }
   get supportsArchiveWishes() { return this.supportsWebsiteEntry && this.archiveWishVersion === 1; }
   get supportsDrinkArrivalCategories() { return this.supportsNewArrivals && this.drinkCategoryVersion === 1; }
@@ -477,6 +478,7 @@ export class GoogleInventoryStore {
     this.gachaVersion = result.gachaVersion || 0;
     this.websiteEntryVersion = result.websiteEntryVersion;
     this.fastReceiptVersion = result.fastReceiptVersion || 0;
+    this.archivedRestockVersion = result.archivedRestockVersion || 0;
     this.newArrivalVersion = result.newArrivalVersion || 0;
     this.drinkCategoryVersion = result.drinkCategoryVersion || 0;
     this.zeroStockVersion = result.zeroStockVersion || 0;
@@ -491,7 +493,7 @@ export class GoogleInventoryStore {
     this.supplyExpirySetVersion = result.supplyExpirySetVersion || 0;
     this.restockPreferences = result.restockPreferences || [];
     this.restockPreferenceVersion = result.restockPreferenceVersion || 0;
-    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, gachaVersion:this.gachaVersion, newArrivalVersion:this.newArrivalVersion,drinkCategoryVersion:this.drinkCategoryVersion,batchArrivalVersion:this.batchArrivalVersion,archivedArrivalVersion:this.archivedArrivalVersion,snackFlavorVersion:this.snackFlavorVersion,manualAllVersion:this.manualAllVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplySnackVersion:this.supplySnackVersion,supplySnackPolicyVersion:this.supplySnackPolicyVersion,snackManualVersion:this.snackManualVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
+    this.revision = JSON.stringify({ data: result.data, formUrls: result.formUrls, voteForm: result.voteForm, wishForm: result.wishForm, adminUrl: result.adminUrl, websiteEntryVersion: result.websiteEntryVersion, gachaVersion:this.gachaVersion, newArrivalVersion:this.newArrivalVersion,drinkCategoryVersion:this.drinkCategoryVersion,batchArrivalVersion:this.batchArrivalVersion,archivedArrivalVersion:this.archivedArrivalVersion,snackFlavorVersion:this.snackFlavorVersion,manualAllVersion:this.manualAllVersion,archivedRestockVersion:this.archivedRestockVersion, supplies:this.supplies,supplyEvents:this.supplyEvents,supplyEntryVersion:this.supplyEntryVersion,supplySnackVersion:this.supplySnackVersion,supplySnackPolicyVersion:this.supplySnackPolicyVersion,snackManualVersion:this.snackManualVersion,supplyExpiryVersion:this.supplyExpiryVersion,supplyExpirySetVersion:this.supplyExpirySetVersion,restockPreferences:this.restockPreferences,restockPreferenceVersion:this.restockPreferenceVersion });
   }
 
   applyWishReceipt(operation, data, result, requestId) {
@@ -834,6 +836,8 @@ export class GoogleInventoryStore {
   }
 
   async setRestockPreference(data) {
+    const item=(data.kind==='drink'?this.data.drinks:this.supplies.filter(item=>item.kind===data.kind)).find(item=>item.id===data.itemId);
+    if(item?.active===false&&!item.autoArchived&&data.mode==='consider'&&!this.supportsArchivedRestock)throw new Error('請先更新 Google 部署，啟用歷史品項補貨勾選。');
     if(data.kind==='snack'&&!['normal','consider'].includes(data.mode))throw new Error('零食請使用「可以考慮補貨」標示，其他品項保留原補貨設定。');
     if(data.kind==='snack'&&!this.supportsSnackRestockFlags)throw new Error('請先更新 Google 部署，啟用零食手動補貨。');
     if(data.mode==='consider'&&data.kind!=='snack'&&!this.supportsManualRestock)throw new Error('請先更新 Apps Script 部署，啟用零食手動補貨標示。');

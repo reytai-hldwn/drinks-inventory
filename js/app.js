@@ -134,13 +134,14 @@ function stockPill(drink) {
 }
 
 function restockPreferenceNotice() {
+  if(store.mode==='google'&&store.supportsManualRestock&&!store.supportsArchivedRestock)return '<div class="info-box restock-preference-upgrade">更新原 Google 部署後，即可在所有歷史品項勾選需要補貨。</div>';
   return store.mode==='google'&&!store.supportsManualRestock?'<div class="info-box restock-preference-upgrade">勾選「需要補貨」需先更新 Apps Script 部署，之後會在不同裝置共用。<a href="https://github.com/reytai-hldwn/pantry/blob/main/docs/SUPPLIES-SETUP.md" target="_blank" rel="noopener noreferrer">查看更新步驟 ↗</a></div>':'';
 }
 
 function restockControls(item,kind='drink') {
-  if(item.active===false&&!item.autoArchived)return '';
+  const archivedSupported=item.active!==false||item.autoArchived||store.supportsArchivedRestock;
   const marked=needsRestock(item,kind);
-  return `<div class="restock-control" data-restock-control data-restock-kind="${kind}" data-restock-id="${h(item.id)}"><label class="restock-toggle${marked?' is-marked':''}"><input type="checkbox" data-restock-toggle data-restock-kind="${kind}" data-restock-id="${h(item.id)}"${marked?' checked':''}${store.supportsManualRestock&&(kind!=='snack'||store.supportsSnackRestockFlags)?'':' disabled'}><span>需要補貨</span></label><span class="restock-save-status" data-restock-progress role="status"></span></div>`;
+  return `<div class="restock-control" data-restock-control data-restock-kind="${kind}" data-restock-id="${h(item.id)}"><label class="restock-toggle${marked?' is-marked':''}"><input type="checkbox" data-restock-toggle data-restock-kind="${kind}" data-restock-id="${h(item.id)}"${marked?' checked':''}${archivedSupported&&store.supportsManualRestock&&(kind!=='snack'||store.supportsSnackRestockFlags)?'':' disabled'}><span>需要補貨</span></label><span class="restock-save-status" data-restock-progress role="status"></span></div>`;
 }
 function restockState(item,kind='drink') { return restockControls(item,kind); }
 
@@ -231,12 +232,12 @@ function renderSnackFlavorStats(){
 }
 
 function renderWarehouse() {
-  const low = activeDrinks().filter((drink) => needsRestock(drink)).length;
+  const marked = store.data.drinks.filter((drink) => needsRestock(drink)).length;
   const tabs=`<div class="warehouse-kind-tabs" role="group" aria-label="庫存類型">${[['drink','飲料'],['snack','零食'],['noodle','泡麵'],['toner','碳粉']].map(([kind,label])=>`<button type="button" class="filter-tab${warehouseKind===kind?' selected':''}" data-action="warehouse-kind" data-id="${kind}" aria-pressed="${warehouseKind===kind}">${label}</button>`).join('')}</div>`;
   const actions=button('↓ 匯出庫存','export','','button-outline')+(warehouseKind==='drink'?button('＋ 快速新增飲料','quick-add-drink'):button(warehouseKind==='snack'?'快速盤點零食':'盤點這一類','supply-count-kind',`data-id="${warehouseKind}"${store.supportsSupplies?'':' disabled'}`));
   main.innerHTML=heading('WAREHOUSE INVENTORY','倉庫庫存，補貨有依據','人工勾選需要補貨的品項排最前、數字標紅；其餘由少到多排列，尚無數量紀錄排最後。',actions)+tabs+restockPreferenceNotice();
   if(warehouseKind==='drink'){
-    main.innerHTML+=`<div class="admin-summary"><span>${activeDrinks().length} 種供應中</span><span class="warehouse-alert">${low} 種已勾選需要補貨</span><span>最近完整盤點 ${formatDate(store.data.lastInventoryAt)}</span></div><div class="inventory-panel">${inventoryToolbar(true)}<div id="inventory-table"></div></div>`;
+    main.innerHTML+=`<div class="admin-summary"><span>${activeDrinks().length} 種供應中</span><span class="warehouse-alert">${marked} 種已勾選需要補貨</span><span>最近完整盤點 ${formatDate(store.data.lastInventoryAt)}</span></div><div class="inventory-panel">${inventoryToolbar(true)}<div id="inventory-table"></div></div>`;
     renderInventoryTable();
   }else{
     main.innerHTML+=supplyUpgradeNotice(warehouseKind)+(supplyNeedsExpiry(warehouseKind)?supplyExpirySetNotice():'')+`<div class="supply-intro"><p>${warehouseKind==='toner'?'固定黑、黃、紅、藍四色，單位為盒。':warehouseKind==='snack'?'依包裝單位登記，數量是最近確認與後續入庫的紀錄值。快沒了時可更新數量，想補貨時手動勾選。':'依品項使用杯或碗。入庫必填保存期限，分批保留；30 天內到期會提醒。'}直接填寫數量，不做整箱換算；未盤點不當作 0。</p></div>${renderSupplySearchControls()}${warehouseKind==='snack'?'<p class="subtle snack-stock-policy">庫存量少只列出數量 1–10 且已勾選需要補貨的零食；0 自動歸入歷史品項。各口味分開紀錄，零食不顯示效期提醒。</p>':''}<div class="supply-stock-filters filter-tabs" role="group" aria-label="庫存範圍">${[['low','庫存量少'],['all','供應中'],...(warehouseKind==='toner'?[]:[['archived','歷史品項']])].map(([value,label])=>`<button type="button" class="filter-tab${supplyFilter===value?' selected':''}" data-action="supply-stock-filter" data-id="${value}" aria-pressed="${supplyFilter===value}">${label}</button>`).join('')}</div><div class="inventory-panel" id="supply-inventory"></div>`;
@@ -389,8 +390,8 @@ function renderInventoryTable() {
     if (fridgeOpen && popularityExpanded) loadFridgePopularity();
     return;
   }
-  const copyBar = ['all','low','empty'].includes(filter) ? `<div class="refill-copy-bar"><span>只複製本頁已勾選「需要補貨」的品項。</span>${button('⧉ 複製補貨清單', 'copy-low', '', 'button-small button-outline')}</div>` : '';
-  target.innerHTML = copyBar + `<div class="table-scroll"><table class="inventory-drinks-table"><thead><tr><th>飲料品項</th><th>分類／包裝</th><th>庫存餘量</th><th>補貨狀態</th><th>最近實際盤點</th><th>管理</th></tr></thead><tbody>${drinks.map((drink) => `<tr data-stock-drink-id="${h(drink.id)}"><td class="inventory-name-cell">${drinkCell(drink)}</td><td data-label="分類／包裝"><span class="category-label">${h(drink.category)}</span><p class="cell-note">${h(drink.packaging || drink.unit)}</p></td><td data-label="庫存餘量"><div class="stock-value ${needsRestock(drink) && (drink.active !== false || drink.autoArchived) ? 'low warehouse-low' : ''}">${hasRecordedStock(drink) ? drink.stock : '—'}<small>${h(drink.unit)}</small></div></td><td class="inventory-status-cell" data-label="補貨狀態">${restockState(drink)}</td><td data-label="最近實際盤點"><span class="cell-note">${drink.lastCountAt ? formatDate(drink.lastCountAt) : drink.lastArrivalAt ? `尚未實際盤點<br>入庫 ${formatDate(drink.lastArrivalAt)}` : '尚無紀錄'}</span></td><td class="inventory-actions-cell">${store.canEdit ? `<button class="cell-action" data-action="edit-drink" data-id="${h(drink.id)}" aria-label="編輯${h(drink.name)}">編輯 ↗</button>` : '<a class="text-link" href="#restock">登記入庫 ↗</a>'}</td></tr>`).join('')}</tbody></table></div><div class="table-bottom"><span>顯示 ${drinks.length} 種飲料</span><span>歷史品項保留原本數量與紀錄</span></div>`;
+  const copyBar = ['all','low','archived'].includes(filter) ? `<div class="refill-copy-bar"><span>只複製本頁已勾選「需要補貨」的品項。</span>${button('⧉ 複製補貨清單', 'copy-low', '', 'button-small button-outline')}</div>` : '';
+  target.innerHTML = copyBar + `<div class="table-scroll"><table class="inventory-drinks-table"><thead><tr><th>飲料品項</th><th>分類／包裝</th><th>庫存餘量</th><th>補貨狀態</th><th>最近實際盤點</th><th>管理</th></tr></thead><tbody>${drinks.map((drink) => `<tr data-stock-drink-id="${h(drink.id)}"><td class="inventory-name-cell">${drinkCell(drink)}</td><td data-label="分類／包裝"><span class="category-label">${h(drink.category)}</span><p class="cell-note">${h(drink.packaging || drink.unit)}</p></td><td data-label="庫存餘量"><div class="stock-value ${needsRestock(drink) ? 'low warehouse-low' : ''}">${hasRecordedStock(drink) ? drink.stock : '—'}<small>${h(drink.unit)}</small></div></td><td class="inventory-status-cell" data-label="補貨狀態">${restockState(drink)}</td><td data-label="最近實際盤點"><span class="cell-note">${drink.lastCountAt ? formatDate(drink.lastCountAt) : drink.lastArrivalAt ? `尚未實際盤點<br>入庫 ${formatDate(drink.lastArrivalAt)}` : '尚無紀錄'}</span></td><td class="inventory-actions-cell">${store.canEdit ? `<button class="cell-action" data-action="edit-drink" data-id="${h(drink.id)}" aria-label="編輯${h(drink.name)}">編輯 ↗</button>` : '<a class="text-link" href="#restock">登記入庫 ↗</a>'}</td></tr>`).join('')}</tbody></table></div><div class="table-bottom"><span>顯示 ${drinks.length} 種飲料</span><span>歷史品項保留原本數量與紀錄</span></div>`;
 }
 
 async function loadFridgePopularity() {
@@ -445,14 +446,14 @@ function openDrinkDetails(id) {
 }
 
 async function copyLowStock() {
-  const drinks = sortedStock(activeDrinks().filter((drink) => needsRestock(drink) && matchesInventoryStockFilter(drink,filter) && (!category || drink.category === category) && (!query || drink.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))));
+  const drinks = sortedStock(store.data.drinks.filter((drink) => (filter==='archived'?drink.active===false:drink.active!==false) && needsRestock(drink) && (filter==='archived'||matchesInventoryStockFilter(drink,filter)) && (!category || drink.category === category) && (!query || drink.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()))));
   if (!drinks.length) { toast('目前沒有需要列入補貨清單的品項。'); return; }
   const message = [
     '宏穩茶水間｜補貨參考清單',
     `整理日期：${formatDate(new Date().toISOString(), true)}`,
     '以下依最近盤點與後續入庫紀錄，採購前請先確認現場數量。',
     '',
-    ...drinks.map((drink) => `・${drink.name}：剩 ${drink.stock} ${drink.unit}（盤點 ${formatDate(drink.lastCountAt, true)}）`),
+    ...drinks.map((drink) => `・${drink.name}：${hasRecordedStock(drink)?`剩 ${drink.stock} ${drink.unit}`:'尚未盤點'}（盤點 ${formatDate(drink.lastCountAt, true)}）`),
   ].join('\n');
   try {
     if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
@@ -641,7 +642,7 @@ let adminSummaryLoading=false;
 async function loadAdminSummary(){
   if(adminSummaryLoading)return;adminSummaryLoading=true;
   try{
-    const items=[...store.data.drinks.map(item=>({...item,kind:'drink'})),...supplyItems()].filter(item=>item.active!==false||item.autoArchived===true);
+    const items=[...store.data.drinks.map(item=>({...item,kind:'drink'})),...supplyItems()];
     const modes=item=>({...item,mode:preferenceMode(item.kind,item.id),zeroStockPending:(store.restockPreferences||[]).some(entry=>entry.kind===item.kind&&entry.itemId===item.id&&entry.zeroStockPending===true)});
     const summary=store.mode==='google'?await store.readAdminSummary():{activityVersion:1,...inventoryActivity(store.data.drinks,supplyItems(),store.data.events,store.supplyEvents||[]),restockItems:sortedStock(items.filter(item=>needsRestock(item,item.kind))).map(modes),lowItems:sortedStock(items.filter(item=>item.active!==false&&matchesInventoryStockFilter(item,'low',store.restockPreferences||[]))).map(modes),outOfStockItems:items.filter(item=>(item.active!==false||['snack','noodle'].includes(item.kind))&&isOutOfStockItem(item)).map(modes)};
     if(view!=='admin')return;
