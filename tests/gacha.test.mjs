@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GACHA_FORTUNES,gachaDay,gachaResetDelay,drawGacha,readDailyGacha,saveDailyGacha,chooseGachaDrink,renderGacha} from '../js/gacha.js';
+import {GACHA_FORTUNES,gachaDay,gachaResetDelay,drawGacha,readDailyGacha,saveDailyGacha,chooseGachaDrink,renderGacha,gachaFlightKeyframes} from '../js/gacha.js';
 import {websiteBackend} from './helpers/google-website.mjs';
 import {GoogleInventoryStore,normalizeGooglePublicData} from '../js/google-store.js';
 const storage=()=>{const m=new Map();return{getItem:key=>m.get(key)||null,setItem:(key,value)=>m.set(key,value)};};
@@ -71,4 +71,12 @@ test('the emerging note paints above the shell and the ticket waits until the fl
  }
  const flight=renderGacha({draw,phase:'flying'},drinks);assert.match(flight,/is-flying/);assert.match(flight,/class="gacha-ticket is-awaiting" inert aria-hidden="true"/);
  for(const phase of ['unfolding','ready']){const html=renderGacha({draw,phase},drinks);assert.match(html,/class="gacha-ticket/);assert.match(html,/要來一瓶茶嗎？/);}
+});
+
+
+test('flight curves keep exact endpoints, strictly ordered timing and the original paper size',()=>{
+ for(const destination of [{x:500,y:-120},{x:-42,y:400},{x:0,y:-250},{x:-500,y:30},{x:0,y:-24},{x:NaN,y:Infinity}]){
+  const frames=gachaFlightKeyframes(destination);assert.equal(frames[0].offset,0);assert.equal(frames.at(-1).offset,1);assert.ok(frames.every((frame,index)=>Number.isFinite(frame.offset)&&(!index||frame.offset>frames[index-1].offset)));assert.ok(frames.every(frame=>frame.transform.endsWith('scale(1)')&&!/NaN|Infinity/.test(frame.transform)));
+  if(Number.isFinite(destination.x)&&Number.isFinite(destination.y)&&destination.x!==0)assert.ok(frames.at(-1).transform.startsWith(`translate(${destination.x.toFixed(4)}px,${destination.y.toFixed(4)}px)`));
+ }
 });
