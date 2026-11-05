@@ -16,7 +16,7 @@ test('inventory sorting puts zero first and pending last without moving equal st
 
 test('restock preference reads expose only a warehouse capability and never create source tables',()=>{
  const backend=websiteBackend(),before=Object.keys(backend.sheets),view=plain(backend.ctx.warehouseData_());
- assert.deepEqual(view.restockPreferenceEntry,{version:1,snackManualVersion:1,manualAllVersion:1,archivedVersion:1});assert.deepEqual(view.restockPreferences,[]);assert.deepEqual(Object.keys(backend.sheets),before);
+ assert.deepEqual(view.restockPreferenceEntry,{version:1,snackManualVersion:1,manualAllVersion:1,archivedVersion:1,fastVersion:1});assert.deepEqual(view.restockPreferences,[]);assert.deepEqual(Object.keys(backend.sheets),before);
  const front=plain(backend.ctx.publicData_());assert.equal(front.restockPreferences,undefined);assert.equal(front.restockPreferenceEntry,undefined);
  assert.deepEqual(normalizeRestockPreferences({}),{restockPreferences:[],restockPreferenceVersion:0});
  assert.deepEqual(normalizeGooglePublicData(view).restockPreferences,[]);
@@ -65,7 +65,7 @@ test('Google preference commands require capabilities, confirm receipts and pres
  const backend=websiteBackend();let failRead=false,writes=0;
  const store=new GoogleInventoryStore({googleScriptUrl:'https://script.google.com/macros/s/PREF_TEST/exec'},{pendingStorage:storage(),readPublicData:async(_url,{action})=>{if(failRead)throw new Error('offline');return plain(action==='warehouse'?backend.ctx.warehouseData_():backend.ctx.publicData_());},submitWebsiteCommand:async(_url,command)=>{writes++;return backend.send(command.operation,command.data,command.requestId).result;}});
  await store.readWarehouse();assert.equal(store.supportsRestockPreferences,true);failRead=true;
- await store.setRestockPreference({kind:'drink',itemId:'milk',mode:'hold',expectedMode:'normal'});assert.equal(store.lastWriteNeedsRefresh,true);assert.equal(restockPreferenceMode(store.restockPreferences,'drink','milk'),'hold');assert.equal(writes,1);
+ await store.setRestockPreference({kind:'drink',itemId:'milk',mode:'hold',expectedMode:'normal'});assert.equal(store.lastWriteNeedsRefresh,false);assert.equal(restockPreferenceMode(store.restockPreferences,'drink','milk'),'hold');assert.equal(writes,1);
  failRead=false;const legacy=plain(backend.ctx.warehouseData_());delete legacy.restockPreferenceEntry;store.applyGoogleView(normalizeGooglePublicData(legacy,{warehouse:true}),true);
  await assert.rejects(store.setRestockPreference({kind:'drink',itemId:'milk',mode:'normal',expectedMode:'hold'}),/更新/);assert.equal(writes,1);
 });

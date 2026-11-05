@@ -440,6 +440,7 @@ function handleFormSubmit(e) {
 function handleSheetEdit(e) {
   if (!e || !e.range) return;
   var name = e.range.getSheet().getName();
+  if ([SHEETS.catalog,SHEETS.history,SHEETS.wishes,SHEETS.votes,SHEETS.supplyCatalog,SHEETS.supplyHistory,SHEETS.restockPreferences,SHEETS.recorderCorrections].indexOf(name)>=0) invalidateInventoryReadCache_();
   if (name === SHEETS.catalog) syncCatalogForms();
   else if (name === SHEETS.history) refreshWarehouse();
   else if (name === SHEETS.wishes) PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT', new Date().toISOString());
@@ -454,9 +455,9 @@ function doGet(e) {
   }
   try {
     if (parameters.action === 'receipt') data = websiteReceipt_(parameters.requestId);
-    else if (parameters.action === 'warehouse') data = warehouseData_();
+    else if (parameters.action === 'warehouse') data = warehouseData_(parameters.fresh === '1');
     else if (parameters.action === 'popularity') data = popularityData_();
-    else if (parameters.action === 'admin') data = adminSummaryData_();
+    else if (parameters.action === 'admin') data = adminSummaryData_(parameters.fresh === '1');
     else if (parameters.action === 'gacha') data = gachaOptions_();
     else if (!parameters.action || parameters.action === 'public') data = publicData_();
     else data = { ok: false, error: 'unsupported_action' };
@@ -597,7 +598,9 @@ function submitWebsiteRequest_(request) {
       if(effects.batch.some(function(child){return !!child.supplyHistory;}))renderSupplyWarehouse_(ss);
       if(effects.batch.some(function(child){return !!child.history;})){var inventory=computeInventory_(catalog_(ss),historyEvents_(ss));renderWarehouse_(ss,inventory);if(effects.batch.some(function(child){return child.restore&&child.restore.some(function(item){return item.kind==='drink';});}))renderArchive_(ss,inventory);PropertiesService.getScriptProperties().setProperty('HOLDWIN_PUBLIC_UPDATED_AT',new Date().toISOString());}
     } else if (effects.supplyDetails || effects.snackCatalogBatch) { renderSupplyWarehouse_(ss);
-    } else if (effects.supplyHistory || (effects.restockPreference && effects.restockPreference[2] !== 'drink')) renderSupplyWarehouse_(ss);
+    } else if (effects.operation==='restock-preference') {
+      if(effects.restockPreference){var currentPreference=updateRestockView_(ss,effects.restockPreference);effects.result.mode=currentPreference.mode;effects.result.updatedAt=currentPreference.updatedAt;}
+    } else if (effects.supplyHistory) renderSupplyWarehouse_(ss);
     else {
       var catalog = catalog_(ss), inventory = computeInventory_(catalog, historyEvents_(ss));
       renderWarehouse_(ss, inventory);
@@ -610,6 +613,7 @@ function submitWebsiteRequest_(request) {
     // exceeding the single-cell receipt limit after the vote was written.
     if (JSON.stringify(effects.result).length > 40000) { delete effects.result.wish; delete effects.result.snapshotAt; }
     SpreadsheetApp.flush();
+    invalidateInventoryReadCache_(request.requestId);
     // Commit state and result together, only after data and views are saved.
     sheet.getRange(record.index, 5, 1, 2).setValues([['accepted', JSON.stringify(effects.result)]]);
     SpreadsheetApp.flush();
@@ -680,7 +684,7 @@ function prepareWebsiteRequest_(ss, request, stamp) {
   var data = request.data;
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw websiteInputError_('送出資料格式不正確。');
   var operation = request.operation, effects = { operation: operation, result: { operation: operation } };
-  var catalog = ['wish', 'vote','batch-arrival','snack-catalog-batch'].indexOf(operation) >= 0 || String(operation).indexOf('supply-') === 0 ? [] : catalog_(ss);
+  var catalog = ['wish', 'vote','batch-arrival','snack-catalog-batch'].indexOf(operation) >= 0 || String(operation).indexOf('supply-') === 0 || (operation==='restock-preference'&&data.kind!=='drink') ? [] : catalog_(ss);
   function activeDrink(id,restore) {
     var found = catalog.filter(function(drink){return drink.id===id&&(drink.active||restore===true);})[0];
     if (!found) throw websiteInputError_('這個品項目前不在供應清單，請重新讀取品項。');
@@ -1004,7 +1008,8 @@ function applyWebsiteRequest_(ss, effects) {
     if (['normal','consider','hold','replace'].indexOf(effects.restockPreference[4]) < 0) throw websiteInputError_('補貨提醒設定不正確。');
     var sheet = ss.getSheetByName(SHEETS.restockPreferences);
     if (sheet && sheet.getLastRow() > 0 && !restockPreferenceSheetMatches_(sheet)) throw websiteInputError_('RestockPreferences 已有其他用途，請先確認工作表。');
-    websiteAppendMissing_(ensureSheet_(ss,SHEETS.restockPreferences,RESTOCK_PREFERENCE_HEADERS),[effects.restockPreference]);
+    if(!sheet||sheet.getLastRow()===0)sheet=ensureSheet_(ss,SHEETS.restockPreferences,RESTOCK_PREFERENCE_HEADERS);
+    websiteAppendMissing_(sheet,[effects.restockPreference]);
   }
   if (effects.newArrival) {
     var row = effects.supplyCatalog || effects.catalog;
@@ -1115,7 +1120,29 @@ function publicData_(spreadsheet, catalog) {
     updatedAt: props.getProperty('HOLDWIN_PUBLIC_UPDATED_AT') || null };
 }
 
-function adminSummaryData_() {
+function invalidateInventoryReadCache_(token) {
+  PropertiesService.getScriptProperties().setProperty('HOLDWIN_READ_REVISION',(token||'')+':'+new Date().toISOString()+':'+Math.random().toString(36).slice(2));
+}
+
+function cachedInventoryRead_(kind,force,build,seconds) {
+  var props=PropertiesService.getScriptProperties();
+  function revision(){var values=typeof props.getProperties==='function'?props.getProperties():null;return values?(values.HOLDWIN_READ_REVISION||'')+'|'+(values.HOLDWIN_PUBLIC_UPDATED_AT||''):(props.getProperty('HOLDWIN_READ_REVISION')||'')+'|'+(props.getProperty('HOLDWIN_PUBLIC_UPDATED_AT')||'');}
+  var generation=revision(),key='inventory-read-v1:'+kind+':'+websiteFingerprint_({operation:'read-cache',data:generation});
+  var cached=force?null:readWebsiteCache_(key);
+  if(cached&&cached.ok===true)return cached;
+  var result=build();
+  // A concurrent write gives the next reader a different key. Never cache an old
+  // snapshot under a new generation, and keep direct-sheet edits bounded by TTL.
+  if(generation===revision()){
+    try{var json=JSON.stringify(result);if(json.length<95000&&encodeURIComponent(json).replace(/%[0-9A-F]{2}/g,'x').length<95000)CacheService.getScriptCache().put('pantry-v1:'+key,json,seconds);}catch(error){/* Read caching is optional. */}
+  }
+  return result;
+}
+
+function adminSummaryData_(force) { return cachedInventoryRead_('admin',force,buildAdminSummary_,15); }
+
+function buildAdminSummary_() {
+  var snapshotAt=new Date().toISOString();
   var ss=requiredSpreadsheet_(),preferences=restockPreferences_(ss),catalog=catalog_(ss),events=historyEvents_(ss),supplyEvents=supplyEvents_(ss);
   var rawInventory=computeInventory_(catalog,events);
   var drinks=visibleDrinkInventory_(rawInventory).map(function(entry){return Object.assign({},entry.drink,{kind:'drink',stock:entry.stock,lastCountAt:entry.lastCountAt,lastArrivalAt:entry.lastArrivalAt});});
@@ -1128,7 +1155,7 @@ function adminSummaryData_() {
   var manualSnackItems=restockItems.filter(function(item){return item.kind==='snack';}).map(function(item){var preference=preferences.filter(function(entry){return entry.kind==='snack'&&entry.itemId===item.id;})[0];return Object.assign({},item,{markedAt:preference.updatedAt});});
   var rows=events.concat(supplyEvents).filter(function(event){return event.accepted!==false&&['count','restock'].indexOf(event.type)>=0;}).map(function(event){var item=items.filter(function(item){return item.id===(event.drinkId||event.supplyId);})[0];return item?{id:event.id,itemId:item.id,kind:item.kind,name:item.name,flavor:item.flavor||'',unit:item.unit,quantity:event.quantity,createdAt:event.createdAt,type:event.type}:null;}).filter(Boolean).sort(function(a,b){return Date.parse(b.createdAt)-Date.parse(a.createdAt);});
   var recentCounts=['drink','snack','noodle','toner'].map(function(kind){var counts=rows.filter(function(event){return event.kind===kind&&event.type==='count';}),stamp=counts.length?counts[0].createdAt:null;return {kind:kind,countedAt:stamp,items:counts.filter(function(event){return event.createdAt===stamp;}).slice(0,1000)};});
-  return {ok:true,version:1,zeroStockVersion:1,snapshotAt:new Date().toISOString(),activityVersion:1,totalDrinks:catalog.length,pendingWishes:wishRows_(ss).filter(function(wish){return wish.status==='pending';}).length,restockItems:restockItems,lowItems:lowItems,outOfStockItems:outOfStockItems,manualSnackItems:manualSnackItems,recentArrivals:rows.filter(function(event){return event.type==='restock';}).slice(0,12),recentCounts:recentCounts};
+  return {ok:true,version:1,performanceVersion:1,zeroStockVersion:1,snapshotAt:snapshotAt,activityVersion:1,totalDrinks:catalog.length,pendingWishes:wishRows_(ss).filter(function(wish){return wish.status==='pending';}).length,restockItems:restockItems,lowItems:lowItems,outOfStockItems:outOfStockItems,manualSnackItems:manualSnackItems,recentArrivals:rows.filter(function(event){return event.type==='restock';}).slice(0,12),recentCounts:recentCounts};
 }
 
 function popularityData_() {
@@ -1224,7 +1251,9 @@ function websiteWeeklyPopularity_(drinks, events, now = new Date()) {
   return { rows: rows.slice(0, 3), countedProducts, observedProducts, workweekDays: 5, windowDays:30, windowStartAt:new Date(since).toISOString(), windowEndAt:new Date(until).toISOString(), calculatedAt: new Date(now).toISOString() };
 }
 
-function warehouseData_() {
+function warehouseData_(force) { return cachedInventoryRead_('warehouse',force,buildWarehouseData_,8); }
+
+function buildWarehouseData_() {
   var ss = requiredSpreadsheet_();
   var catalog = catalog_(ss);
   var events = historyEvents_(ss).filter(function (event) { return event.accepted; });
@@ -1246,7 +1275,7 @@ function warehouseData_() {
   result.supplyEntry = { version: 1, expiryVersion: 1, expirySetVersion: 1, recorderCorrectionVersion: 1, snackVersion: 1, snackPolicyVersion: 2, snackFlavorVersion: 1, snackCatalogVersion: 1 };
   result.supplyEvents = supplyEvents_(ss);
   result.supplies = supplyInventory_(supplyCatalog_(ss), result.supplyEvents);
-  result.restockPreferenceEntry = {version:1,snackManualVersion:1,manualAllVersion:1,archivedVersion:1};
+  result.restockPreferenceEntry = {version:1,snackManualVersion:1,manualAllVersion:1,archivedVersion:1,fastVersion:1};
   result.restockPreferences = restockPreferences_(ss);
   return result;
 }
@@ -1453,6 +1482,7 @@ function refreshWarehouse_() {
   var inventory = computeInventory_(catalog, recorded.concat(fresh));
   renderWarehouse_(ss, inventory);
   renderArchive_(ss, inventory);
+  invalidateInventoryReadCache_();
 }
 
 function historyEvents_(ss) {
@@ -1832,6 +1862,25 @@ function appendHistory_(ss, events) {
     return [event.id, event.createdAt, event.type, event.drinkId || '', sheetText_(drink ? drink.name : ''), event.quantity === undefined ? '' : event.quantity, sheetText_(event.note || ''), sheetText_(event.recorder || event.email || ''), event.accepted ? '採計' : '未採計'];
   });
   if (rows.length) sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 9).setValues(rows);
+}
+
+
+/** A preference changes only its generated status cell, never balances or batches.
+ * Full stock/arrival writes still rebuild the complete, sorted spreadsheet view. */
+function updateRestockView_(ss, preference) {
+  var current=restockPreferences_(ss).filter(function(item){return item.kind===preference[2]&&item.itemId===preference[3];})[0]||{kind:preference[2],itemId:preference[3],mode:preference[4],updatedAt:preference[1]};
+  var drink=preference[2]==='drink',sheet=ss.getSheetByName(drink?SHEETS.warehouse:SHEETS.supplyWarehouse);
+  var headerRow=drink?6:1,column=drink?10:8,label=drink?'狀態':'補貨標示';
+  if(!sheet||sheet.getLastRow()<headerRow||sheet.getRange(headerRow,column,1,1).getValues()[0][0]!==label){
+    if(drink)renderWarehouse_(ss,computeInventory_(catalog_(ss),historyEvents_(ss)));else renderSupplyWarehouse_(ss);
+    return current;
+  }
+  var size=sheet.getLastRow()-headerRow;if(!size)return current;
+  var ids=sheet.getRange(headerRow+1,1,size,1).getValues();
+  for(var i=0;i<ids.length;i++)if(String(ids[i][0])===preference[3]){
+    sheet.getRange(headerRow+1+i,column,1,1).setValues([[restockModeLabel_(current.mode)]]);return current;
+  }
+  return current;
 }
 
 function renderWarehouse_(ss, inventory) {
